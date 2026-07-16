@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import json
+import io
 from unittest import mock
 from pathlib import Path
 
@@ -57,6 +58,19 @@ class JsonTests(unittest.TestCase):
             ofbackup_cli.secure_write_json(path, {"ok": True})
             self.assertEqual(ofbackup_cli.read_json(path), {"ok": True})
 
+    def test_config_includes_discord_workaround(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config_path = root / "ofscraper" / "config.json"
+            state = {"download_dir": str(root / "downloads")}
+            with mock.patch.object(ofbackup_cli, "OFSCRAPER_CONFIG_PATH", config_path):
+                ofbackup_cli.write_ofscraper_config(state)
+            config = ofbackup_cli.read_json(config_path)
+            self.assertEqual(config["discord"], "")
+            self.assertEqual(
+                config["file_options"]["save_location"], str(root / "downloads")
+            )
+
 
 class ExecutableTests(unittest.TestCase):
     def test_finds_ofscraper_next_to_virtualenv_python(self):
@@ -72,6 +86,23 @@ class ExecutableTests(unittest.TestCase):
                 mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True),
             ):
                 self.assertEqual(ofbackup_cli.find_ofscraper_binary(), str(ofscraper))
+
+
+class DownloadTests(unittest.TestCase):
+    def test_traceback_is_failure_even_with_zero_exit_code(self):
+        process = mock.Mock()
+        process.stdout = io.StringIO(
+            "Traceback (most recent call last):\nTypeError: example\n"
+        )
+        process.wait.return_value = 0
+        with (
+            mock.patch.object(ofbackup_cli, "require_credentials"),
+            mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
+            mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.1.2"
+APP_VERSION = "2.1.3"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 DEFAULT_USER_AGENT = (
@@ -211,6 +211,11 @@ def write_ofscraper_config(state: dict | None = None) -> None:
 
     data = read_json(OFSCRAPER_CONFIG_PATH, {"main_profile": "main_profile"})
     data["main_profile"] = "main_profile"
+    # OF-Scraper 3.14.7 llama por error a of_env.getattr() con dos argumentos
+    # cuando falta esta clave. Guardar el valor vacío evita ese fallo upstream
+    # sin modificar los archivos del paquete instalado.
+    if data.get("discord") is None:
+        data["discord"] = ""
     file_options = data.setdefault("file_options", {})
     file_options.update(
         {
@@ -277,15 +282,39 @@ def run_ofscraper(arguments: list[str]) -> int:
     write_ofscraper_config()
     executable = ofscraper_binary()
     print("\nIniciando OF-Scraper…\n")
+    traceback_seen = False
     try:
-        completed = subprocess.run([executable, *arguments], check=False)
+        process = subprocess.Popen(
+            [executable, *arguments],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+        if process.stdout is None:  # pragma: no cover - garantía de subprocess
+            raise UserError("No se pudo leer la salida de OF-Scraper.")
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            if "Traceback (most recent call last):" in line:
+                traceback_seen = True
+        returncode = process.wait()
     except OSError as exc:
         raise UserError(f"No se pudo iniciar OF-Scraper: {exc}") from exc
-    if completed.returncode:
-        print(f"\n✗ OF-Scraper terminó con código {completed.returncode}.")
+
+    if returncode or traceback_seen:
+        shown_code = returncode or 1
+        print("\n✗ La descarga no se completó.")
+        if traceback_seen and not returncode:
+            print("OF-Scraper informó un error interno aunque devolvió código 0.")
+        else:
+            print(f"OF-Scraper terminó con código {returncode}.")
+        print("No se mostrará un éxito falso. Revisa el error que aparece arriba.")
+        return shown_code
     else:
         print(f"\n✓ Descarga terminada. Archivos en: {get_state()['download_dir']}")
-    return completed.returncode
+        return 0
 
 
 def normalize_url(value: str) -> str:

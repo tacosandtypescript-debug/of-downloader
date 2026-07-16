@@ -101,6 +101,22 @@ bash instalar-termux.sh
 No hace falta borrar Debian, las credenciales ni las descargas; el instalador
 repara el entorno existente y continúa desde donde quedó.
 
+### Error `getattr() takes 1 positional argument but 2 were given`
+
+OF Backup 2.1.3 incluye una compatibilidad para este fallo de configuración de
+OF-Scraper 3.14.7. Actualiza el repositorio y vuelve a ejecutar el instalador:
+
+```bash
+cd ~/respaldo_of
+git pull
+bash instalar-termux.sh
+```
+
+El proceso conserva las credenciales y los archivos descargados. Además, el
+menú ya detecta un `Traceback` aunque OF-Scraper devuelva por error un código de
+salida correcto, por lo que no vuelve a mostrar "Descarga terminada" tras un
+fallo interno.
+
 ## Windows o Linux de escritorio
 
 Se necesita Python 3.11, 3.12 o 3.13.
