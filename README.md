@@ -72,9 +72,15 @@ ofbackup diagnostico
 ofbackup actualizar
 ```
 
-La Cookie se solicita mediante una entrada oculta y no aparece en el historial
-del terminal. Se extraen automáticamente `sess` y `auth_id`; `x-bc` se solicita
-por separado. Los archivos de autenticación se guardan con permisos `0600`.
+En la opción **Conectar mi cuenta** puedes pegar una Cookie normal o una lista
+JSON completa exportada por el navegador. El JSON puede ocupar varias líneas:
+el programa detecta automáticamente cuándo termina. Solo extrae `sess` y
+`auth_id`; descarta `csrf`, `fp`, datos de Cloudflare y cualquier otra cookie.
+También rechaza cookies cuyo dominio no sea `onlyfans.com`.
+
+La Cookie normal se solicita mediante una entrada oculta y no aparece en el
+historial del terminal. `x-bc` se solicita por separado. Los archivos de
+autenticación se guardan con permisos `0600`.
 
 Las descargas se guardan por defecto en `Descargas/OFBackup`. Desde el menú se
 puede elegir otra carpeta.

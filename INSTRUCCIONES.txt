@@ -29,8 +29,10 @@ Para descargar directamente con un enlace:
 
    ofbackup "https://onlyfans.com/ID/usuario"
 
-La primera vez solicitará la cabecera Cookie completa, x-bc y User-Agent.
-La Cookie se escribe de forma oculta para que no quede en el historial.
+La primera vez elige "Conectar mi cuenta". Puedes pegar una Cookie normal o
+el JSON completo exportado por el navegador. Si eliges JSON, pégalo entero,
+aunque ocupe varias líneas. La aplicación solo guarda sess y auth_id y elimina
+el resto. Después solicitará x-bc y User-Agent.
 
 
 WINDOWS

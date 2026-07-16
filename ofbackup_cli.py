@@ -14,7 +14,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 DEFAULT_USER_AGENT = (
@@ -81,6 +81,27 @@ def save_state(state: dict) -> None:
 
 def parse_cookie_header(raw: str) -> dict[str, str]:
     raw = raw.strip()
+
+    # Formato JSON exportado por extensiones y administradores de cookies.
+    # Solo se aceptan cookies de OnlyFans y solo se conservan los dos valores
+    # necesarios para autenticar OF-Scraper.
+    try:
+        exported = json.loads(raw)
+    except json.JSONDecodeError:
+        exported = None
+    if isinstance(exported, list):
+        allowed_names = {"sess", "auth_id"}
+        values = {}
+        for item in exported:
+            if not isinstance(item, dict):
+                continue
+            domain = str(item.get("domain", "")).lower().lstrip(".")
+            name = str(item.get("name", ""))
+            value = item.get("value")
+            if domain == "onlyfans.com" and name in allowed_names and isinstance(value, str):
+                values[name] = value
+        return values
+
     raw = re.sub(r"^cookie\s*:\s*", "", raw, flags=re.IGNORECASE)
     values: dict[str, str] = {}
     jar = SimpleCookie()
@@ -110,10 +131,39 @@ def hidden_prompt(label: str) -> str:
         return input(label).strip()
 
 
+def json_cookie_prompt() -> str:
+    print("\nPega ahora el JSON completo.")
+    print("Puede ocupar muchas líneas; el programa detectará automáticamente el final.")
+    lines: list[str] = []
+    while True:
+        try:
+            line = input()
+        except EOFError as exc:
+            raise UserError("El JSON terminó antes de estar completo.") from exc
+        lines.append(line)
+        raw = "\n".join(lines).strip()
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(value, list):
+            raise UserError("El JSON debe comenzar con [ y terminar con ].")
+        return raw
+
+
 def configure_credentials() -> None:
-    print("\nCONFIGURAR CREDENCIALES")
-    print("La entrada queda oculta y no se guarda en el historial de Termux.")
-    raw_cookie = hidden_prompt("Pega la cabecera Cookie completa: ")
+    print("\nCONECTAR MI CUENTA")
+    print("Elige el tipo de datos que has copiado:")
+    print("1. Cookie normal en una sola línea")
+    print("2. Lista JSON exportada por el navegador o una extensión")
+    cookie_format = input("Opción [1]: ").strip() or "1"
+    if cookie_format == "2":
+        raw_cookie = json_cookie_prompt()
+    elif cookie_format == "1":
+        print("La entrada queda oculta y no se guarda en el historial de Termux.")
+        raw_cookie = hidden_prompt("Pega la Cookie completa: ")
+    else:
+        raise UserError("Elige 1 para Cookie normal o 2 para JSON.")
     cookies = parse_cookie_header(raw_cookie)
 
     sess = cookies.get("sess") or hidden_prompt("No encontré sess. Pega su valor: ")
@@ -149,7 +199,9 @@ def configure_credentials() -> None:
         state["username"] = username
     save_state(state)
     write_ofscraper_config(state)
-    print(f"\n✓ Credenciales guardadas con permisos privados en {AUTH_PATH}")
+    print("\n✓ Cuenta conectada correctamente.")
+    print("Solo se guardaron sess y auth_id; las demás cookies se descartaron.")
+    print(f"Archivo privado: {AUTH_PATH}")
 
 
 def write_ofscraper_config(state: dict | None = None) -> None:
@@ -320,7 +372,7 @@ def menu() -> int:
         print("═" * 46)
         print("1. Descargar una publicación con un enlace")
         print("2. Descargar todo un usuario")
-        print("3. Configurar o renovar Cookie")
+        print("3. Conectar mi cuenta o renovar el acceso")
         print("4. Cambiar carpeta de descargas")
         print("5. Ver diagnóstico")
         print("6. Actualizar motor de descarga")
