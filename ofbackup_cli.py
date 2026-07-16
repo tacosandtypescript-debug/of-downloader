@@ -14,7 +14,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.1.1"
+APP_VERSION = "2.1.2"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 DEFAULT_USER_AGENT = (
@@ -252,7 +252,9 @@ def find_ofscraper_binary() -> str | None:
     # El lanzador de Termux ejecuta directamente el Python del entorno virtual
     # sin activarlo. En ese caso su carpeta bin no aparece en PATH, aunque el
     # ejecutable de OF-Scraper esté correctamente instalado junto a Python.
-    scripts_dir = Path(sys.executable).resolve().parent
+    # No usar resolve(): el Python del venv suele ser un enlace a /usr/bin y
+    # seguirlo haría que buscásemos ofscraper en la carpeta equivocada.
+    scripts_dir = Path(sys.executable).parent
     for name in ("ofscraper", "ofscraper.exe"):
         candidate = scripts_dir / name
         if candidate.is_file():
