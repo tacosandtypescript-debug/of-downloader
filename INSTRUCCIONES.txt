@@ -1,0 +1,43 @@
+═══════════════════════════════════════
+   RESPALDO ONLYFANS - INSTRUCCIONES
+═══════════════════════════════════════
+
+REQUISITO: Tener Python instalado
+→ Windows: descargar de python.org, marcar "Add to PATH"
+→ Linux: ya viene instalado
+
+PASO 1 - ABRIR LA APP
+→ Windows: doble clic en iniciar.bat
+→ Linux: doble clic en iniciar.sh (o: bash iniciar.sh)
+
+PASO 2 - OBTENER TUS COOKIES
+→ Entra a onlyfans.com en Chrome o Firefox
+→ Presiona F12
+→ Ve a pestaña "Application" (Chrome) o "Storage" (Firefox)
+→ Clic en Cookies → onlyfans.com
+→ Copia los valores de: sess, auth_id
+→ Ve a pestaña "Network", recarga con F5
+→ Clic en cualquier petición "me" o "users"
+→ En "Request Headers" copia el valor de: x-bc
+
+PASO 3 - CONFIGURAR
+→ En la app clic en "Configurar credenciales"
+→ Pega cada valor en su campo
+→ Escribe tu usuario de OnlyFans (sin @)
+→ Clic en "Guardar"
+
+PASO 4 - DESCARGAR
+→ Clic en "Descargar todo"
+→ Espera a que termine (puede tardar varios minutos)
+→ Al terminar verás un resumen con todo lo descargado
+
+PASO 5 - VER TU CONTENIDO
+→ Clic en "Ver galería" para ver fotos y videos
+→ O abre las carpetas Images/ y Videos/ directamente
+
+PASO 6 - LLEVAR A OTRA PC
+→ Copia toda la carpeta respaldo_of a un USB
+→ En la otra PC ejecuta iniciar.bat o iniciar.sh
+→ ¡Listo, funciona sin instalar nada extra!
+
+═══════════════════════════════════════

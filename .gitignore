@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# Configuración privada y credenciales
+config.json
+.env
+.env.*
+!.env.example
+*.session
+*.session-journal
+cookies.txt
+cookies-*.txt
+*.pem
+*.key
+
+# Descargas generadas por la aplicación
+Images/
+Videos/
+
+# Registros y temporales
+ultimo_log.txt
+*.log
+*.tmp
+*.temp
+*.pid
+.cache/
+
+# Bases de datos locales
+*.sqlite
+*.sqlite3
+*.db
+
+# Editores y sistema operativo
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Empaquetado
+build/
+dist/
+*.egg-info/
