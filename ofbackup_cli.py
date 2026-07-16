@@ -14,13 +14,9 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.1.3"
+APP_VERSION = "2.1.4"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
-DEFAULT_USER_AGENT = (
-    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/146.0.0.0 Mobile Safari/537.36"
-)
 
 HOME = Path.home()
 APP_DIR = HOME / ".config" / "ofbackup"
@@ -89,6 +85,26 @@ def parse_cookie_header(raw: str) -> dict[str, str]:
         exported = json.loads(raw)
     except json.JSONDecodeError:
         exported = None
+    if isinstance(exported, dict):
+        source = exported.get("auth", exported)
+        if not isinstance(source, dict):
+            return {}
+        values = {}
+        cookie = source.get("cookie")
+        if isinstance(cookie, str):
+            values.update(parse_cookie_header(cookie))
+        for source_key, target_key in (
+            ("sess", "sess"),
+            ("auth_id", "auth_id"),
+            ("x-bc", "x-bc"),
+            ("x_bc", "x-bc"),
+            ("user_agent", "user_agent"),
+        ):
+            value = source.get(source_key)
+            if isinstance(value, str) and value.strip():
+                values[target_key] = value.strip()
+        return values
+
     if isinstance(exported, list):
         allowed_names = {"sess", "auth_id"}
         values = {}
@@ -131,7 +147,7 @@ def hidden_prompt(label: str) -> str:
         return input(label).strip()
 
 
-def json_cookie_prompt() -> str:
+def json_cookie_prompt(*, allow_object: bool = False) -> str:
     print("\nPega ahora el JSON completo.")
     print("Puede ocupar muchas líneas; el programa detectará automáticamente el final.")
     lines: list[str] = []
@@ -146,8 +162,9 @@ def json_cookie_prompt() -> str:
             value = json.loads(raw)
         except json.JSONDecodeError:
             continue
-        if not isinstance(value, list):
-            raise UserError("El JSON debe comenzar con [ y terminar con ].")
+        accepted = (list, dict) if allow_object else (list,)
+        if not isinstance(value, accepted):
+            raise UserError("El formato del JSON no es compatible.")
         return raw
 
 
@@ -156,29 +173,39 @@ def configure_credentials() -> None:
     print("Elige el tipo de datos que has copiado:")
     print("1. Cookie normal en una sola línea")
     print("2. Lista JSON exportada por el navegador o una extensión")
+    print("3. JSON completo de OnlyFans-Cookie-Helper")
     cookie_format = input("Opción [1]: ").strip() or "1"
     if cookie_format == "2":
         raw_cookie = json_cookie_prompt()
+    elif cookie_format == "3":
+        raw_cookie = json_cookie_prompt(allow_object=True)
     elif cookie_format == "1":
         print("La entrada queda oculta y no se guarda en el historial de Termux.")
         raw_cookie = hidden_prompt("Pega la Cookie completa: ")
     else:
-        raise UserError("Elige 1 para Cookie normal o 2 para JSON.")
+        raise UserError("Elige 1, 2 o 3.")
     cookies = parse_cookie_header(raw_cookie)
 
     sess = cookies.get("sess") or hidden_prompt("No encontré sess. Pega su valor: ")
     auth_id = cookies.get("auth_id") or hidden_prompt(
         "No encontré auth_id. Pega su valor: "
     )
-    x_bc = hidden_prompt("Pega la cabecera x-bc: ")
-    user_agent = input(
-        "User-Agent (Enter para usar el valor Android recomendado): "
-    ).strip() or DEFAULT_USER_AGENT
+    x_bc = cookies.get("x-bc") or hidden_prompt(
+        "Pega x-bc de la misma sesión del navegador: "
+    )
+    user_agent = cookies.get("user_agent") or input(
+        "Pega el User-Agent exacto de esa misma sesión: "
+    ).strip()
     username = input("Usuario predeterminado, sin @ (opcional): ").strip().lstrip("@")
 
     missing = [
         key
-        for key, value in (("sess", sess), ("auth_id", auth_id), ("x-bc", x_bc))
+        for key, value in (
+            ("sess", sess),
+            ("auth_id", auth_id),
+            ("x-bc", x_bc),
+            ("User-Agent", user_agent),
+        )
         if not value
     ]
     if missing:
@@ -199,7 +226,8 @@ def configure_credentials() -> None:
         state["username"] = username
     save_state(state)
     write_ofscraper_config(state)
-    print("\n✓ Cuenta conectada correctamente.")
+    print("\n✓ Datos de acceso guardados.")
+    print("OF-Scraper comprobará la cuenta al iniciar la próxima descarga.")
     print("Solo se guardaron sess y auth_id; las demás cookies se descartaron.")
     print(f"Archivo privado: {AUTH_PATH}")
 
@@ -277,15 +305,22 @@ def ofscraper_binary() -> str:
     return executable
 
 
+def build_ofscraper_command(executable: str, arguments: list[str]) -> list[str]:
+    if arguments and arguments[0] == "manual":
+        return [executable, "manual", "--auth-fail", *arguments[1:]]
+    return [executable, "--auth-fail", *arguments]
+
+
 def run_ofscraper(arguments: list[str]) -> int:
     require_credentials()
     write_ofscraper_config()
     executable = ofscraper_binary()
     print("\nIniciando OF-Scraper…\n")
     traceback_seen = False
+    auth_failed = False
     try:
         process = subprocess.Popen(
-            [executable, *arguments],
+            build_ofscraper_command(executable, arguments),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -299,14 +334,19 @@ def run_ofscraper(arguments: list[str]) -> int:
             print(line, end="", flush=True)
             if "Traceback (most recent call last):" in line:
                 traceback_seen = True
+            if "Auth Failed" in line or "auth failed quitting on error" in line:
+                auth_failed = True
         returncode = process.wait()
     except OSError as exc:
         raise UserError(f"No se pudo iniciar OF-Scraper: {exc}") from exc
 
-    if returncode or traceback_seen:
+    if returncode or traceback_seen or auth_failed:
         shown_code = returncode or 1
         print("\n✗ La descarga no se completó.")
-        if traceback_seen and not returncode:
+        if auth_failed:
+            print("OnlyFans rechazó los datos de acceso.")
+            print("Abre la opción 3 y pega x-bc y User-Agent de la misma sesión.")
+        elif traceback_seen and not returncode:
             print("OF-Scraper informó un error interno aunque devolvió código 0.")
         else:
             print(f"OF-Scraper terminó con código {returncode}.")

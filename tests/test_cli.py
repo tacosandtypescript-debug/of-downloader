@@ -37,6 +37,26 @@ class CookieTests(unittest.TestCase):
         )
         self.assertEqual(ofbackup_cli.parse_cookie_header(exported), {})
 
+    def test_extracts_complete_cookie_helper_json(self):
+        exported = json.dumps(
+            {
+                "auth": {
+                    "cookie": "sess=session-value; auth_id=42",
+                    "x-bc": "xbc-value",
+                    "user_agent": "Exact Browser Agent",
+                }
+            }
+        )
+        self.assertEqual(
+            ofbackup_cli.parse_cookie_header(exported),
+            {
+                "sess": "session-value",
+                "auth_id": "42",
+                "x-bc": "xbc-value",
+                "user_agent": "Exact Browser Agent",
+            },
+        )
+
 
 class UrlTests(unittest.TestCase):
     def test_accepts_onlyfans_url(self):
@@ -99,10 +119,42 @@ class DownloadTests(unittest.TestCase):
             mock.patch.object(ofbackup_cli, "require_credentials"),
             mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
             mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli.subprocess, "Popen", return_value=process
+            ) as popen,
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
+        popen.assert_called_once_with(
+            ["ofscraper", "manual", "--auth-fail"],
+            stdout=ofbackup_cli.subprocess.PIPE,
+            stderr=ofbackup_cli.subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+
+    def test_auth_failure_is_detected_without_opening_internal_menu(self):
+        process = mock.Mock()
+        process.stdout = io.StringIO("Auth Failed\nauth failed quitting on error\n")
+        process.wait.return_value = 0
+        with (
+            mock.patch.object(ofbackup_cli, "require_credentials"),
+            mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
+            mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
             mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
             mock.patch("builtins.print"),
         ):
             self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
+
+    def test_auth_fail_option_precedes_root_arguments(self):
+        self.assertEqual(
+            ofbackup_cli.build_ofscraper_command(
+                "ofscraper", ["--username", "example"]
+            ),
+            ["ofscraper", "--auth-fail", "--username", "example"],
+        )
 
 
 if __name__ == "__main__":

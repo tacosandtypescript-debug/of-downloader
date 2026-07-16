@@ -117,6 +117,14 @@ menú ya detecta un `Traceback` aunque OF-Scraper devuelva por error un código 
 salida correcto, por lo que no vuelve a mostrar "Descarga terminada" tras un
 fallo interno.
 
+### Mensaje `Auth Failed`
+
+`sess`, `auth_id`, `x-bc` y `User-Agent` deben proceder de la misma sesión del
+navegador. No sirve un User-Agent aproximado. OF Backup 2.1.4 también acepta el
+JSON completo generado por OnlyFans-Cookie-Helper y extrae esos cuatro campos.
+Si OnlyFans rechaza el acceso, OF Backup termina con un mensaje claro en vez de
+abrir el menú interno de navegadores de OF-Scraper.
+
 ## Windows o Linux de escritorio
 
 Se necesita Python 3.11, 3.12 o 3.13.
