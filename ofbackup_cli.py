@@ -14,7 +14,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.1.0"
+APP_VERSION = "2.1.1"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 DEFAULT_USER_AGENT = (
@@ -238,9 +238,30 @@ def require_credentials() -> None:
     configure_credentials()
 
 
-def ofscraper_binary() -> str:
+def find_ofscraper_binary() -> str | None:
     configured = os.getenv("OFSCRAPER_BIN")
-    executable = configured or shutil.which("ofscraper")
+    if configured:
+        resolved = shutil.which(configured) or configured
+        if Path(resolved).is_file():
+            return str(Path(resolved))
+
+    on_path = shutil.which("ofscraper")
+    if on_path:
+        return on_path
+
+    # El lanzador de Termux ejecuta directamente el Python del entorno virtual
+    # sin activarlo. En ese caso su carpeta bin no aparece en PATH, aunque el
+    # ejecutable de OF-Scraper esté correctamente instalado junto a Python.
+    scripts_dir = Path(sys.executable).resolve().parent
+    for name in ("ofscraper", "ofscraper.exe"):
+        candidate = scripts_dir / name
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def ofscraper_binary() -> str:
+    executable = find_ofscraper_binary()
     if not executable:
         raise UserError(
             "No se encontró ofscraper. Ejecuta instalar-termux.sh o elige "
@@ -319,7 +340,7 @@ def change_destination() -> None:
 
 def diagnostics() -> None:
     state = get_state()
-    executable = shutil.which("ofscraper")
+    executable = find_ofscraper_binary()
     print("\nDIAGNÓSTICO")
     print(f"OF Backup:       {APP_VERSION}")
     print(f"Python:          {sys.version.split()[0]}")

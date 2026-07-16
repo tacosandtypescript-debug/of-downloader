@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import json
+from unittest import mock
 from pathlib import Path
 
 import ofbackup_cli
@@ -55,6 +56,22 @@ class JsonTests(unittest.TestCase):
             path = Path(temporary) / "private" / "settings.json"
             ofbackup_cli.secure_write_json(path, {"ok": True})
             self.assertEqual(ofbackup_cli.read_json(path), {"ok": True})
+
+
+class ExecutableTests(unittest.TestCase):
+    def test_finds_ofscraper_next_to_virtualenv_python(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            scripts = Path(temporary)
+            python = scripts / "python"
+            ofscraper = scripts / "ofscraper"
+            python.touch()
+            ofscraper.touch()
+            with (
+                mock.patch.object(ofbackup_cli.sys, "executable", str(python)),
+                mock.patch.object(ofbackup_cli.shutil, "which", return_value=None),
+                mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True),
+            ):
+                self.assertEqual(ofbackup_cli.find_ofscraper_binary(), str(ofscraper))
 
 
 if __name__ == "__main__":
