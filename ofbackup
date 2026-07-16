@@ -1,0 +1,6 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -e
+
+APP_HOME="/root/.local/share/ofbackup"
+exec proot-distro login --shared-home ofbackup-debian -- \
+    "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@"

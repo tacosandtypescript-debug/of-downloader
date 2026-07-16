@@ -1,43 +1,58 @@
-═══════════════════════════════════════
-   RESPALDO ONLYFANS - INSTRUCCIONES
-═══════════════════════════════════════
+========================================
+        OF BACKUP 2.0 - INSTRUCCIONES
+========================================
 
-REQUISITO: Tener Python instalado
-→ Windows: descargar de python.org, marcar "Add to PATH"
-→ Linux: ya viene instalado
+IMPORTANTE
+----------
+La aplicación solo descarga contenido al que tu cuenta ya tenga acceso.
+No evita suscripciones ni muros de pago.
 
-PASO 1 - ABRIR LA APP
-→ Windows: doble clic en iniciar.bat
-→ Linux: doble clic en iniciar.sh (o: bash iniciar.sh)
 
-PASO 2 - OBTENER TUS COOKIES
-→ Entra a onlyfans.com en Chrome o Firefox
-→ Presiona F12
-→ Ve a pestaña "Application" (Chrome) o "Storage" (Firefox)
-→ Clic en Cookies → onlyfans.com
-→ Copia los valores de: sess, auth_id
-→ Ve a pestaña "Network", recarga con F5
-→ Clic en cualquier petición "me" o "users"
-→ En "Request Headers" copia el valor de: x-bc
+TERMUX / ANDROID
+----------------
+1. Instala Termux desde F-Droid o desde GitHub, no desde Google Play.
+2. Abre Termux y entra en la carpeta de este proyecto.
+3. Ejecuta:
 
-PASO 3 - CONFIGURAR
-→ En la app clic en "Configurar credenciales"
-→ Pega cada valor en su campo
-→ Escribe tu usuario de OnlyFans (sin @)
-→ Clic en "Guardar"
+   chmod +x instalar-termux.sh
+   ./instalar-termux.sh
 
-PASO 4 - DESCARGAR
-→ Clic en "Descargar todo"
-→ Espera a que termine (puede tardar varios minutos)
-→ Al terminar verás un resumen con todo lo descargado
+4. El instalador actualizará Termux, solicitará permiso para Descargas e
+   instalará Debian, Python 3.13, FFmpeg y OF-Scraper.
+5. Al terminar aparecerá el menú interactivo.
 
-PASO 5 - VER TU CONTENIDO
-→ Clic en "Ver galería" para ver fotos y videos
-→ O abre las carpetas Images/ y Videos/ directamente
+Para volver a abrirlo:
 
-PASO 6 - LLEVAR A OTRA PC
-→ Copia toda la carpeta respaldo_of a un USB
-→ En la otra PC ejecuta iniciar.bat o iniciar.sh
-→ ¡Listo, funciona sin instalar nada extra!
+   ofbackup
 
-═══════════════════════════════════════
+Para descargar directamente con un enlace:
+
+   ofbackup "https://onlyfans.com/ID/usuario"
+
+La primera vez solicitará la cabecera Cookie completa, x-bc y User-Agent.
+La Cookie se escribe de forma oculta para que no quede en el historial.
+
+
+WINDOWS
+-------
+1. Instala Python 3.11, 3.12 o 3.13 y marca "Add Python to PATH".
+2. Ejecuta iniciar.bat.
+3. Introduce username, sess, auth_id y x-bc en la interfaz.
+
+
+LINUX DE ESCRITORIO
+-------------------
+1. Instala Python 3.11, 3.12 o 3.13 y soporte para entornos virtuales.
+2. Ejecuta:
+
+   bash iniciar.sh
+
+
+SEGURIDAD
+---------
+- No publiques config.json ni auth.json.
+- No envíes capturas que muestren sess, auth_id o x-bc.
+- Renueva las credenciales si sospechas que alguien pudo copiarlas.
+- Las descargas se guardan por defecto en Descargas/OFBackup en Android.
+
+Consulta README.md para ver todos los comandos y detalles.

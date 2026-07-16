@@ -5,26 +5,18 @@ import re
 import subprocess
 import sys
 import threading
-import time
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from tkinter import Canvas
 
 
-def ensure_customtkinter():
-    try:
-        import customtkinter as ctk_mod
-
-        return ctk_mod
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "customtkinter"])
-        import customtkinter as ctk_mod
-
-        return ctk_mod
-
-
-ctk = ensure_customtkinter()
+try:
+    import customtkinter as ctk
+except ImportError as exc:
+    raise SystemExit(
+        "Falta customtkinter. Ejecuta iniciar.bat o iniciar.sh para instalar dependencias."
+    ) from exc
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
@@ -267,7 +259,6 @@ class ModernOFBackupApp(ctk.CTk):
         self.nav_buttons: dict[str, ctk.CTkButton] = {}
 
         self.download_running = False
-        self.progress_start_time = 0.0
         self.gallery_rebuild_job = None
         self.logo_pulse_step = 0
 
@@ -308,7 +299,7 @@ class ModernOFBackupApp(ctk.CTk):
 
         ctk.CTkLabel(
             sidebar,
-            text="Modern UI 2025",
+            text="Modern UI 2026",
             text_color=COLORS["text_muted"],
             font=("Segoe UI", 12),
         ).grid(row=1, column=0, padx=20, pady=(0, 20), sticky="w")
@@ -442,6 +433,7 @@ class ModernOFBackupApp(ctk.CTk):
                 placeholder_text=label,
                 fg_color="#111111",
                 border_color=COLORS["border"],
+                show="•" if key in {"sess", "auth_id", "x_bc"} else "",
             )
             entry.insert(0, self.config_data.get(key, ""))
             entry.grid(row=i, column=1, padx=16, pady=10, sticky="ew")
@@ -482,7 +474,11 @@ class ModernOFBackupApp(ctk.CTk):
         self.download_button.grid(row=0, column=0, padx=16, pady=(16, 12), sticky="w")
 
         self.progress_bar = ctk.CTkProgressBar(
-            top_card, progress_color=COLORS["accent_blue"], fg_color="#111111", height=18
+            top_card,
+            mode="indeterminate",
+            progress_color=COLORS["accent_blue"],
+            fg_color="#111111",
+            height=18,
         )
         self.progress_bar.set(0)
         self.progress_bar.grid(row=1, column=0, padx=16, pady=8, sticky="ew")
@@ -493,12 +489,12 @@ class ModernOFBackupApp(ctk.CTk):
         self.progress_label.grid(row=2, column=0, padx=16, pady=(4, 2), sticky="w")
 
         self.speed_label = ctk.CTkLabel(
-            top_card, text="Velocidad estimada: -- MB/s", text_color=COLORS["text_muted"]
+            top_card, text="Estado: esperando", text_color=COLORS["text_muted"]
         )
         self.speed_label.grid(row=3, column=0, padx=16, pady=2, sticky="w")
 
         self.eta_label = ctk.CTkLabel(
-            top_card, text="Tiempo restante estimado: --", text_color=COLORS["text_muted"]
+            top_card, text="El progreso real lo informa OF-Scraper", text_color=COLORS["text_muted"]
         )
         self.eta_label.grid(row=4, column=0, padx=16, pady=(2, 16), sticky="w")
 
@@ -531,31 +527,16 @@ class ModernOFBackupApp(ctk.CTk):
             return
 
         self.download_running = True
-        self.progress_start_time = time.time()
-        self.progress_bar.set(0)
-        self.progress_label.configure(text="Progreso: 0%")
-        self.speed_label.configure(text="Velocidad estimada: 0.0 MB/s")
-        self.eta_label.configure(text="Tiempo restante estimado: calculando...")
+        self.progress_bar.configure(mode="indeterminate")
+        self.progress_bar.start()
+        self.progress_label.configure(text="Descarga en curso…")
+        self.speed_label.configure(text="Estado: ejecutando OF-Scraper")
+        self.eta_label.configure(text="El tiempo depende del contenido y de la conexión")
         self.download_button.configure(state="disabled")
         self._log("Inicio de descarga total solicitado.")
         self.toast.show("Descarga iniciada.")
 
         threading.Thread(target=self._download_worker, daemon=True).start()
-        self._tick_progress()
-
-    def _tick_progress(self) -> None:
-        if not self.download_running:
-            return
-        elapsed = max(1.0, time.time() - self.progress_start_time)
-        pct = min(95.0, 8.0 + elapsed * 0.75)
-        speed = 0.9 + ((elapsed * 0.3) % 2.2)
-        remaining = max(1, int((100 - pct) / 0.75))
-
-        self.progress_bar.set(pct / 100)
-        self.progress_label.configure(text=f"Progreso: {pct:.0f}%")
-        self.speed_label.configure(text=f"Velocidad estimada: {speed:.2f} MB/s")
-        self.eta_label.configure(text=f"Tiempo restante estimado: ~{remaining}s")
-        self.after(850, self._tick_progress)
 
     def _download_worker(self) -> None:
         try:
@@ -594,35 +575,42 @@ class ModernOFBackupApp(ctk.CTk):
 
             self.after(0, lambda: self._finish_download(proc.returncode, combined))
         except Exception as exc:
-            self.after(0, lambda: self._fail_download(exc))
+            self.after(0, lambda error=exc: self._fail_download(error))
 
     def _finish_download(self, code: int, output: str) -> None:
         self.download_running = False
         self.download_button.configure(state="normal")
+        self.progress_bar.stop()
         if code == 0:
+            self.progress_bar.configure(mode="determinate")
             self.progress_bar.set(1)
             self.progress_label.configure(text="Progreso: 100%")
             match = re.search(r"\((\d+) downloads total", output)
             total = match.group(1) if match else "0"
-            self.speed_label.configure(text="Velocidad estimada: completado")
-            self.eta_label.configure(text="Tiempo restante estimado: 0s")
+            self.speed_label.configure(text="Estado: completado")
+            self.eta_label.configure(text="Proceso finalizado")
             self._log(f"Descarga completada. Total reportado: {total}.")
             self.toast.show(f"Descarga finalizada: {total} elementos.")
             self.request_gallery_refresh()
             self.refresh_stats_async()
         else:
+            self.progress_bar.configure(mode="determinate")
+            self.progress_bar.set(0)
             self.progress_label.configure(text="Progreso: error")
-            self.speed_label.configure(text="Velocidad estimada: --")
-            self.eta_label.configure(text="Tiempo restante estimado: --")
+            self.speed_label.configure(text="Estado: error")
+            self.eta_label.configure(text="Revisa ultimo_log.txt")
             self._log("La descarga terminó con errores. Revisa ultimo_log.txt.")
             self.toast.show("Descarga con errores. Revisa logs.", tone="error")
 
     def _fail_download(self, exc: Exception) -> None:
         self.download_running = False
         self.download_button.configure(state="normal")
+        self.progress_bar.stop()
+        self.progress_bar.configure(mode="determinate")
+        self.progress_bar.set(0)
         self.progress_label.configure(text="Progreso: error")
-        self.speed_label.configure(text="Velocidad estimada: --")
-        self.eta_label.configure(text="Tiempo restante estimado: --")
+        self.speed_label.configure(text="Estado: error")
+        self.eta_label.configure(text="No se pudo iniciar la descarga")
         self._log(f"Error al descargar: {exc}")
         self.toast.show(f"No se pudo iniciar descarga: {exc}", tone="error")
 
@@ -703,7 +691,7 @@ class ModernOFBackupApp(ctk.CTk):
             items = self._scan_media_items()
             self.after(0, lambda: self._on_gallery_scanned(items, None))
         except Exception as exc:
-            self.after(0, lambda: self._on_gallery_scanned([], exc))
+            self.after(0, lambda error=exc: self._on_gallery_scanned([], error))
 
     def _scan_media_items(self) -> list[dict]:
         items = []
