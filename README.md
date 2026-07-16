@@ -79,6 +79,22 @@ por separado. Los archivos de autenticación se guardan con permisos `0600`.
 Las descargas se guardan por defecto en `Descargas/OFBackup`. Desde el menú se
 puede elegir otra carpeta.
 
+### Error `Python.h: No such file or directory`
+
+Las primeras instalaciones podían quedarse detenidas al compilar `xxhash`,
+`lxml`, `psutil` o `faust-cchardet`. El instalador actual ya incluye
+`python3-dev` y las bibliotecas necesarias. Si ocurrió con una copia anterior,
+actualiza el repositorio y vuelve a ejecutar el instalador:
+
+```bash
+cd ~/respaldo_of
+git pull
+bash instalar-termux.sh
+```
+
+No hace falta borrar Debian, las credenciales ni las descargas; el instalador
+repara el entorno existente y continúa desde donde quedó.
+
 ## Windows o Linux de escritorio
 
 Se necesita Python 3.11, 3.12 o 3.13.

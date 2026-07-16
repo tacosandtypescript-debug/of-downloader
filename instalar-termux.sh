@@ -39,10 +39,10 @@ proot-distro login --shared-home "$CONTAINER" -- bash -lc '
     apt-get update
     apt-get upgrade -y
     apt-get install -y --no-install-recommends \
-        python3 python3-venv python3-pip ffmpeg ca-certificates git \
+        python3 python3-dev python3-venv python3-pip ffmpeg ca-certificates git \
         build-essential pkg-config rustc cargo \
         libffi-dev libssl-dev libxml2-dev libxslt1-dev \
-        libjpeg62-turbo-dev zlib1g-dev
+        libjpeg62-turbo-dev liblz4-dev libyaml-dev zlib1g-dev
     python3 -c "import sys; assert (3, 11) <= sys.version_info[:2] < (3, 14), sys.version"
 '
 
