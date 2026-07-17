@@ -40,6 +40,11 @@ chmod +x instalar-termux.sh
 ./instalar-termux.sh
 ```
 
+La primera instalación puede tardar bastante según la velocidad del móvil y
+la conexión. Durante la preparación de Python y OF-Scraper pueden transcurrir
+varios minutos sin texto nuevo en pantalla; no cierres Termux mientras el
+proceso continúe. Es recomendable usar Wi-Fi y mantener el móvil cargando.
+
 El instalador:
 
 1. Actualiza los paquetes de Termux.

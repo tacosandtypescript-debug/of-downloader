@@ -11,6 +11,16 @@ if [[ "${PREFIX:-}" != *"com.termux"* ]]; then
     exit 1
 fi
 
+echo
+echo "══════════════════════════════════════════════"
+echo "  AVISO · PRIMERA INSTALACIÓN"
+echo "══════════════════════════════════════════════"
+echo "La primera instalación puede tardar bastante según el móvil y la conexión."
+echo "En los pasos [5/7] y [6/7] puede pasar varios minutos sin mostrar texto"
+echo "mientras se preparan Python y sus paquetes. No cierres Termux aunque parezca"
+echo "detenido. Se recomienda usar Wi-Fi, tener espacio libre y conectar el cargador."
+echo
+
 echo "[1/7] Actualizando Termux…"
 pkg update -y
 pkg upgrade -y
