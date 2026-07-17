@@ -93,6 +93,11 @@ class JsonTests(unittest.TestCase):
 
 
 class ThemeTests(unittest.TestCase):
+    def test_ascii_logo_fits_the_termux_header(self):
+        self.assertEqual(len(ofbackup_cli.MENU_LOGO_LINES), 3)
+        self.assertTrue(all(len(line) <= 44 for line in ofbackup_cli.MENU_LOGO_LINES))
+        self.assertTrue(any("OF" in line for line in ofbackup_cli.MENU_LOGO_LINES))
+
     def test_plain_text_is_kept_when_colors_are_not_supported(self):
         output = io.StringIO()
         with mock.patch.object(ofbackup_cli.sys, "stdout", output):

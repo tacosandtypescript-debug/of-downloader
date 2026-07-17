@@ -17,7 +17,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.6.0"
+APP_VERSION = "2.6.1"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -433,6 +433,12 @@ PALETTE = {
     "red": "38;2;255;77;103",
 }
 
+MENU_LOGO_LINES = (
+    "      .----.   OF DOWNLOADER",
+    "     (  OF  )       |",
+    "      '----'       \\|/",
+)
+
 
 def colors_enabled() -> bool:
     return sys.stdout.isatty() and "NO_COLOR" not in os.environ
@@ -448,6 +454,13 @@ def styled(message: str, color: str = "white", *, bold: bool = False) -> str:
 def menu_option(number: str, label: str) -> None:
     badge = styled(f"[{number}]", "cyan", bold=True)
     print(f"  {badge} {styled(label, 'white')}")
+
+
+def menu_banner_line(message: str, color: str = "cyan", *, bold: bool = False) -> None:
+    if len(message) > 44:
+        raise ValueError("La línea del encabezado supera 44 caracteres.")
+    border = styled("│", "cyan", bold=True)
+    print(border + styled(message.ljust(44), color, bold=bold) + border)
 
 
 def repository_update_badge(status: str | None = None) -> str:
@@ -796,17 +809,9 @@ def menu() -> int:
             print("\033[2J\033[H", end="")
         print()
         print(styled("╭" + "─" * 44 + "╮", "cyan", bold=True))
-        print(
-            styled("│", "cyan", bold=True)
-            + styled("     ◉ OF  DOWNLOADER", "cyan", bold=True)
-            + styled(f"  v{APP_VERSION}".ljust(23), "muted")
-            + styled("│", "cyan", bold=True)
-        )
-        print(
-            styled("│", "cyan", bold=True)
-            + styled("       Descargas simples · Termux".ljust(44), "muted")
-            + styled("│", "cyan", bold=True)
-        )
+        for logo_line in MENU_LOGO_LINES:
+            menu_banner_line(logo_line, "cyan", bold=True)
+        menu_banner_line(f"       v{APP_VERSION} · TERMUX · Descargas simples", "muted")
         print(styled("╰" + "─" * 44 + "╯", "cyan", bold=True))
 
         print(styled("\n  DESCARGAS", "blue", bold=True))
