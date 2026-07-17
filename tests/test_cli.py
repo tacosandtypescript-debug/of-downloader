@@ -207,7 +207,7 @@ class AuthenticationTestTests(unittest.TestCase):
         process.poll.return_value = process.returncode
         process.communicate.return_value = (process.stdout, process.stderr)
         with (
-            mock.patch.object(ofbackup_cli, "require_credentials") as require,
+            mock.patch.object(ofbackup_cli, "credentials_ready", return_value=True),
             mock.patch.object(ofbackup_cli, "write_ofscraper_config") as write_config,
             mock.patch.object(
                 ofbackup_cli, "ofscraper_binary", return_value="ofscraper"
@@ -218,7 +218,6 @@ class AuthenticationTestTests(unittest.TestCase):
             mock.patch("builtins.print"),
         ):
             result = ofbackup_cli.test_credentials()
-        require.assert_called_once_with()
         write_config.assert_called_once_with()
         popen.assert_called_once_with(
             [ofbackup_cli.sys.executable, "-c", ofbackup_cli.AUTH_TEST_SCRIPT],
@@ -249,7 +248,7 @@ class AuthenticationTestTests(unittest.TestCase):
             ("", ""),
         ]
         with (
-            mock.patch.object(ofbackup_cli, "require_credentials"),
+            mock.patch.object(ofbackup_cli, "credentials_ready", return_value=True),
             mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
             mock.patch.object(
                 ofbackup_cli, "ofscraper_binary", return_value="ofscraper"
@@ -264,6 +263,15 @@ class AuthenticationTestTests(unittest.TestCase):
         ):
             self.assertEqual(ofbackup_cli.test_credentials(), 1)
         process.terminate.assert_called_once_with()
+
+    def test_missing_credentials_requests_android_picker(self):
+        with (
+            mock.patch.object(ofbackup_cli, "credentials_ready", return_value=False),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(
+                ofbackup_cli.test_credentials(), ofbackup_cli.IMPORT_REQUEST_EXIT
+            )
 
 
 class DownloadTests(unittest.TestCase):

@@ -36,6 +36,9 @@ Backup Exporter en Firefox y después ejecutar:
 of importar
 of probar
 
+Si Android entrega un archivo vacío al selector, usa la ruta directa:
+of importar ~/storage/downloads/OFBackup-auth.json
+
 Elige OFBackup-auth.json en el selector Android. Este selector requiere el
 paquete y la aplicación Termux:API; la aplicación debe proceder de la misma
 fuente que Termux. OF Backup conserva solo sess, auth_id, x-bc y User-Agent.

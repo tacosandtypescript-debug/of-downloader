@@ -84,6 +84,13 @@ of diagnostico
 of actualizar
 ```
 
+Si el selector de Android devuelve el archivo vacío, guárdalo en Descargas e
+impórtalo directamente con:
+
+```bash
+of importar ~/storage/downloads/OFBackup-auth.json
+```
+
 El nombre anterior `ofbackup` sigue funcionando para mantener compatibilidad.
 
 ### Conectar la cuenta desde Firefox Android o Chrome PC

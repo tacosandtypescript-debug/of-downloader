@@ -5,6 +5,7 @@ APP_HOME="/root/.local/share/ofbackup"
 HOST_CACHE="$HOME/.cache/ofbackup"
 IMPORT_REQUEST_EXIT=42
 SELECTED_TEMP=""
+MAX_AUTH_SIZE=65536
 
 cleanup_temp() {
     if [[ -n "$SELECTED_TEMP" ]]; then
@@ -19,6 +20,55 @@ trap 'cleanup_temp; exit 130' INT TERM
 run_ofbackup() {
     proot-distro login --shared-home ofbackup-debian -- \
         "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@"
+}
+
+run_selected_temp() {
+    local selected="$1"
+    local container_path
+    container_path="/root/.cache/ofbackup/$(basename "$selected")"
+    run_ofbackup importar-archivo "$container_path"
+}
+
+import_host_file() {
+    local source="$1"
+    if [[ ! -f "$source" ]]; then
+        echo "✗ No encuentro el archivo: $source"
+        return 2
+    fi
+    if [[ ! -s "$source" ]]; then
+        echo "✗ El archivo está vacío. Vuelve a exportarlo desde la extensión."
+        return 2
+    fi
+    local size
+    size="$(wc -c <"$source")"
+    if ((size > MAX_AUTH_SIZE)); then
+        echo "✗ El archivo es demasiado grande para ser un archivo de acceso."
+        return 2
+    fi
+
+    mkdir -p "$HOST_CACHE"
+    local selected
+    selected="$(mktemp "$HOST_CACHE/auth-import.XXXXXX.json")"
+    SELECTED_TEMP="$selected"
+    install -m 600 "$source" "$selected"
+    run_selected_temp "$selected"
+    local status=$?
+    rm -f "$selected"
+    SELECTED_TEMP=""
+    return "$status"
+}
+
+latest_download_export() {
+    local candidate=""
+    local file
+    shopt -s nullglob
+    for file in "$HOME/storage/downloads"/OFBackup-auth*.json; do
+        if [[ -s "$file" && ( -z "$candidate" || "$file" -nt "$candidate" ) ]]; then
+            candidate="$file"
+        fi
+    done
+    shopt -u nullglob
+    printf '%s' "$candidate"
 }
 
 select_and_import() {
@@ -44,9 +94,23 @@ select_and_import() {
         return 2
     fi
 
-    local container_path
-    container_path="/root/.cache/ofbackup/$(basename "$selected")"
-    run_ofbackup importar-archivo "$container_path"
+    if [[ ! -s "$selected" ]]; then
+        rm -f "$selected"
+        SELECTED_TEMP=""
+        local downloaded
+        downloaded="$(latest_download_export)"
+        if [[ -n "$downloaded" ]]; then
+            echo "El selector entregó un archivo vacío; usaré el archivo de Descargas."
+            import_host_file "$downloaded"
+            return $?
+        fi
+        echo "✗ Android entregó un archivo vacío."
+        echo "Guarda OFBackup-auth.json en Descargas y ejecuta:"
+        echo "  of importar ~/storage/downloads/OFBackup-auth.json"
+        return 2
+    fi
+
+    run_selected_temp "$selected"
     local status=$?
     rm -f "$selected"
     SELECTED_TEMP=""
@@ -54,7 +118,11 @@ select_and_import() {
 }
 
 if [[ "${1:-}" == "importar" ]]; then
-    select_and_import
+    if [[ -n "${2:-}" ]]; then
+        import_host_file "$2"
+    else
+        select_and_import
+    fi
     exit $?
 fi
 

@@ -17,7 +17,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.3.1"
+APP_VERSION = "2.3.2"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -425,7 +425,10 @@ def _status_text(message: str, color: str) -> str:
 
 def test_credentials(timeout: int = 60) -> int:
     """Comprueba la sesión con una consulta mínima y sin descargar contenido."""
-    require_credentials()
+    if not credentials_ready():
+        print("Todavía no hay credenciales configuradas.")
+        print("Abriré el selector para que elijas OFBackup-auth.json.")
+        return IMPORT_REQUEST_EXIT
     write_ofscraper_config()
     ofscraper_binary()
     print("\n✓ Archivo cargado: contiene los 4 datos necesarios.")
@@ -718,7 +721,9 @@ def menu() -> int:
             elif choice == "6":
                 update_engine()
             elif choice == "7":
-                test_credentials()
+                result = test_credentials()
+                if result == IMPORT_REQUEST_EXIT:
+                    return IMPORT_REQUEST_EXIT
             elif choice == "0":
                 print("Hasta luego.")
                 return 0
@@ -739,6 +744,7 @@ def print_help() -> None:
   of usuario NOMBRE                Descargar todo un usuario
   of configurar                    Guardar o renovar credenciales
   of importar                      Elegir OFBackup-auth.json en Android
+  of importar RUTA                 Importar el archivo directamente
   of probar                        Comprobar la cookie sin descargar contenido
   of diagnostico                   Comprobar la instalación
   of actualizar                    Actualizar el motor de descarga
