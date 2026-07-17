@@ -11,12 +11,13 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime
 from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.3.1"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -427,29 +428,59 @@ def test_credentials(timeout: int = 60) -> int:
     require_credentials()
     write_ofscraper_config()
     ofscraper_binary()
-    print("\nProbando la sesión con OnlyFans…")
+    print("\n✓ Archivo cargado: contiene los 4 datos necesarios.")
+    print("Probando la sesión con OnlyFans…")
     print("No se descargará contenido ni se mostrarán datos privados.")
 
     try:
-        completed = subprocess.run(
+        process = subprocess.Popen(
             [sys.executable, "-c", AUTH_TEST_SCRIPT],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=timeout,
-            check=False,
         )
-    except subprocess.TimeoutExpired:
-        print(_status_text("\n✗ LA PRUEBA TARDÓ DEMASIADO", "red"))
-        print("Comprueba Internet y vuelve a ejecutar: of probar")
-        return 1
     except OSError as exc:
         raise UserError(f"No se pudo iniciar la prueba de acceso: {exc}") from exc
 
-    output = f"{completed.stdout}\n{completed.stderr}"
-    if completed.returncode == 0 and "OFBACKUP_AUTH_OK" in output:
+    deadline = time.monotonic() + timeout
+    frames = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+    frame = 0
+    interactive = sys.stdout.isatty()
+    if not interactive:
+        print("Esperando respuesta (máximo 60 segundos)…")
+
+    while process.poll() is None and time.monotonic() < deadline:
+        if interactive:
+            remaining = max(0, int(deadline - time.monotonic()))
+            print(
+                f"\r{frames[frame % len(frames)]} Consultando… {remaining:02d}s ",
+                end="",
+                flush=True,
+            )
+            frame += 1
+        time.sleep(0.25)
+
+    if process.poll() is None:
+        process.terminate()
+        try:
+            stdout, stderr = process.communicate(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            stdout, stderr = process.communicate()
+        if interactive:
+            print("\r" + " " * 38 + "\r", end="", flush=True)
+        print(_status_text("\n✗ LA PRUEBA TARDÓ DEMASIADO", "red"))
+        print("La cookie sí está cargada, pero OnlyFans no respondió a tiempo.")
+        print("Comprueba Internet y vuelve a ejecutar: of probar")
+        return 1
+
+    stdout, stderr = process.communicate()
+    if interactive:
+        print("\r" + " " * 38 + "\r", end="", flush=True)
+    output = f"{stdout}\n{stderr}"
+    if process.returncode == 0 and "OFBACKUP_AUTH_OK" in output:
         print(_status_text("\n✓ COOKIE VÁLIDA", "green"))
         print("OnlyFans aceptó la sesión. OF Backup está listo para descargar.")
         return 0
@@ -461,8 +492,12 @@ def test_credentials(timeout: int = 60) -> int:
         return 1
 
     print(_status_text("\n✗ NO SE PUDO COMPROBAR LA COOKIE", "red"))
-    print("La prueba no recibió una respuesta válida. Comprueba Internet y")
-    print("ejecuta 'of diagnostico'. Después vuelve a intentar 'of probar'.")
+    error_type = "desconocido"
+    marker = "OFBACKUP_AUTH_ERROR:"
+    if marker in output:
+        error_type = output.split(marker, 1)[1].splitlines()[0].strip()
+    print(f"La cookie está cargada, pero falló el motor de prueba ({error_type}).")
+    print("Ejecuta 'of diagnostico' y vuelve a intentar 'of probar'.")
     return 1
 
 

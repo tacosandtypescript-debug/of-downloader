@@ -203,7 +203,9 @@ class ExecutableTests(unittest.TestCase):
 
 
 class AuthenticationTestTests(unittest.TestCase):
-    def run_test_with(self, completed):
+    def run_test_with(self, process):
+        process.poll.return_value = process.returncode
+        process.communicate.return_value = (process.stdout, process.stderr)
         with (
             mock.patch.object(ofbackup_cli, "require_credentials") as require,
             mock.patch.object(ofbackup_cli, "write_ofscraper_config") as write_config,
@@ -211,22 +213,20 @@ class AuthenticationTestTests(unittest.TestCase):
                 ofbackup_cli, "ofscraper_binary", return_value="ofscraper"
             ),
             mock.patch.object(
-                ofbackup_cli.subprocess, "run", return_value=completed
-            ) as run,
+                ofbackup_cli.subprocess, "Popen", return_value=process
+            ) as popen,
             mock.patch("builtins.print"),
         ):
             result = ofbackup_cli.test_credentials()
         require.assert_called_once_with()
         write_config.assert_called_once_with()
-        run.assert_called_once_with(
+        popen.assert_called_once_with(
             [ofbackup_cli.sys.executable, "-c", ofbackup_cli.AUTH_TEST_SCRIPT],
             stdout=ofbackup_cli.subprocess.PIPE,
             stderr=ofbackup_cli.subprocess.PIPE,
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=60,
-            check=False,
         )
         return result
 
@@ -243,6 +243,11 @@ class AuthenticationTestTests(unittest.TestCase):
         self.assertEqual(self.run_test_with(completed), 1)
 
     def test_timeout_returns_failure(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        process.communicate.side_effect = [
+            ("", ""),
+        ]
         with (
             mock.patch.object(ofbackup_cli, "require_credentials"),
             mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
@@ -251,12 +256,14 @@ class AuthenticationTestTests(unittest.TestCase):
             ),
             mock.patch.object(
                 ofbackup_cli.subprocess,
-                "run",
-                side_effect=ofbackup_cli.subprocess.TimeoutExpired("auth", 60),
+                "Popen",
+                return_value=process,
             ),
+            mock.patch.object(ofbackup_cli.time, "monotonic", side_effect=[0, 61, 61]),
             mock.patch("builtins.print"),
         ):
             self.assertEqual(ofbackup_cli.test_credentials(), 1)
+        process.terminate.assert_called_once_with()
 
 
 class DownloadTests(unittest.TestCase):
