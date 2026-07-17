@@ -5,6 +5,6 @@
   "scripts": {
     "test:extension": "node --test tests/test_extension.mjs",
     "prepare:chrome": "node scripts/prepare-chrome.mjs",
-    "build:chrome": "npm run prepare:chrome && npx --yes web-ext build --source-dir build/chrome --artifacts-dir artifacts --filename of_backup_exporter-chrome-1.0.0.zip --overwrite-dest"
+    "build:chrome": "npm run prepare:chrome && npx --yes web-ext build --source-dir build/chrome --artifacts-dir artifacts --filename of_downloader_exporter-chrome-1.0.1.zip --overwrite-dest"
   }
 }

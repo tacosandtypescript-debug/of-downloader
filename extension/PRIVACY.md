@@ -1,6 +1,6 @@
-# Política de privacidad de OF Backup Exporter
+# Política de privacidad de OF Downloader Exporter
 
-OF Backup Exporter procesa localmente cuatro datos de la sesión activa:
+OF Downloader Exporter procesa localmente cuatro datos de la sesión activa:
 `sess`, `auth_id`, `x-bc` y `User-Agent`.
 
 - No transmite datos a servidores propios ni de terceros.
@@ -10,6 +10,6 @@ OF Backup Exporter procesa localmente cuatro datos de la sesión activa:
 - Solo crea `OFBackup-auth.json` en la carpeta de descargas cuando el usuario
   pulsa expresamente el botón de exportación.
 
-El usuario debe importar el archivo en OF Backup y eliminarlo después. OF
-Backup intenta eliminarlo automáticamente cuando verifica que coincide con el
+El usuario debe importar el archivo en OF Downloader y eliminarlo después. OF
+Downloader intenta eliminarlo automáticamente cuando verifica que coincide con el
 archivo seleccionado.

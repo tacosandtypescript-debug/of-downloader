@@ -1,4 +1,4 @@
-# OF Backup Exporter
+# OF Downloader Exporter
 
 Extensión para Firefox Android y escritorio. Genera localmente
 `OFBackup-auth.json`, compatible con `of importar`.

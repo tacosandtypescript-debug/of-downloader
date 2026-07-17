@@ -1,4 +1,4 @@
-# OF Backup Exporter para Chrome
+# OF Downloader Exporter para Chrome
 
 Esta variante usa el mismo flujo local y el mismo formato
 `OFBackup-auth.json` que la extensión de Firefox.

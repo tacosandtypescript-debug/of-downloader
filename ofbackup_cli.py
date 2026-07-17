@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interfaz de terminal de OF Backup para Termux y Linux."""
+"""Interfaz de terminal de OF Downloader para Termux y Linux."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.3.3"
+APP_VERSION = "2.4.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -33,6 +33,7 @@ OFSCRAPER_DIR = HOME / ".config" / "ofscraper"
 OFSCRAPER_CONFIG_PATH = OFSCRAPER_DIR / "config.json"
 AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
 EXPORTED_AUTH_PATH = HOME / "storage" / "downloads" / AUTH_EXPORT_FILENAME
+DOWNLOAD_LOG_PATH = APP_DIR / "ultima-descarga.log"
 
 AUTH_TEST_SCRIPT = r"""
 import sys
@@ -97,7 +98,7 @@ def read_json(path: Path, default: dict | None = None) -> dict:
 
 def default_download_dir() -> Path:
     shared = HOME / "storage" / "downloads"
-    return (shared if shared.exists() else HOME) / "OFBackup"
+    return (shared if shared.exists() else HOME) / "OFDownloader"
 
 
 def get_state() -> dict:
@@ -189,7 +190,7 @@ def parse_auth_export(data: object) -> dict[str, str]:
     if not isinstance(data, dict):
         raise UserError("El archivo de acceso no contiene un objeto JSON.")
     if data.get("format") != AUTH_EXPORT_FORMAT:
-        raise UserError("El archivo no fue creado por OF Backup Exporter.")
+        raise UserError("El archivo no fue creado por OF Downloader Exporter.")
     if data.get("version") != AUTH_EXPORT_VERSION:
         raise UserError("La versión del archivo de acceso no es compatible.")
     created_at = data.get("created_at")
@@ -485,7 +486,7 @@ def test_credentials(timeout: int = 60) -> int:
     output = f"{stdout}\n{stderr}"
     if process.returncode == 0 and "OFBACKUP_AUTH_OK" in output:
         print(_status_text("\n✓ COOKIE VÁLIDA", "green"))
-        print("OnlyFans aceptó la sesión. OF Backup está listo para descargar.")
+        print("OnlyFans aceptó la sesión. OF Downloader está listo para descargar.")
         return 0
 
     if "OFBACKUP_AUTH_REJECTED" in output:
@@ -552,39 +553,89 @@ def ofscraper_environment() -> dict[str, str]:
     return environment
 
 
+def extract_download_percent(line: str) -> int | None:
+    matches = re.findall(r"(?<!\d)(\d{1,3})(?:\.\d+)?%", line)
+    if not matches:
+        return None
+    return min(100, max(0, int(matches[-1])))
+
+
+def show_download_progress(percent: int, label: str, *, failed: bool = False) -> None:
+    percent = min(100, max(0, percent))
+    width = 24
+    filled = percent * width // 100
+    bar = "#" * filled + "-" * (width - filled)
+    message = f"[{bar}] {percent:3d}%  {label}"
+    if sys.stdout.isatty():
+        color = "\033[31m" if failed else "\033[32m"
+        print(f"\r\033[2K{color}{message}\033[0m", end="", flush=True)
+    else:
+        print(message)
+
+
 def run_ofscraper(arguments: list[str]) -> int:
     require_credentials()
     write_ofscraper_config()
     executable = ofscraper_binary()
-    print("\nIniciando OF-Scraper…\n")
-    print("La comprobación inicial de video puede tardar hasta unos 12 segundos.\n")
+    print("\nOF Downloader está preparando la descarga…")
     traceback_seen = False
     auth_failed = False
+    progress = 3
+    last_stage = "Iniciando"
+    show_download_progress(progress, last_stage)
+    APP_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        process = subprocess.Popen(
-            build_ofscraper_command(executable, arguments),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-            env=ofscraper_environment(),
-        )
-        if process.stdout is None:  # pragma: no cover - garantía de subprocess
-            raise UserError("No se pudo leer la salida de OF-Scraper.")
-        for line in process.stdout:
-            print(line, end="", flush=True)
-            if "Traceback (most recent call last):" in line:
-                traceback_seen = True
-            if "Auth Failed" in line or "auth failed quitting on error" in line:
-                auth_failed = True
-        returncode = process.wait()
+        with DOWNLOAD_LOG_PATH.open("w", encoding="utf-8") as log_file:
+            _chmod(DOWNLOAD_LOG_PATH, 0o600)
+            process = subprocess.Popen(
+                build_ofscraper_command(executable, arguments),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+                env=ofscraper_environment(),
+            )
+            if process.stdout is None:  # pragma: no cover - garantía de subprocess
+                raise UserError("No se pudo leer la salida de OF-Scraper.")
+            for line in process.stdout:
+                log_file.write(line)
+                log_file.flush()
+                lowered = line.lower()
+                if "traceback (most recent call last):" in lowered:
+                    traceback_seen = True
+                if "auth failed" in lowered:
+                    auth_failed = True
+                if traceback_seen or auth_failed:
+                    process.terminate()
+                    break
+
+                reported = extract_download_percent(line)
+                if reported is not None:
+                    new_progress = max(progress, min(95, 35 + reported * 3 // 5))
+                    stage = "Descargando archivos"
+                elif "key mode:" in lowered:
+                    new_progress, stage = max(progress, 10), "Preparando video"
+                elif "checking auth status" in lowered:
+                    new_progress, stage = max(progress, 20), "Verificando acceso"
+                elif any(word in lowered for word in ("scrap", "timeline", "post")):
+                    new_progress, stage = max(progress, 35), "Buscando la publicación"
+                elif "download" in lowered:
+                    new_progress, stage = max(progress, 45), "Descargando archivos"
+                else:
+                    continue
+
+                if new_progress != progress or stage != last_stage:
+                    progress, last_stage = new_progress, stage
+                    show_download_progress(progress, last_stage)
+            returncode = process.wait()
     except OSError as exc:
         raise UserError(f"No se pudo iniciar OF-Scraper: {exc}") from exc
 
     if returncode or traceback_seen or auth_failed:
         shown_code = returncode or 1
+        show_download_progress(progress, "ERROR: descarga detenida", failed=True)
         print("\n✗ La descarga no se completó.")
         if auth_failed:
             print("OnlyFans rechazó los datos de acceso.")
@@ -593,9 +644,10 @@ def run_ofscraper(arguments: list[str]) -> int:
             print("OF-Scraper informó un error interno aunque devolvió código 0.")
         else:
             print(f"OF-Scraper terminó con código {returncode}.")
-        print("No se mostrará un éxito falso. Revisa el error que aparece arriba.")
+        print(f"Registro para revisar el error: {DOWNLOAD_LOG_PATH}")
         return shown_code
     else:
+        show_download_progress(100, "Descarga completada")
         print(f"\n✓ Descarga terminada. Archivos en: {get_state()['download_dir']}")
         return 0
 
@@ -656,7 +708,7 @@ def diagnostics() -> None:
     state = get_state()
     executable = find_ofscraper_binary()
     print("\nDIAGNÓSTICO")
-    print(f"OF Backup:       {APP_VERSION}")
+    print(f"OF Downloader:   {APP_VERSION}")
     print(f"Python:          {sys.version.split()[0]}")
     print(f"OF-Scraper:      {executable or 'NO ENCONTRADO'}")
     print(f"FFmpeg:          {shutil.which('ffmpeg') or 'NO ENCONTRADO'}")
@@ -703,7 +755,7 @@ def menu() -> int:
     while True:
         state = get_state()
         print("\n" + "═" * 46)
-        print("  OF BACKUP · TERMUX")
+        print("  OF DOWNLOADER · TERMUX")
         print("═" * 46)
         print("1. Descargar una publicación con un enlace")
         print("2. Descargar todo un usuario")

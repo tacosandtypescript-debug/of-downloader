@@ -245,7 +245,7 @@ class ToastManager:
 class ModernOFBackupApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("OF Backup")
+        self.title("OF Downloader")
         self.geometry("1220x760")
         self.minsize(980, 640)
         self.configure(fg_color=COLORS["bg"])
@@ -291,7 +291,7 @@ class ModernOFBackupApp(ctk.CTk):
 
         self.logo_label = ctk.CTkLabel(
             sidebar,
-            text="OF Backup",
+            text="OF Downloader",
             text_color=COLORS["accent_blue"],
             font=("Segoe UI Semibold", 30),
         )

@@ -1,6 +1,6 @@
-# OF Backup
+# OF Downloader
 
-OF Backup permite descargar y organizar contenido al que tu propia cuenta tenga
+OF Downloader permite descargar y organizar contenido al que tu propia cuenta tenga
 acceso. Incluye una interfaz gráfica para Windows/Linux de escritorio y un menú
 interactivo para Termux.
 
@@ -95,12 +95,12 @@ El nombre anterior `ofbackup` sigue funcionando para mantener compatibilidad.
 
 ### Conectar la cuenta desde Firefox Android o Chrome PC
 
-OF Backup 2.2.0 incorpora **OF Backup Exporter**, una extensión situada en la
+OF Downloader incorpora **OF Downloader Exporter**, una extensión situada en la
 carpeta `extension/` y preparada para Firefox Android y escritorio. El flujo es:
 
 1. Instala una copia firmada de la extensión en Firefox.
 2. Abre OnlyFans, inicia sesión y recarga la página.
-3. Abre la extensión y pulsa **Exportar para OF Backup**.
+3. Abre la extensión y pulsa **Exportar para OF Downloader**.
 4. En Termux ejecuta `of importar` o usa la opción **Conectar mi cuenta**.
 5. Elige `OFBackup-auth.json` con el selector Android.
 6. Ejecuta `of probar` para confirmar la sesión sin descargar contenido.
@@ -121,7 +121,7 @@ script, y la aplicación complementaria **Termux:API**. Termux y Termux:API debe
 proceder de la misma fuente; no mezcles instalaciones de F-Droid y GitHub.
 
 La extensión crea el archivo localmente y no utiliza Google Drive, servidores,
-telemetría ni portapapeles. OF Backup valida el archivo, conserva únicamente
+telemetría ni portapapeles. OF Downloader valida el archivo, conserva únicamente
 `sess`, `auth_id`, `x-bc` y `User-Agent`, y compara su huella SHA-256 antes de
 eliminar de Descargas el original. La copia temporal privada siempre se elimina.
 
@@ -139,7 +139,7 @@ La Cookie normal se solicita mediante una entrada oculta y no aparece en el
 historial del terminal. Los archivos de autenticación se guardan con permisos
 `0600`.
 
-Las descargas se guardan por defecto en `Descargas/OFBackup`. Desde el menú se
+Las descargas se guardan por defecto en `Descargas/OFDownloader`. Desde el menú se
 puede elegir otra carpeta.
 
 ### Error `Python.h: No such file or directory`
@@ -160,7 +160,7 @@ repara el entorno existente y continúa desde donde quedó.
 
 ### Error `getattr() takes 1 positional argument but 2 were given`
 
-OF Backup 2.1.3 incluye una compatibilidad para este fallo de configuración de
+OF Downloader incluye una compatibilidad para este fallo de configuración de
 OF-Scraper 3.14.7. Actualiza el repositorio y vuelve a ejecutar el instalador:
 
 ```bash
@@ -177,9 +177,9 @@ fallo interno.
 ### Mensaje `Auth Failed`
 
 `sess`, `auth_id`, `x-bc` y `User-Agent` deben proceder de la misma sesión del
-navegador. No sirve un User-Agent aproximado. OF Backup 2.1.4 también acepta el
+navegador. No sirve un User-Agent aproximado. OF Downloader también acepta el
 JSON completo generado por OnlyFans-Cookie-Helper y extrae esos cuatro campos.
-Si OnlyFans rechaza el acceso, OF Backup termina con un mensaje claro en vez de
+Si OnlyFans rechaza el acceso, OF Downloader termina con un mensaje claro en vez de
 abrir el menú interno de navegadores de OF-Scraper.
 
 ## Windows o Linux de escritorio

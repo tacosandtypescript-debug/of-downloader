@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "OF Backup Exporter",
-  "version": "1.0.0",
-  "description": "Exporta localmente los datos necesarios para conectar OF Backup.",
+  "name": "OF Downloader Exporter",
+  "version": "1.0.1",
+  "description": "Exporta localmente los datos necesarios para conectar OF Downloader.",
   "icons": {
     "48": "icons/of-backup.svg",
     "96": "icons/of-backup.svg"
@@ -17,7 +17,7 @@
     "https://*.onlyfans.com/*"
   ],
   "action": {
-    "default_title": "OF Backup Exporter",
+    "default_title": "OF Downloader Exporter",
     "default_icon": "icons/of-backup.svg",
     "default_popup": "popup/exporter.html"
   },

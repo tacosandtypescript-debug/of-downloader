@@ -145,7 +145,7 @@ prepare_ofbackup_files() {
 install_ofbackup_commands() {
     install -m 755 "$SOURCE_DIR/ofbackup" "$PREFIX/bin/of"
     install -m 755 "$SOURCE_DIR/ofbackup" "$PREFIX/bin/ofbackup"
-    mkdir -p "$HOME/storage/downloads/OFBackup" 2>/dev/null || mkdir -p "$HOME/OFBackup"
+    mkdir -p "$HOME/storage/downloads/OFDownloader" 2>/dev/null || mkdir -p "$HOME/OFDownloader"
 }
 
 trap interrupt_install INT TERM
@@ -210,9 +210,9 @@ run_task 48 77 "Preparando Python 3.13, FFmpeg y librerías" \
     python3 -c "import sys; assert (3, 11) <= sys.version_info[:2] < (3, 14), sys.version"
 '
 
-run_task 77 80 "Copiando archivos de OF Backup" prepare_ofbackup_files
+run_task 77 80 "Copiando archivos de OF Downloader" prepare_ofbackup_files
 
-run_task 80 94 "Instalando OF Backup y OF-Scraper" \
+run_task 80 94 "Instalando OF Downloader y OF-Scraper" \
     proot-distro login --shared-home "$CONTAINER" -- bash -lc '
     set -e
     cd /root/.local/share/ofbackup

@@ -56,7 +56,7 @@ test("Chrome manifest stays private and limited to OnlyFans", async () => {
     await readFile(new URL("../chrome/manifest.json", import.meta.url), "utf8")
   );
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, "1.0.0");
+  assert.equal(manifest.version, "1.0.1");
   assert.equal("browser_specific_settings" in manifest, false);
   assert.deepEqual(manifest.permissions, ["activeTab", "cookies", "downloads"]);
   assert.deepEqual(manifest.host_permissions, [

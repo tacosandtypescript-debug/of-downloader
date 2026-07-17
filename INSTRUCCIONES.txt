@@ -1,5 +1,5 @@
 ========================================
-        OF BACKUP 2.0 - INSTRUCCIONES
+        OF DOWNLOADER - INSTRUCCIONES
 ========================================
 
 IMPORTANTE
@@ -41,7 +41,7 @@ of importar ~/storage/downloads/OFBackup-auth.json
 
 Elige OFBackup-auth.json en el selector Android. Este selector requiere el
 paquete y la aplicación Termux:API; la aplicación debe proceder de la misma
-fuente que Termux. OF Backup conserva solo sess, auth_id, x-bc y User-Agent.
+fuente que Termux. OF Downloader conserva solo sess, auth_id, x-bc y User-Agent.
 
 También puedes pegar el JSON entero, aunque ocupe varias líneas. Si solo pegas
 cookies, después se solicitarán x-bc y User-Agent.
@@ -67,6 +67,6 @@ SEGURIDAD
 - No publiques config.json, auth.json ni OFBackup-auth.json.
 - No envíes capturas que muestren sess, auth_id o x-bc.
 - Renueva las credenciales si sospechas que alguien pudo copiarlas.
-- Las descargas se guardan por defecto en Descargas/OFBackup en Android.
+- Las descargas se guardan por defecto en Descargas/OFDownloader en Android.
 
 Consulta README.md para ver todos los comandos y detalles.

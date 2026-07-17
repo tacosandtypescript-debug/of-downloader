@@ -281,6 +281,10 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(environment["OFSC_CDM_TEST_TIMEOUT"], "8")
         self.assertEqual(environment["OFSC_CDM_TEST_NUM_TRIES"], "1")
 
+    def test_extracts_real_download_percentage(self):
+        self.assertEqual(ofbackup_cli.extract_download_percent("Video 73.8%"), 73)
+        self.assertIsNone(ofbackup_cli.extract_download_percent("sin porcentaje"))
+
     def test_traceback_is_failure_even_with_zero_exit_code(self):
         process = mock.Mock()
         process.stdout = io.StringIO(
@@ -288,9 +292,13 @@ class DownloadTests(unittest.TestCase):
         )
         process.wait.return_value = 0
         with (
+            tempfile.TemporaryDirectory() as temporary,
             mock.patch.object(ofbackup_cli, "require_credentials"),
             mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
             mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli, "DOWNLOAD_LOG_PATH", Path(temporary) / "download.log"
+            ),
             mock.patch.object(
                 ofbackup_cli.subprocess, "Popen", return_value=process
             ) as popen,
@@ -313,9 +321,13 @@ class DownloadTests(unittest.TestCase):
         process.stdout = io.StringIO("Auth Failed\nauth failed quitting on error\n")
         process.wait.return_value = 0
         with (
+            tempfile.TemporaryDirectory() as temporary,
             mock.patch.object(ofbackup_cli, "require_credentials"),
             mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
             mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli, "DOWNLOAD_LOG_PATH", Path(temporary) / "download.log"
+            ),
             mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
             mock.patch("builtins.print"),
         ):
