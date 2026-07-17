@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/of-downloader"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/of-downloader"
+
+if command -v xdg-user-dir >/dev/null 2>&1; then
+    DOWNLOAD_ROOT="$(xdg-user-dir DOWNLOAD 2>/dev/null || true)"
+fi
+DOWNLOAD_ROOT="${DOWNLOAD_ROOT:-$HOME/Downloads}"
+
+export OFDOWNLOADER_DATA_DIR="$CONFIG_DIR"
+export OFDOWNLOADER_DOWNLOAD_DIR="$DOWNLOAD_ROOT/OFDownloader"
+
+PYTHON="$APP_DIR/.venv/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+    echo "OF Downloader no está instalado correctamente."
+    echo "Vuelve a ejecutar instalar-linux.sh desde el repositorio."
+    exit 1
+fi
+
+exec "$PYTHON" "$APP_DIR/app.py" "$@"

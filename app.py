@@ -27,10 +27,12 @@ except ImportError:
 
 
 BASE_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = BASE_DIR / "config.json"
-LOG_PATH = BASE_DIR / "ultimo_log.txt"
-IMAGES_DIR = BASE_DIR / "Images"
-VIDEOS_DIR = BASE_DIR / "Videos"
+DATA_DIR = Path(os.getenv("OFDOWNLOADER_DATA_DIR", str(BASE_DIR))).expanduser()
+DOWNLOAD_DIR = Path(os.getenv("OFDOWNLOADER_DOWNLOAD_DIR", str(BASE_DIR))).expanduser()
+CONFIG_PATH = DATA_DIR / "config.json"
+LOG_PATH = DATA_DIR / "ultimo_log.txt"
+IMAGES_DIR = DOWNLOAD_DIR / "Images"
+VIDEOS_DIR = DOWNLOAD_DIR / "Videos"
 
 COLORS = {
     "bg": "#0d0d0d",
@@ -65,12 +67,17 @@ def append_log(message: str) -> None:
 
 
 def ensure_workspace() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        DATA_DIR.chmod(0o700)
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     if not CONFIG_PATH.exists():
         CONFIG_PATH.write_text(
             json.dumps(DEFAULT_CONFIG, indent=4, ensure_ascii=False), encoding="utf-8"
         )
+        if os.name != "nt":
+            CONFIG_PATH.chmod(0o600)
     if not LOG_PATH.exists():
         LOG_PATH.write_text("", encoding="utf-8")
 
@@ -87,6 +94,8 @@ def save_config(data: dict) -> None:
     CONFIG_PATH.write_text(
         json.dumps(data, indent=4, ensure_ascii=False), encoding="utf-8"
     )
+    if os.name != "nt":
+        CONFIG_PATH.chmod(0o600)
 
 
 def _ofscraper_home() -> Path:
@@ -131,7 +140,7 @@ def write_ofscraper_config() -> None:
         data = {"main_profile": "main_profile"}
 
     file_options = data.setdefault("file_options", {})
-    file_options["save_location"] = str(BASE_DIR)
+    file_options["save_location"] = str(DOWNLOAD_DIR)
     file_options["dir_format"] = "{mediatype}/"
     file_options["file_format"] = "{date}_{post_id}_{media_id}.{ext}"
     file_options["date"] = "YYYY-MM-DD"

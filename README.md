@@ -3,13 +3,15 @@
 </p>
 
 <p align="center">
-  <strong>Descarga publicaciones permitidas por tu cuenta desde un menú sencillo en Termux.</strong>
+  <strong>Una interfaz sencilla para Linux y Termux que organiza el contenido permitido por tu cuenta.</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip"><strong>Descargar extensión para Chrome</strong></a>
+  <a href="#instalar-of-downloader-en-linux"><strong>Instalar en Linux</strong></a>
   ·
   <a href="#instalar-of-downloader-en-termux">Instalar en Termux</a>
+  ·
+  <a href="https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip">Extensión para Chrome</a>
   ·
   <a href="#usar-la-extensión-y-cargar-el-acceso">Cargar el acceso</a>
 </p>
@@ -31,6 +33,50 @@ servicio, los derechos de los creadores y la legislación aplicable.
 - Comprobación de la sesión sin descargar contenido.
 - Barra de progreso compacta y registro de errores privado.
 - Interfaz adicional para Windows y Linux de escritorio.
+
+## Elige dónde quieres usarlo
+
+| Equipo | Instalación | Cómo se abre |
+| --- | --- | --- |
+| **Linux de escritorio** | [`instalar-linux.sh`](#instalar-of-downloader-en-linux) | Menú de aplicaciones o `of-downloader` |
+| **Android con Termux** | [`instalar-termux.sh`](#instalar-of-downloader-en-termux) | Comando `of` |
+| **Chrome o Chromium en PC** | [Descargar extensión](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip) | Icono de extensiones |
+| **Windows** | `iniciar.bat` | Ventana de OF Downloader |
+
+## Instalar OF Downloader en Linux
+
+### Enlace del repositorio
+
+### [Abrir OF Downloader para instalarlo en Linux](https://github.com/tacosandtypescript-debug/of-downloader#instalar-of-downloader-en-linux)
+
+Como el repositorio es privado, primero inicia sesión con GitHub CLI. Después
+copia este bloque completo en la terminal:
+
+```bash
+sudo apt update && sudo apt install -y git gh
+gh auth login
+gh repo clone tacosandtypescript-debug/of-downloader
+cd of-downloader
+bash instalar-linux.sh
+```
+
+El instalador comprueba Python, tkinter y FFmpeg, instala el motor en una carpeta
+privada y crea dos accesos:
+
+- **OF Downloader** en el menú de aplicaciones de Linux.
+- `of-downloader` en `~/.local/bin` para abrirlo desde una terminal.
+
+Puede tardar varios minutos. Si encuentra un error se detiene y deja el detalle
+en `/tmp/of-downloader-instalacion.log`.
+
+Las descargas quedan en `~/Downloads/OFDownloader` y la configuración privada en
+`~/.config/of-downloader`. Para actualizar una instalación existente:
+
+```bash
+cd ~/of-downloader
+git pull --ff-only
+bash instalar-linux.sh
+```
 
 ## Guía rápida
 
@@ -271,12 +317,12 @@ El detalle de la última descarga queda en:
 - Elimina el JSON exportado después de importarlo.
 - Revisa la [política de privacidad de la extensión](extension/PRIVACY.md).
 
-## Windows y Linux de escritorio
+## Windows de escritorio
 
 Se requiere Python 3.11, 3.12 o 3.13.
 
-- Windows: ejecuta `iniciar.bat`.
-- Linux: ejecuta `bash iniciar.sh`.
+Ejecuta `iniciar.bat`. En Linux usa el instalador explicado al principio de esta
+guía para que se creen correctamente el comando y el acceso del menú.
 
 ## Desarrollo
 
