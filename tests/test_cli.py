@@ -92,6 +92,23 @@ class JsonTests(unittest.TestCase):
             )
 
 
+class ThemeTests(unittest.TestCase):
+    def test_plain_text_is_kept_when_colors_are_not_supported(self):
+        output = io.StringIO()
+        with mock.patch.object(ofbackup_cli.sys, "stdout", output):
+            self.assertEqual(ofbackup_cli.styled("OF Downloader", "cyan"), "OF Downloader")
+
+    def test_color_theme_uses_truecolor_when_available(self):
+        output = mock.Mock()
+        output.isatty.return_value = True
+        with (
+            mock.patch.object(ofbackup_cli.sys, "stdout", output),
+            mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True),
+        ):
+            value = ofbackup_cli.styled("OF Downloader", "cyan", bold=True)
+        self.assertIn("38;2;0;175;240", value)
+
+
 class AuthImportTests(unittest.TestCase):
     def export_data(self):
         return {

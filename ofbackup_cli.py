@@ -17,7 +17,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.4.0"
+APP_VERSION = "2.5.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -418,10 +418,35 @@ def require_credentials() -> None:
 
 
 def _status_text(message: str, color: str) -> str:
-    if not sys.stdout.isatty():
+    return styled(message, color)
+
+
+PALETTE = {
+    "cyan": "38;2;0;175;240",
+    "blue": "38;2;0;140;207",
+    "navy": "38;2;0;92;143",
+    "white": "38;2;245;250;255",
+    "muted": "38;2;148;180;200",
+    "green": "38;2;32;213;166",
+    "yellow": "38;2;255;200;87",
+    "red": "38;2;255;77;103",
+}
+
+
+def colors_enabled() -> bool:
+    return sys.stdout.isatty() and "NO_COLOR" not in os.environ
+
+
+def styled(message: str, color: str = "white", *, bold: bool = False) -> str:
+    if not colors_enabled():
         return message
-    colors = {"green": "\033[32m", "red": "\033[31m", "yellow": "\033[33m"}
-    return f"{colors[color]}{message}\033[0m"
+    weight = "1;" if bold else ""
+    return f"\033[{weight}{PALETTE[color]}m{message}\033[0m"
+
+
+def menu_option(number: str, label: str) -> None:
+    badge = styled(f"[{number}]", "cyan", bold=True)
+    print(f"  {badge} {styled(label, 'white')}")
 
 
 def test_credentials(timeout: int = 60) -> int:
@@ -566,9 +591,9 @@ def show_download_progress(percent: int, label: str, *, failed: bool = False) ->
     filled = percent * width // 100
     bar = "#" * filled + "-" * (width - filled)
     message = f"[{bar}] {percent:3d}%  {label}"
-    if sys.stdout.isatty():
-        color = "\033[31m" if failed else "\033[32m"
-        print(f"\r\033[2K{color}{message}\033[0m", end="", flush=True)
+    if colors_enabled():
+        color = PALETTE["red" if failed else "cyan"]
+        print(f"\r\033[2K\033[1;{color}m{message}\033[0m", end="", flush=True)
     else:
         print(message)
 
@@ -746,7 +771,7 @@ def update_engine() -> int:
 
 def pause() -> None:
     try:
-        input("\nPulsa Enter para volver al menú…")
+        input(styled("\nPulsa Enter para volver al menú…", "muted"))
     except EOFError:
         pass
 
@@ -754,19 +779,45 @@ def pause() -> None:
 def menu() -> int:
     while True:
         state = get_state()
-        print("\n" + "═" * 46)
-        print("  OF DOWNLOADER · TERMUX")
-        print("═" * 46)
-        print("1. Descargar una publicación con un enlace")
-        print("2. Descargar todo un usuario")
-        print("3. Conectar mi cuenta o renovar el acceso")
-        print("4. Cambiar carpeta de descargas")
-        print("5. Ver diagnóstico")
-        print("6. Actualizar motor de descarga")
-        print("7. Probar si la cookie funciona")
-        print("0. Salir")
-        print(f"\nDestino: {state['download_dir']}")
-        choice = input("\nElige una opción: ").strip()
+        connected = credentials_ready()
+        if sys.stdout.isatty():
+            print("\033[2J\033[H", end="")
+        print()
+        print(styled("╭" + "─" * 44 + "╮", "cyan", bold=True))
+        print(
+            styled("│", "cyan", bold=True)
+            + styled("       OF DOWNLOADER", "cyan", bold=True)
+            + styled(f"  v{APP_VERSION}".ljust(24), "muted")
+            + styled("│", "cyan", bold=True)
+        )
+        print(
+            styled("│", "cyan", bold=True)
+            + styled("       Descargas simples · Termux".ljust(44), "muted")
+            + styled("│", "cyan", bold=True)
+        )
+        print(styled("╰" + "─" * 44 + "╯", "cyan", bold=True))
+
+        print(styled("\n  DESCARGAS", "blue", bold=True))
+        menu_option("1", "Descargar una publicación con un enlace")
+        menu_option("2", "Descargar todo un usuario")
+
+        print(styled("\n  MI CUENTA", "blue", bold=True))
+        menu_option("3", "Conectar o renovar el acceso")
+        menu_option("7", "Probar si la cookie funciona")
+
+        print(styled("\n  HERRAMIENTAS", "blue", bold=True))
+        menu_option("4", "Cambiar carpeta de descargas")
+        menu_option("5", "Ver diagnóstico")
+        menu_option("6", "Actualizar motor de descarga")
+        menu_option("0", "Salir")
+
+        status = styled("● CONECTADA", "green", bold=True) if connected else styled(
+            "● SIN CONECTAR", "yellow", bold=True
+        )
+        print(styled("\n  " + "─" * 42, "navy"))
+        print(f"  {styled('Cuenta:', 'muted')} {status}")
+        print(f"  {styled('Destino:', 'muted')} {styled(state['download_dir'], 'white')}")
+        choice = input(styled("\n  Elige una opción › ", "cyan", bold=True)).strip()
         try:
             if choice == "1":
                 download_link()
@@ -787,12 +838,12 @@ def menu() -> int:
                 if result == IMPORT_REQUEST_EXIT:
                     return IMPORT_REQUEST_EXIT
             elif choice == "0":
-                print("Hasta luego.")
+                print(styled("\nHasta luego.", "cyan", bold=True))
                 return 0
             else:
-                print("Opción no válida.")
+                print(_status_text("Opción no válida.", "yellow"))
         except UserError as exc:
-            print(f"\n✗ {exc}")
+            print(_status_text(f"\n✗ {exc}", "red"))
         except KeyboardInterrupt:
             print("\nOperación cancelada.")
         pause()
