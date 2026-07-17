@@ -5,7 +5,7 @@ comando `of importar` de OF Downloader.
 
 ## Descargar
 
-[⬇️ Descargar la versión preparada para Chrome](https://github.com/tacosandtypescript-debug/respaldo_of/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip)
+[⬇️ Descargar la versión preparada para Chrome](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip)
 
 El repositorio es privado: GitHub solicitará iniciar sesión.
 

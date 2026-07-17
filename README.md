@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacosandtypescript-debug/respaldo_of/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip"><strong>Descargar extensión para Chrome</strong></a>
+  <a href="https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip"><strong>Descargar extensión para Chrome</strong></a>
   ·
   <a href="#instalar-of-downloader-en-termux">Instalar en Termux</a>
   ·
@@ -56,7 +56,7 @@ que descomprimirla y usar **Cargar descomprimida**. Esto se hace una sola vez.
 
 Pulsa el botón y guarda el ZIP:
 
-### [⬇️ Descargar OF Downloader Exporter para Chrome](https://github.com/tacosandtypescript-debug/respaldo_of/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip)
+### [⬇️ Descargar OF Downloader Exporter para Chrome](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip)
 
 ### 2. Descomprimir
 
@@ -143,8 +143,8 @@ No uses la antigua versión de Termux de Google Play.
 ```bash
 pkg update -y && pkg install -y git gh
 gh auth login
-gh repo clone tacosandtypescript-debug/respaldo_of
-cd respaldo_of
+gh repo clone tacosandtypescript-debug/of-downloader
+cd of-downloader
 bash instalar-termux.sh
 ```
 
@@ -158,7 +158,7 @@ tail -n 30 ~/ofbackup-instalacion.log
 ### Actualizar sin reinstalar todo
 
 ```bash
-cd ~/respaldo_of
+cd ~/of-downloader
 git pull
 install -m 600 ofbackup_cli.py ~/.local/share/ofbackup/ofbackup_cli.py
 install -m 755 ofbackup $PREFIX/bin/of
