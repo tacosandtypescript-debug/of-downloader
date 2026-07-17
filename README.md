@@ -113,7 +113,7 @@ npm run build:chrome
 
 El comando crea `build/chrome`, que puede cargarse desde `chrome://extensions`
 con **Modo de desarrollador > Cargar descomprimida**, y también crea
-`artifacts/of_backup_exporter-chrome-1.0.0.zip`. Firefox y Chrome producen el
+`artifacts/of_downloader_exporter-chrome-1.0.1.zip`. Firefox y Chrome producen el
 mismo archivo compatible con `of importar`.
 
 El selector necesita dos componentes: el paquete `termux-api`, instalado por el

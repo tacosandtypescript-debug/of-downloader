@@ -196,7 +196,7 @@ class ThumbnailCache:
 
 
 class ToastManager:
-    def __init__(self, root: "ModernOFBackupApp"):
+    def __init__(self, root: "ModernOFDownloaderApp"):
         self.root = root
         self.toasts: list[ctk.CTkToplevel] = []
 
@@ -242,7 +242,7 @@ class ToastManager:
         toast.after(3000, close)
 
 
-class ModernOFBackupApp(ctk.CTk):
+class ModernOFDownloaderApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("OF Downloader")
@@ -1101,7 +1101,7 @@ class ModernOFBackupApp(ctk.CTk):
 
 def measure_startup_seconds() -> float:
     start = time.perf_counter()
-    app = ModernOFBackupApp()
+    app = ModernOFDownloaderApp()
     app.update_idletasks()
     elapsed = time.perf_counter() - start
     app.destroy()
@@ -1128,7 +1128,7 @@ def main() -> int:
         append_log(msg)
         return 0
 
-    app = ModernOFBackupApp()
+    app = ModernOFDownloaderApp()
     app.mainloop()
     return 0
 
