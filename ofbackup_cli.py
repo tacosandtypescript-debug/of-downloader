@@ -17,7 +17,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.6.3"
+APP_VERSION = "2.6.4"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -465,16 +465,9 @@ def menu_banner_line(message: str, color: str = "cyan", *, bold: bool = False) -
 
 
 def menu_brand_line(label: str, logo_line: str) -> None:
-    """Combina texto a la izquierda y el emblema azul a la derecha."""
-    left = f"  {label}".ljust(31)
-    right = f"{logo_line:>11}  "
-    border = styled("│", "cyan", bold=True)
-    print(
-        border
-        + styled(left, "white", bold=bool(label))
-        + styled(right, "blue", bold=True)
-        + border
-    )
+    """Deja espacio extra al emblema para fuentes Android de ancho doble."""
+    left = f"  {label}".ljust(20)
+    print(styled(left, "white", bold=bool(label)) + styled(logo_line, "blue", bold=True))
 
 
 def repository_update_badge(status: str | None = None) -> str:
@@ -822,7 +815,6 @@ def menu() -> int:
         if sys.stdout.isatty():
             print("\033[2J\033[H", end="")
         print()
-        print(styled("╭" + "─" * 44 + "╮", "cyan", bold=True))
         brand_labels = (
             "OF DOWNLOADER",
             f"TERMUX · v{APP_VERSION}",
@@ -831,7 +823,7 @@ def menu() -> int:
         )
         for label, logo_line in zip(brand_labels, MENU_LOGO_LINES):
             menu_brand_line(label, logo_line)
-        print(styled("╰" + "─" * 44 + "╯", "cyan", bold=True))
+        print(styled("  " + "─" * 42, "navy"))
 
         print(styled("\n  DESCARGAS", "blue", bold=True))
         menu_option("1", "Descargar una publicación con un enlace")
