@@ -5,7 +5,7 @@ comando `of importar` de OF Downloader.
 
 ## Descargar
 
-[⬇️ Descargar la versión preparada para Chrome](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip)
+[⬇️ Descargar la versión preparada para Chrome](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip)
 
 El repositorio es privado: GitHub solicitará iniciar sesión.
 
@@ -16,6 +16,33 @@ El repositorio es privado: GitHub solicitará iniciar sesión.
 3. Activa **Modo de desarrollador**.
 4. Pulsa **Cargar descomprimida**.
 5. Elige la carpeta que contiene `manifest.json`.
+
+No cargues directamente la carpeta `chrome/` del repositorio: es una plantilla
+parcial usada durante la construcción. La carpeta correcta contiene
+`manifest.json`, `popup/`, `lib/`, `content/` e `icons/` al mismo nivel.
+
+### Linux: preparación automática
+
+Desde el repositorio ejecuta:
+
+```bash
+bash scripts/instalar-extension-linux.sh
+```
+
+Después selecciona `~/OFDownloader-Extension` mediante **Cargar descomprimida**.
+
+Si utilizas Chromium sustituye `chrome://extensions` por
+`chromium://extensions`. La versión 1.0.2 ya no exige Chrome 122, por lo que
+funciona también con versiones anteriores que admitan Manifest V3.
+
+### Errores habituales
+
+- **Manifest file is missing or unreadable:** seleccionaste el ZIP, la carpeta
+  exterior equivocada o `chrome/`. Elige la carpeta que contiene `manifest.json`.
+- **No se pudo cargar el icono o el popup:** el paquete está incompleto; vuelve
+  a ejecutar el instalador de Linux.
+- **La extensión abre pero no exporta:** abre OnlyFans, inicia sesión, recarga la
+  pestaña y vuelve a pulsar **Exportar**.
 
 Chrome para Android no admite extensiones locales. La exportación debe hacerse
 desde Chrome en un PC.

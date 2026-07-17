@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip"><strong>Descargar extensión para Chrome</strong></a>
+  <a href="https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip"><strong>Descargar extensión para Chrome</strong></a>
   ·
   <a href="#instalar-of-downloader-en-termux">Instalar en Termux</a>
   ·
@@ -56,7 +56,7 @@ que descomprimirla y usar **Cargar descomprimida**. Esto se hace una sola vez.
 
 Pulsa el botón y guarda el ZIP:
 
-### [⬇️ Descargar OF Downloader Exporter para Chrome](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip)
+### [⬇️ Descargar OF Downloader Exporter para Chrome](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip)
 
 ### 2. Descomprimir
 
@@ -74,6 +74,24 @@ En Windows:
 3. Pulsa **Cargar descomprimida**.
 4. Selecciona la carpeta que contiene `manifest.json`.
 5. Fija **OF Downloader Exporter** desde el icono de extensiones de Chrome.
+
+> [!WARNING]
+> No selecciones la carpeta `chrome/` del código fuente: contiene solamente
+> archivos de construcción y no es una extensión completa. Selecciona la carpeta
+> extraída del ZIP, donde aparecen juntos `manifest.json`, `popup`, `lib`,
+> `content` e `icons`.
+
+### Instalación asistida en Linux
+
+Desde la carpeta clonada del repositorio ejecuta:
+
+```bash
+bash scripts/instalar-extension-linux.sh
+```
+
+El script descarga la publicación privada, la descomprime en
+`~/OFDownloader-Extension`, comprueba que no falten archivos y muestra la ruta
+exacta que debes elegir en `chrome://extensions` o `chromium://extensions`.
 
 Cuando el repositorio publique una versión nueva, descarga el ZIP nuevo,
 reemplaza la carpeta anterior y pulsa **Actualizar** en `chrome://extensions`.

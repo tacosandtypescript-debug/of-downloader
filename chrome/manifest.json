@@ -1,8 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OF Downloader Exporter",
-  "version": "1.0.1",
-  "minimum_chrome_version": "122",
+  "version": "1.0.2",
   "description": "Exporta localmente los datos necesarios para conectar OF Downloader.",
   "icons": {
     "16": "icons/of-backup-16.png",
