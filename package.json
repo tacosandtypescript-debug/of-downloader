@@ -1,0 +1,8 @@
+{
+  "name": "of-backup-project-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:extension": "node --test tests/test_extension.mjs"
+  }
+}

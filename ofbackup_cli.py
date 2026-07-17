@@ -4,19 +4,26 @@
 from __future__ import annotations
 
 import getpass
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.1.5"
+APP_VERSION = "2.2.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
+AUTH_EXPORT_FORMAT = "ofbackup-auth"
+AUTH_EXPORT_VERSION = 1
+AUTH_EXPORT_FILENAME = "OFBackup-auth.json"
+MAX_AUTH_EXPORT_SIZE = 64 * 1024
+IMPORT_REQUEST_EXIT = 42
 
 HOME = Path.home()
 APP_DIR = HOME / ".config" / "ofbackup"
@@ -24,6 +31,7 @@ STATE_PATH = APP_DIR / "settings.json"
 OFSCRAPER_DIR = HOME / ".config" / "ofscraper"
 OFSCRAPER_CONFIG_PATH = OFSCRAPER_DIR / "config.json"
 AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
+EXPORTED_AUTH_PATH = HOME / "storage" / "downloads" / AUTH_EXPORT_FILENAME
 
 
 class UserError(RuntimeError):
@@ -138,6 +146,118 @@ def parse_cookie_header(raw: str) -> dict[str, str]:
     return values
 
 
+def _clean_auth_value(name: str, value: object, max_length: int) -> str:
+    if not isinstance(value, str):
+        raise UserError(f"El campo {name} no es texto.")
+    value = value.strip()
+    if not value:
+        raise UserError(f"Falta el campo {name}.")
+    if len(value) > max_length or any(ord(char) < 32 for char in value):
+        raise UserError(f"El campo {name} no tiene un formato válido.")
+    return value
+
+
+def parse_auth_export(data: object) -> dict[str, str]:
+    if not isinstance(data, dict):
+        raise UserError("El archivo de acceso no contiene un objeto JSON.")
+    if data.get("format") != AUTH_EXPORT_FORMAT:
+        raise UserError("El archivo no fue creado por OF Backup Exporter.")
+    if data.get("version") != AUTH_EXPORT_VERSION:
+        raise UserError("La versión del archivo de acceso no es compatible.")
+    created_at = data.get("created_at")
+    if not isinstance(created_at, str) or len(created_at) > 64:
+        raise UserError("El archivo no contiene una fecha de creación válida.")
+    try:
+        datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise UserError("La fecha de creación del archivo no es válida.") from exc
+    auth = data.get("auth")
+    if not isinstance(auth, dict):
+        raise UserError("El archivo no contiene la sección auth.")
+
+    values = {
+        "sess": _clean_auth_value("sess", auth.get("sess"), 4096),
+        "auth_id": _clean_auth_value("auth_id", auth.get("auth_id"), 32),
+        "x-bc": _clean_auth_value("x-bc", auth.get("x-bc"), 512),
+        "user_agent": _clean_auth_value(
+            "user_agent", auth.get("user_agent"), 1024
+        ),
+    }
+    if not values["auth_id"].isdigit():
+        raise UserError("auth_id debe contener únicamente números.")
+    return values
+
+
+def load_auth_export(path: Path) -> tuple[dict[str, str], str]:
+    path = path.expanduser()
+    try:
+        if not path.is_file():
+            raise UserError("El archivo seleccionado no existe.")
+        size = path.stat().st_size
+        if size <= 0 or size > MAX_AUTH_EXPORT_SIZE:
+            raise UserError("El archivo seleccionado está vacío o es demasiado grande.")
+        raw = path.read_bytes()
+        data = json.loads(raw.decode("utf-8"))
+    except UserError:
+        raise
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise UserError(f"No se pudo leer el archivo de acceso: {exc}") from exc
+    return parse_auth_export(data), hashlib.sha256(raw).hexdigest()
+
+
+def credentials_payload(values: dict[str, str]) -> dict[str, str]:
+    return {
+        "sess": values["sess"],
+        "auth_id": values["auth_id"],
+        "auth_uid": "",
+        "user_agent": values["user_agent"],
+        "x-bc": values["x-bc"],
+        "app-token": DEFAULT_APP_TOKEN,
+    }
+
+
+def save_credentials(values: dict[str, str], username: str = "") -> None:
+    secure_write_json(AUTH_PATH, credentials_payload(values))
+    state = get_state()
+    if username:
+        state["username"] = username
+    save_state(state)
+    write_ofscraper_config(state)
+
+
+def _file_sha256(path: Path) -> str | None:
+    try:
+        if not path.is_file() or path.stat().st_size > MAX_AUTH_EXPORT_SIZE:
+            return None
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def import_credentials_file(path: Path) -> None:
+    values, selected_hash = load_auth_export(path)
+    save_credentials(values)
+
+    original_removed = False
+    if _file_sha256(EXPORTED_AUTH_PATH) == selected_hash:
+        try:
+            EXPORTED_AUTH_PATH.unlink()
+            original_removed = True
+        except OSError:
+            pass
+
+    print("\n✓ Archivo válido y datos de acceso guardados.")
+    print("Solo se conservaron sess, auth_id, x-bc y User-Agent.")
+    if original_removed:
+        print("El archivo original se eliminó de Descargas.")
+    else:
+        print(
+            f"AVISO: elimina manualmente {AUTH_EXPORT_FILENAME} de Descargas "
+            "si todavía aparece."
+        )
+    print("OnlyFans comprobará estos datos al iniciar la próxima descarga.")
+
+
 def hidden_prompt(label: str) -> str:
     try:
         return getpass.getpass(label).strip()
@@ -168,22 +288,25 @@ def json_cookie_prompt(*, allow_object: bool = False) -> str:
         return raw
 
 
-def configure_credentials() -> None:
+def configure_credentials() -> int:
     print("\nCONECTAR MI CUENTA")
     print("Elige el tipo de datos que has copiado:")
-    print("1. Cookie normal en una sola línea")
-    print("2. Lista JSON exportada por el navegador o una extensión")
-    print("3. JSON completo de OnlyFans-Cookie-Helper")
+    print("1. Importar OFBackup-auth.json con el selector Android (recomendado)")
+    print("2. Cookie normal en una sola línea")
+    print("3. Lista JSON exportada por el navegador o una extensión")
+    print("4. JSON completo de OnlyFans-Cookie-Helper")
     cookie_format = input("Opción [1]: ").strip() or "1"
-    if cookie_format == "2":
+    if cookie_format == "1":
+        return IMPORT_REQUEST_EXIT
+    if cookie_format == "3":
         raw_cookie = json_cookie_prompt()
-    elif cookie_format == "3":
+    elif cookie_format == "4":
         raw_cookie = json_cookie_prompt(allow_object=True)
-    elif cookie_format == "1":
+    elif cookie_format == "2":
         print("La entrada queda oculta y no se guarda en el historial de Termux.")
         raw_cookie = hidden_prompt("Pega la Cookie completa: ")
     else:
-        raise UserError("Elige 1, 2 o 3.")
+        raise UserError("Elige 1, 2, 3 o 4.")
     cookies = parse_cookie_header(raw_cookie)
 
     sess = cookies.get("sess") or hidden_prompt("No encontré sess. Pega su valor: ")
@@ -211,25 +334,18 @@ def configure_credentials() -> None:
     if missing:
         raise UserError(f"Faltan credenciales: {', '.join(missing)}")
 
-    payload = {
+    values = {
         "sess": sess,
         "auth_id": auth_id,
-        "auth_uid": "",
         "user_agent": user_agent,
         "x-bc": x_bc,
-        "app-token": DEFAULT_APP_TOKEN,
     }
-    secure_write_json(AUTH_PATH, payload)
-
-    state = get_state()
-    if username:
-        state["username"] = username
-    save_state(state)
-    write_ofscraper_config(state)
+    save_credentials(values, username)
     print("\n✓ Datos de acceso guardados.")
     print("OF-Scraper comprobará la cuenta al iniciar la próxima descarga.")
-    print("Solo se guardaron sess y auth_id; las demás cookies se descartaron.")
+    print("Solo se guardaron los cuatro campos necesarios; el resto se descartó.")
     print(f"Archivo privado: {AUTH_PATH}")
+    return 0
 
 
 def write_ofscraper_config(state: dict | None = None) -> None:
@@ -268,7 +384,8 @@ def require_credentials() -> None:
     if credentials_ready():
         return
     print("Todavía no hay credenciales configuradas.")
-    configure_credentials()
+    if configure_credentials() == IMPORT_REQUEST_EXIT:
+        raise UserError("Vuelve al menú y usa Conectar mi cuenta para abrir el selector.")
 
 
 def find_ofscraper_binary() -> str | None:
@@ -477,7 +594,9 @@ def menu() -> int:
             elif choice == "2":
                 download_user()
             elif choice == "3":
-                configure_credentials()
+                result = configure_credentials()
+                if result == IMPORT_REQUEST_EXIT:
+                    return IMPORT_REQUEST_EXIT
             elif choice == "4":
                 change_destination()
             elif choice == "5":
@@ -503,6 +622,7 @@ def print_help() -> None:
   of ENLACE                        Descargar una publicación
   of usuario NOMBRE                Descargar todo un usuario
   of configurar                    Guardar o renovar credenciales
+  of importar                      Elegir OFBackup-auth.json en Android
   of diagnostico                   Comprobar la instalación
   of actualizar                    Actualizar el motor de descarga
 
@@ -524,7 +644,13 @@ def main(argv: list[str] | None = None) -> int:
             print_help()
             return 0
         if command in {"configurar", "config"}:
-            configure_credentials()
+            return configure_credentials()
+        if command == "importar":
+            return IMPORT_REQUEST_EXIT
+        if command == "importar-archivo":
+            if len(argv) != 2:
+                raise UserError("Falta la ruta temporal del archivo seleccionado.")
+            import_credentials_file(Path(argv[1]))
             return 0
         if command in {"diagnostico", "diagnóstico", "status"}:
             diagnostics()

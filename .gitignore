@@ -17,6 +17,7 @@ config.json
 *.session-journal
 cookies.txt
 cookies-*.txt
+OFBackup-auth*.json
 *.pem
 *.key
 
@@ -46,4 +47,6 @@ Thumbs.db
 # Empaquetado
 build/
 dist/
+artifacts/
+web-ext-artifacts/
 *.egg-info/

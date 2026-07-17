@@ -15,8 +15,16 @@ echo "[1/7] Actualizando Termux…"
 pkg update -y
 pkg upgrade -y
 
-echo "[2/7] Instalando herramientas base…"
-pkg install -y proot-distro git termux-tools
+echo "[2/7] Instalando herramientas base y selector Android…"
+pkg install -y proot-distro git termux-tools termux-api
+
+if ! pm list packages 2>/dev/null | grep -q '^package:com.termux.api$'; then
+    echo
+    echo "AVISO: instala también la aplicación Termux:API."
+    echo "Debe proceder de la misma fuente que Termux (F-Droid o GitHub)."
+    echo "Sin ella podrás pegar datos, pero no abrir el selector Android."
+    echo
+fi
 
 if [[ ! -e "$HOME/storage/downloads" ]] && command -v termux-setup-storage >/dev/null; then
     echo "[3/7] Android pedirá permiso para guardar en Descargas. Pulsa Permitir."

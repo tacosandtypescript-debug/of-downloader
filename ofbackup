@@ -1,6 +1,73 @@
 #!/data/data/com.termux/files/usr/bin/bash
-set -e
+set -u
 
 APP_HOME="/root/.local/share/ofbackup"
-exec proot-distro login --shared-home ofbackup-debian -- \
-    "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@"
+HOST_CACHE="$HOME/.cache/ofbackup"
+IMPORT_REQUEST_EXIT=42
+SELECTED_TEMP=""
+
+cleanup_temp() {
+    if [[ -n "$SELECTED_TEMP" ]]; then
+        rm -f "$SELECTED_TEMP"
+        SELECTED_TEMP=""
+    fi
+}
+
+trap cleanup_temp EXIT
+trap 'cleanup_temp; exit 130' INT TERM
+
+run_ofbackup() {
+    proot-distro login --shared-home ofbackup-debian -- \
+        "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@"
+}
+
+select_and_import() {
+    if ! command -v termux-storage-get >/dev/null 2>&1; then
+        echo "✗ Falta Termux:API. Instala el paquete con: pkg install termux-api"
+        echo "También necesitas la aplicación Termux:API de la misma fuente que Termux."
+        return 2
+    fi
+
+    mkdir -p "$HOST_CACHE"
+    local selected
+    selected="$(mktemp "$HOST_CACHE/auth-import.XXXXXX.json")"
+    SELECTED_TEMP="$selected"
+    chmod 600 "$selected"
+
+    echo "Abriendo el selector de Android…"
+    echo "Elige OFBackup-auth.json en Descargas."
+    if ! termux-storage-get "$selected"; then
+        rm -f "$selected"
+        SELECTED_TEMP=""
+        echo "✗ No se seleccionó ningún archivo o Termux:API no está disponible."
+        echo "Comprueba que Termux y Termux:API procedan de la misma tienda."
+        return 2
+    fi
+
+    local container_path
+    container_path="/root/.cache/ofbackup/$(basename "$selected")"
+    run_ofbackup importar-archivo "$container_path"
+    local status=$?
+    rm -f "$selected"
+    SELECTED_TEMP=""
+    return "$status"
+}
+
+if [[ "${1:-}" == "importar" ]]; then
+    select_and_import
+    exit $?
+fi
+
+while true; do
+    run_ofbackup "$@"
+    status=$?
+    if [[ "$status" -ne "$IMPORT_REQUEST_EXIT" ]]; then
+        exit "$status"
+    fi
+    select_and_import
+    status=$?
+    if [[ "$status" -ne 0 ]]; then
+        echo "Volviendo al menú…"
+    fi
+    set -- menu
+done

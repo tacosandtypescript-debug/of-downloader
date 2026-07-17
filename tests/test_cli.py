@@ -92,6 +92,100 @@ class JsonTests(unittest.TestCase):
             )
 
 
+class AuthImportTests(unittest.TestCase):
+    def export_data(self):
+        return {
+            "format": "ofbackup-auth",
+            "version": 1,
+            "created_at": "2026-07-17T12:00:00.000Z",
+            "auth": {
+                "sess": "fake-session",
+                "auth_id": "12345",
+                "x-bc": "fake-xbc",
+                "user_agent": "Firefox Android Test",
+                "ignored": "discard-me",
+            },
+            "ignored": "discard-me",
+        }
+
+    def test_parses_versioned_export_and_discards_unknown_fields(self):
+        self.assertEqual(
+            ofbackup_cli.parse_auth_export(self.export_data()),
+            {
+                "sess": "fake-session",
+                "auth_id": "12345",
+                "x-bc": "fake-xbc",
+                "user_agent": "Firefox Android Test",
+            },
+        )
+
+    def test_rejects_wrong_format_and_non_numeric_auth_id(self):
+        data = self.export_data()
+        data["format"] = "something-else"
+        with self.assertRaises(ofbackup_cli.UserError):
+            ofbackup_cli.parse_auth_export(data)
+
+        data = self.export_data()
+        data["created_at"] = "not-a-date"
+        with self.assertRaises(ofbackup_cli.UserError):
+            ofbackup_cli.parse_auth_export(data)
+
+        data = self.export_data()
+        data["auth"]["auth_id"] = "not-a-number"
+        with self.assertRaises(ofbackup_cli.UserError):
+            ofbackup_cli.parse_auth_export(data)
+
+    def test_rejects_oversized_file_without_replacing_credentials(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "large.json"
+            path.write_bytes(b"x" * (ofbackup_cli.MAX_AUTH_EXPORT_SIZE + 1))
+            with mock.patch.object(ofbackup_cli, "save_credentials") as save:
+                with self.assertRaises(ofbackup_cli.UserError):
+                    ofbackup_cli.import_credentials_file(path)
+            save.assert_not_called()
+
+    def test_import_removes_matching_download_export(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            selected = root / "selected.json"
+            original = root / "OFBackup-auth.json"
+            raw = json.dumps(self.export_data()).encode()
+            selected.write_bytes(raw)
+            original.write_bytes(raw)
+            with (
+                mock.patch.object(ofbackup_cli, "EXPORTED_AUTH_PATH", original),
+                mock.patch.object(ofbackup_cli, "save_credentials") as save,
+                mock.patch("builtins.print"),
+            ):
+                ofbackup_cli.import_credentials_file(selected)
+            save.assert_called_once()
+            self.assertFalse(original.exists())
+
+    def test_import_preserves_different_download_export(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            selected = root / "selected.json"
+            original = root / "OFBackup-auth.json"
+            selected.write_text(json.dumps(self.export_data()), encoding="utf-8")
+            other = self.export_data()
+            other["auth"]["sess"] = "other-session"
+            original.write_text(json.dumps(other), encoding="utf-8")
+            with (
+                mock.patch.object(ofbackup_cli, "EXPORTED_AUTH_PATH", original),
+                mock.patch.object(ofbackup_cli, "save_credentials"),
+                mock.patch("builtins.print"),
+            ):
+                ofbackup_cli.import_credentials_file(selected)
+            self.assertTrue(original.exists())
+
+    def test_configure_requests_android_picker(self):
+        with mock.patch("builtins.input", return_value="1"):
+            self.assertEqual(
+                ofbackup_cli.configure_credentials(),
+                ofbackup_cli.IMPORT_REQUEST_EXIT,
+            )
+
+
 class ExecutableTests(unittest.TestCase):
     def test_finds_ofscraper_next_to_virtualenv_python(self):
         with tempfile.TemporaryDirectory() as temporary:

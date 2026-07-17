@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OF Backup Exporter</title>
+    <link rel="stylesheet" href="exporter.css">
+  </head>
+  <body>
+    <main>
+      <div class="brand">
+        <img src="../icons/of-backup.svg" alt="">
+        <div>
+          <h1>OF Backup Exporter</h1>
+          <p>Exportación local para Termux</p>
+        </div>
+      </div>
+
+      <ol>
+        <li>Inicia sesión en OnlyFans.</li>
+        <li>Deja que la página cargue por completo.</li>
+        <li>Pulsa el botón y después abre <code>of importar</code>.</li>
+      </ol>
+
+      <button id="export" type="button">Exportar para OF Backup</button>
+      <p id="status" role="status" aria-live="polite"></p>
+      <p class="privacy">El archivo no se envía a Internet ni se copia al portapapeles.</p>
+    </main>
+    <script type="module" src="exporter.js"></script>
+  </body>
+</html>

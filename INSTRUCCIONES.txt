@@ -30,9 +30,17 @@ Para descargar directamente con un enlace:
    of "https://onlyfans.com/ID/usuario"
 
 La primera vez elige "Conectar mi cuenta". Puedes pegar una Cookie normal o
-el JSON completo exportado por el navegador. Si eliges JSON, pégalo entero,
-aunque ocupe varias líneas. La aplicación solo guarda sess y auth_id y elimina
-el resto. Después solicitará x-bc y User-Agent.
+el JSON completo exportado por el navegador. El método recomendado es usar OF
+Backup Exporter en Firefox y después ejecutar:
+
+   of importar
+
+Elige OFBackup-auth.json en el selector Android. Este selector requiere el
+paquete y la aplicación Termux:API; la aplicación debe proceder de la misma
+fuente que Termux. OF Backup conserva solo sess, auth_id, x-bc y User-Agent.
+
+También puedes pegar el JSON entero, aunque ocupe varias líneas. Si solo pegas
+cookies, después se solicitarán x-bc y User-Agent.
 
 
 WINDOWS
@@ -52,7 +60,7 @@ LINUX DE ESCRITORIO
 
 SEGURIDAD
 ---------
-- No publiques config.json ni auth.json.
+- No publiques config.json, auth.json ni OFBackup-auth.json.
 - No envíes capturas que muestren sess, auth_id o x-bc.
 - Renueva las credenciales si sospechas que alguien pudo copiarlas.
 - Las descargas se guardan por defecto en Descargas/OFBackup en Android.

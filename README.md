@@ -43,7 +43,7 @@ chmod +x instalar-termux.sh
 El instalador:
 
 1. Actualiza los paquetes de Termux.
-2. Solicita acceso a la carpeta Descargas de Android.
+2. Instala el comando de Termux:API y solicita acceso a Descargas.
 3. Instala un contenedor Debian sin necesidad de root.
 4. Instala Python 3.13, FFmpeg y OF-Scraper.
 5. Crea el comando global `of` y conserva `ofbackup` como alias.
@@ -67,6 +67,7 @@ Otros comandos:
 
 ```bash
 of configurar
+of importar
 of usuario NOMBRE
 of diagnostico
 of actualizar
@@ -74,15 +75,34 @@ of actualizar
 
 El nombre anterior `ofbackup` sigue funcionando para mantener compatibilidad.
 
-En la opción **Conectar mi cuenta** puedes pegar una Cookie normal o una lista
-JSON completa exportada por el navegador. El JSON puede ocupar varias líneas:
-el programa detecta automáticamente cuándo termina. Solo extrae `sess` y
-`auth_id`; descarta `csrf`, `fp`, datos de Cloudflare y cualquier otra cookie.
-También rechaza cookies cuyo dominio no sea `onlyfans.com`.
+### Conectar la cuenta desde Firefox Android
+
+OF Backup 2.2.0 incorpora **OF Backup Exporter**, una extensión situada en la
+carpeta `extension/` y preparada para Firefox Android y escritorio. El flujo es:
+
+1. Instala una copia firmada de la extensión en Firefox.
+2. Abre OnlyFans, inicia sesión y recarga la página.
+3. Abre la extensión y pulsa **Exportar para OF Backup**.
+4. En Termux ejecuta `of importar` o usa la opción **Conectar mi cuenta**.
+5. Elige `OFBackup-auth.json` con el selector Android.
+
+El selector necesita dos componentes: el paquete `termux-api`, instalado por el
+script, y la aplicación complementaria **Termux:API**. Termux y Termux:API deben
+proceder de la misma fuente; no mezcles instalaciones de F-Droid y GitHub.
+
+La extensión crea el archivo localmente y no utiliza Google Drive, servidores,
+telemetría ni portapapeles. OF Backup valida el archivo, conserva únicamente
+`sess`, `auth_id`, `x-bc` y `User-Agent`, y compara su huella SHA-256 antes de
+eliminar de Descargas el original. La copia temporal privada siempre se elimina.
+
+Los métodos anteriores siguen disponibles: puedes pegar una Cookie normal, una
+lista JSON del navegador o el JSON completo de OnlyFans-Cookie-Helper. Las
+listas de cookies solo aportan `sess` y `auth_id`; `x-bc` y `User-Agent` deben
+pertenecer a esa misma sesión.
 
 La Cookie normal se solicita mediante una entrada oculta y no aparece en el
-historial del terminal. `x-bc` se solicita por separado. Los archivos de
-autenticación se guardan con permisos `0600`.
+historial del terminal. Los archivos de autenticación se guardan con permisos
+`0600`.
 
 Las descargas se guardan por defecto en `Descargas/OFBackup`. Desde el menú se
 puede elegir otra carpeta.
@@ -142,4 +162,17 @@ Los scripts crean `.venv`, actualizan pip e instalan las versiones declaradas en
 - Nunca publiques `config.json` ni `auth.json`.
 - Renueva la Cookie si sospechas que alguien pudo verla.
 - No escribas Cookies como argumentos de comandos: quedan en el historial.
+- No compartas ni conserves `OFBackup-auth.json` después de importarlo.
 - La autenticación de Termux se almacena en `~/.config/ofscraper/main_profile`.
+
+## Desarrollo de la extensión
+
+El código fuente, la política de privacidad, la atribución MIT y las
+instrucciones de prueba están en `extension/`. Antes de una publicación pública
+se generará una versión firmada **unlisted** en Mozilla Add-ons para probarla en
+Firefox Android y escritorio. Ejecuta las comprobaciones JavaScript con:
+
+```bash
+npm run test:extension
+npx web-ext lint --source-dir extension
+```
