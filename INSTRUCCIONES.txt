@@ -31,10 +31,13 @@ Para descargar directamente con un enlace:
 
 La primera vez elige "Conectar mi cuenta". Puedes pegar una Cookie normal o
 el JSON completo exportado por el navegador. El método recomendado es usar OF
-Backup Exporter en Firefox y después ejecutar:
+Downloader Exporter en Chrome o Firefox y después ejecutar:
 
 of importar
 of probar
+
+El menú avisa cuando hay una versión nueva. Usa la opción 8 para actualizar
+OF Downloader y reiniciar automáticamente sin borrar cookies ni descargas.
 
 Si Android entrega un archivo vacío al selector, usa la ruta directa:
 of importar ~/storage/downloads/OFBackup-auth.json

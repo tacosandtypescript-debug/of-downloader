@@ -108,6 +108,18 @@ class ThemeTests(unittest.TestCase):
             value = ofbackup_cli.styled("OF Downloader", "cyan", bold=True)
         self.assertIn("38;2;0;175;240", value)
 
+    def test_repository_update_badges_have_clear_states(self):
+        output = io.StringIO()
+        with mock.patch.object(ofbackup_cli.sys, "stdout", output):
+            self.assertIn("DISPONIBLE", ofbackup_cli.repository_update_badge("available"))
+            self.assertIn("AL DÍA", ofbackup_cli.repository_update_badge("current"))
+
+    def test_update_command_requests_wrapper_restart(self):
+        self.assertEqual(
+            ofbackup_cli.main(["actualizar-app"]),
+            ofbackup_cli.APP_UPDATE_REQUEST_EXIT,
+        )
+
 
 class AuthImportTests(unittest.TestCase):
     def export_data(self):

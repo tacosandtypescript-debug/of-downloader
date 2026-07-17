@@ -2,10 +2,13 @@
 set -u
 
 APP_HOME="/root/.local/share/ofbackup"
+HOST_APP_HOME="$HOME/.local/share/ofbackup"
 HOST_CACHE="$HOME/.cache/ofbackup"
 IMPORT_REQUEST_EXIT=42
+APP_UPDATE_REQUEST_EXIT=43
 SELECTED_TEMP=""
 MAX_AUTH_SIZE=65536
+UPDATE_STATUS="unknown"
 
 cleanup_temp() {
     if [[ -n "$SELECTED_TEMP" ]]; then
@@ -19,7 +22,106 @@ trap 'cleanup_temp; exit 130' INT TERM
 
 run_ofbackup() {
     proot-distro login --shared-home ofbackup-debian -- \
+        env "OFDOWNLOADER_UPDATE_STATUS=$UPDATE_STATUS" \
         "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@"
+}
+
+find_repo_dir() {
+    local candidate
+    for candidate in \
+        "${OFDOWNLOADER_REPO:-}" \
+        "$PWD" \
+        "$HOME/of-downloader" \
+        "$HOME/respaldo_of"; do
+        if [[ -n "$candidate" && -d "$candidate/.git" ]]; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+check_repository_update() {
+    local repo
+    repo="$(find_repo_dir)" || {
+        printf 'repo-missing'
+        return 0
+    }
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 6 git -C "$repo" fetch --quiet origin main </dev/null 2>/dev/null || {
+            printf 'offline'
+            return 0
+        }
+    elif ! git -C "$repo" fetch --quiet origin main </dev/null 2>/dev/null; then
+        printf 'offline'
+        return 0
+    fi
+
+    local current remote
+    current="$(git -C "$repo" rev-parse HEAD 2>/dev/null)" || {
+        printf 'error'
+        return 0
+    }
+    remote="$(git -C "$repo" rev-parse origin/main 2>/dev/null)" || {
+        printf 'error'
+        return 0
+    }
+    if [[ "$current" == "$remote" ]]; then
+        if [[ ! -f "$HOST_APP_HOME/ofbackup_cli.py" ]] || \
+           ! cmp -s "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py"; then
+            printf 'available'
+        else
+            printf 'current'
+        fi
+    elif git -C "$repo" merge-base --is-ancestor "$current" "$remote" 2>/dev/null; then
+        printf 'available'
+    else
+        printf 'diverged'
+    fi
+}
+
+update_application() {
+    local repo
+    repo="$(find_repo_dir)" || {
+        echo "✗ No encuentro la carpeta del repositorio."
+        echo "Clónalo de nuevo con: gh repo clone tacosandtypescript-debug/of-downloader"
+        return 2
+    }
+
+    echo
+    echo "Actualizando OF Downloader desde GitHub…"
+    if ! git -C "$repo" pull --ff-only origin main; then
+        echo "✗ No se pudo actualizar sin modificar tus archivos locales."
+        echo "Revisa el mensaje de Git anterior y vuelve a intentarlo."
+        return 2
+    fi
+
+    local requirements_changed=0
+    if [[ ! -f "$HOST_APP_HOME/requirements-termux.txt" ]] || \
+       ! cmp -s "$repo/requirements-termux.txt" "$HOST_APP_HOME/requirements-termux.txt"; then
+        requirements_changed=1
+    fi
+
+    mkdir -p "$HOST_APP_HOME"
+    install -m 600 "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py"
+    install -m 600 "$repo/requirements-termux.txt" "$HOST_APP_HOME/requirements-termux.txt"
+    install -m 755 "$repo/ofbackup" "$PREFIX/bin/of"
+    install -m 755 "$repo/ofbackup" "$PREFIX/bin/ofbackup"
+
+    if [[ "$requirements_changed" -eq 1 ]]; then
+        echo "Actualizando componentes de Python…"
+        if ! proot-distro login --shared-home ofbackup-debian -- \
+            "$APP_HOME/.venv/bin/python" -m pip install --upgrade \
+            -r "$APP_HOME/requirements-termux.txt"; then
+            echo "✗ El código se actualizó, pero faltó actualizar componentes."
+            echo "Ejecuta: bash $repo/instalar-termux.sh"
+            return 2
+        fi
+    fi
+
+    UPDATE_STATUS="current"
+    echo "✓ OF Downloader actualizado. Reiniciando el menú…"
+    return 0
 }
 
 run_selected_temp() {
@@ -126,9 +228,25 @@ if [[ "${1:-}" == "importar" ]]; then
     exit $?
 fi
 
+case "${1:-menu}" in
+    menu|actualizar-app|update-app)
+        UPDATE_STATUS="$(check_repository_update)"
+        ;;
+esac
+
 while true; do
     run_ofbackup "$@"
     status=$?
+    if [[ "$status" -eq "$APP_UPDATE_REQUEST_EXIT" ]]; then
+        if update_application; then
+            set -- menu
+            continue
+        fi
+        echo "Pulsa Enter para volver al menú…"
+        read -r _ || true
+        set -- menu
+        continue
+    fi
     if [[ "$status" -ne "$IMPORT_REQUEST_EXIT" ]]; then
         exit "$status"
     fi

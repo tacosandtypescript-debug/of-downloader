@@ -17,7 +17,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.5.0"
+APP_VERSION = "2.6.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -25,6 +25,7 @@ AUTH_EXPORT_VERSION = 1
 AUTH_EXPORT_FILENAME = "OFBackup-auth.json"
 MAX_AUTH_EXPORT_SIZE = 64 * 1024
 IMPORT_REQUEST_EXIT = 42
+APP_UPDATE_REQUEST_EXIT = 43
 
 HOME = Path.home()
 APP_DIR = HOME / ".config" / "ofbackup"
@@ -449,6 +450,17 @@ def menu_option(number: str, label: str) -> None:
     print(f"  {badge} {styled(label, 'white')}")
 
 
+def repository_update_badge(status: str | None = None) -> str:
+    status = status or os.getenv("OFDOWNLOADER_UPDATE_STATUS", "unknown")
+    if status == "available":
+        return styled("● ACTUALIZACIÓN DISPONIBLE", "yellow", bold=True)
+    if status == "current":
+        return styled("● AL DÍA", "green", bold=True)
+    if status == "diverged":
+        return styled("● REVISAR REPOSITORIO", "yellow", bold=True)
+    return styled("● NO COMPROBADA", "muted")
+
+
 def test_credentials(timeout: int = 60) -> int:
     """Comprueba la sesión con una consulta mínima y sin descargar contenido."""
     if not credentials_ready():
@@ -786,8 +798,8 @@ def menu() -> int:
         print(styled("╭" + "─" * 44 + "╮", "cyan", bold=True))
         print(
             styled("│", "cyan", bold=True)
-            + styled("       OF DOWNLOADER", "cyan", bold=True)
-            + styled(f"  v{APP_VERSION}".ljust(24), "muted")
+            + styled("     ◉ OF  DOWNLOADER", "cyan", bold=True)
+            + styled(f"  v{APP_VERSION}".ljust(23), "muted")
             + styled("│", "cyan", bold=True)
         )
         print(
@@ -809,6 +821,11 @@ def menu() -> int:
         menu_option("4", "Cambiar carpeta de descargas")
         menu_option("5", "Ver diagnóstico")
         menu_option("6", "Actualizar motor de descarga")
+        update_status = os.getenv("OFDOWNLOADER_UPDATE_STATUS", "unknown")
+        update_label = "Actualizar OF Downloader y reiniciar"
+        if update_status == "available":
+            update_label += "  ← NUEVA"
+        menu_option("8", update_label)
         menu_option("0", "Salir")
 
         status = styled("● CONECTADA", "green", bold=True) if connected else styled(
@@ -816,6 +833,10 @@ def menu() -> int:
         )
         print(styled("\n  " + "─" * 42, "navy"))
         print(f"  {styled('Cuenta:', 'muted')} {status}")
+        print(
+            f"  {styled('Aplicación:', 'muted')} "
+            f"{repository_update_badge(update_status)}"
+        )
         print(f"  {styled('Destino:', 'muted')} {styled(state['download_dir'], 'white')}")
         choice = input(styled("\n  Elige una opción › ", "cyan", bold=True)).strip()
         try:
@@ -837,6 +858,8 @@ def menu() -> int:
                 result = test_credentials()
                 if result == IMPORT_REQUEST_EXIT:
                     return IMPORT_REQUEST_EXIT
+            elif choice == "8":
+                return APP_UPDATE_REQUEST_EXIT
             elif choice == "0":
                 print(styled("\nHasta luego.", "cyan", bold=True))
                 return 0
@@ -861,6 +884,7 @@ def print_help() -> None:
   of probar                        Comprobar la cookie sin descargar contenido
   of diagnostico                   Comprobar la instalación
   of actualizar                    Actualizar el motor de descarga
+  of actualizar-app                Actualizar la aplicación y reiniciarla
 
 Las credenciales se solicitan de forma oculta para que no queden en el
 historial del terminal. Usa únicamente contenido al que tu cuenta tenga acceso.
@@ -895,6 +919,8 @@ def main(argv: list[str] | None = None) -> int:
             return test_credentials()
         if command in {"actualizar", "update"}:
             return update_engine()
+        if command in {"actualizar-app", "update-app"}:
+            return APP_UPDATE_REQUEST_EXIT
         if command == "usuario":
             return download_user(argv[1] if len(argv) > 1 else None)
         return download_link(argv[0])

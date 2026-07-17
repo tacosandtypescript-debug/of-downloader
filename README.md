@@ -155,7 +155,24 @@ varios minutos. La barra indicará el avance. Si falla, consulta:
 tail -n 30 ~/ofbackup-instalacion.log
 ```
 
-### Actualizar sin reinstalar todo
+### Actualizaciones automáticas
+
+Al abrir `of`, el menú comprueba durante unos segundos si el repositorio tiene
+cambios. Cuando existe una versión nueva muestra **ACTUALIZACIÓN DISPONIBLE**.
+Elige la opción **8. Actualizar OF Downloader y reiniciar**. La aplicación:
+
+1. Descarga los cambios con avance rápido y seguro (`git pull --ff-only`).
+2. Actualiza sus archivos y componentes cuando sea necesario.
+3. Conserva credenciales, configuración y descargas.
+4. Reinicia automáticamente el menú.
+
+También puedes solicitarlo directamente:
+
+```bash
+of actualizar-app
+```
+
+### Actualizar manualmente
 
 ```bash
 cd ~/of-downloader
