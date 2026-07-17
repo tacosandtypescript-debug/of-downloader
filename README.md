@@ -75,7 +75,7 @@ of actualizar
 
 El nombre anterior `ofbackup` sigue funcionando para mantener compatibilidad.
 
-### Conectar la cuenta desde Firefox Android
+### Conectar la cuenta desde Firefox Android o Chrome PC
 
 OF Backup 2.2.0 incorpora **OF Backup Exporter**, una extensión situada en la
 carpeta `extension/` y preparada para Firefox Android y escritorio. El flujo es:
@@ -85,6 +85,17 @@ carpeta `extension/` y preparada para Firefox Android y escritorio. El flujo es:
 3. Abre la extensión y pulsa **Exportar para OF Backup**.
 4. En Termux ejecuta `of importar` o usa la opción **Conectar mi cuenta**.
 5. Elige `OFBackup-auth.json` con el selector Android.
+
+La variante para Chrome PC se genera desde `chrome/` con:
+
+```bash
+npm run build:chrome
+```
+
+El comando crea `build/chrome`, que puede cargarse desde `chrome://extensions`
+con **Modo de desarrollador > Cargar descomprimida**, y también crea
+`artifacts/of_backup_exporter-chrome-1.0.0.zip`. Firefox y Chrome producen el
+mismo archivo compatible con `of importar`.
 
 El selector necesita dos componentes: el paquete `termux-api`, instalado por el
 script, y la aplicación complementaria **Termux:API**. Termux y Termux:API deben
@@ -174,5 +185,6 @@ Firefox Android y escritorio. Ejecuta las comprobaciones JavaScript con:
 
 ```bash
 npm run test:extension
+npm run build:chrome
 npx web-ext lint --source-dir extension
 ```

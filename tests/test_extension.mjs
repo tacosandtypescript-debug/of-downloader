@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -48,4 +49,25 @@ test("builds the versioned import format without extra fields", () => {
     }
   });
   assert.equal(EXPORT_FILENAME, "OFBackup-auth.json");
+});
+
+test("Chrome manifest stays private and limited to OnlyFans", async () => {
+  const manifest = JSON.parse(
+    await readFile(new URL("../chrome/manifest.json", import.meta.url), "utf8")
+  );
+  assert.equal(manifest.manifest_version, 3);
+  assert.equal(manifest.version, "1.0.0");
+  assert.equal("browser_specific_settings" in manifest, false);
+  assert.deepEqual(manifest.permissions, ["activeTab", "cookies", "downloads"]);
+  assert.deepEqual(manifest.host_permissions, [
+    "https://onlyfans.com/*",
+    "https://*.onlyfans.com/*"
+  ]);
+
+  const sessionScript = await readFile(
+    new URL("../chrome/content/session.js", import.meta.url),
+    "utf8"
+  );
+  assert.match(sessionScript, /sendResponse\(/);
+  assert.doesNotMatch(sessionScript, /Promise\.resolve/);
 });
