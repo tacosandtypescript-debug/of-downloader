@@ -17,7 +17,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.6.1"
+APP_VERSION = "2.6.2"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -434,9 +434,10 @@ PALETTE = {
 }
 
 MENU_LOGO_LINES = (
-    "      .----.   OF DOWNLOADER",
-    "     (  OF  )       |",
-    "      '----'       \\|/",
+    "⣠⣾⣿⣷⣦⣴⣿⣿⣿⠟",
+    "⣿⣿⠁⠈⣿⣿⣿⡿⠋",
+    "⢿⣿⣦⣴⣿⣿⣿⣶⡄",
+    "⠀⠻⣿⣿⡿⠟⠉",
 )
 
 
@@ -810,8 +811,9 @@ def menu() -> int:
         print()
         print(styled("╭" + "─" * 44 + "╮", "cyan", bold=True))
         for logo_line in MENU_LOGO_LINES:
-            menu_banner_line(logo_line, "cyan", bold=True)
-        menu_banner_line(f"       v{APP_VERSION} · TERMUX · Descargas simples", "muted")
+            menu_banner_line(logo_line.center(44), "blue", bold=True)
+        menu_banner_line("        OF DOWNLOADER · TERMUX", "white", bold=True)
+        menu_banner_line(f"       v{APP_VERSION} · Descargas simples", "muted")
         print(styled("╰" + "─" * 44 + "╯", "cyan", bold=True))
 
         print(styled("\n  DESCARGAS", "blue", bold=True))
