@@ -625,6 +625,30 @@ def extract_download_percent(line: str) -> int | None:
     return min(100, max(0, int(matches[-1])))
 
 
+def extract_content_counts(line: str) -> dict[str, int]:
+    """Intenta extraer de la salida cuántas imágenes/videos detectó ofscraper."""
+    counts: dict[str, int] = {}
+    lowered = line.lower()
+    for media, label in (("images", r"image|imágenes|fotos"), ("videos", r"video|vídeos")):
+        match = re.search(rf"(\d+)\s+(?:{label})", lowered)
+        if match:
+            counts[media] = int(match.group(1))
+    return counts
+
+
+def show_content_summary(detected: dict[str, int], downloaded: dict[str, int]) -> None:
+    """Muestra un resumen claro de imágenes/videos detectados y descargados."""
+    img_detected = detected.get("images", 0)
+    vid_detected = detected.get("videos", 0)
+    img_downloaded = downloaded.get("images", 0)
+    vid_downloaded = downloaded.get("videos", 0)
+
+    if img_detected or vid_detected:
+        print(f"\n  Contenido detectado:  {img_detected} imágenes · {vid_detected} videos")
+    if img_downloaded or vid_downloaded:
+        print(f"  Contenido descargado: {img_downloaded} imágenes · {vid_downloaded} videos")
+
+
 def show_download_progress(percent: int, label: str, *, failed: bool = False) -> None:
     percent = min(100, max(0, percent))
     width = 24
@@ -647,6 +671,8 @@ def run_ofscraper(arguments: list[str]) -> int:
     auth_failed = False
     progress = 3
     last_stage = "Iniciando"
+    detected_counts: dict[str, int] = {}
+    downloaded_counts: dict[str, int] = {}
     show_download_progress(progress, last_stage)
     APP_DIR.mkdir(parents=True, exist_ok=True)
     try:
@@ -676,10 +702,17 @@ def run_ofscraper(arguments: list[str]) -> int:
                     process.terminate()
                     break
 
+                counts = extract_content_counts(line)
+                for key, value in counts.items():
+                    if "download" in lowered or extract_download_percent(line) is not None:
+                        downloaded_counts[key] = max(downloaded_counts.get(key, 0), value)
+                    else:
+                        detected_counts[key] = max(detected_counts.get(key, 0), value)
+
                 reported = extract_download_percent(line)
                 if reported is not None:
                     new_progress = max(progress, min(95, 35 + reported * 3 // 5))
-                    stage = "Descargando archivos"
+                    stage = f"Descargando archivos ({reported}% reportado)"
                 elif "key mode:" in lowered:
                     new_progress, stage = max(progress, 10), "Preparando video"
                 elif "checking auth status" in lowered:
@@ -702,6 +735,7 @@ def run_ofscraper(arguments: list[str]) -> int:
         shown_code = returncode or 1
         show_download_progress(progress, "ERROR: descarga detenida", failed=True)
         print("\n✗ La descarga no se completó.")
+        show_content_summary(detected_counts, downloaded_counts)
         if auth_failed:
             print("OnlyFans rechazó los datos de acceso.")
             print("Abre la opción 3 y pega x-bc y User-Agent de la misma sesión.")
@@ -713,7 +747,9 @@ def run_ofscraper(arguments: list[str]) -> int:
         return shown_code
     else:
         show_download_progress(100, "Descarga completada")
-        print(f"\n✓ Descarga terminada. Archivos en: {get_state()['download_dir']}")
+        print("\n✓ Descarga finalizada exitosamente.")
+        show_content_summary(detected_counts, downloaded_counts)
+        print(f"  Archivos guardados en: {get_state()['download_dir']}")
         return 0
 
 
