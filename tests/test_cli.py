@@ -70,6 +70,34 @@ class UrlTests(unittest.TestCase):
         with self.assertRaises(ofbackup_cli.UserError):
             ofbackup_cli.normalize_url("https://example.com/file")
 
+    def test_extracts_username_from_profile_media_url(self):
+        self.assertEqual(
+            ofbackup_cli.profile_username(
+                "https://onlyfans.com/luceroguevara.oficial/media"
+            ),
+            "luceroguevara.oficial",
+        )
+
+    def test_post_url_is_not_mistaken_for_profile(self):
+        self.assertIsNone(
+            ofbackup_cli.profile_username("https://onlyfans.com/123456/user")
+        )
+
+    def test_profile_url_is_routed_to_complete_user_download(self):
+        with (
+            mock.patch.object(
+                ofbackup_cli, "download_user", return_value=0
+            ) as download_user,
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(
+                ofbackup_cli.download_link(
+                    "https://onlyfans.com/luceroguevara.oficial/media"
+                ),
+                0,
+            )
+        download_user.assert_called_once_with("luceroguevara.oficial")
+
 
 class JsonTests(unittest.TestCase):
     def test_secure_json_round_trip(self):

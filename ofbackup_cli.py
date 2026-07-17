@@ -15,9 +15,10 @@ import time
 from datetime import datetime
 from http.cookies import SimpleCookie
 from pathlib import Path
+from urllib.parse import urlparse
 
 
-APP_VERSION = "2.6.8"
+APP_VERSION = "2.6.9"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -725,15 +726,49 @@ def normalize_url(value: str) -> str:
     return value
 
 
+def profile_username(value: str) -> str | None:
+    """Devuelve el usuario cuando el valor representa un perfil de OnlyFans."""
+    value = value.strip()
+    plain = value.lstrip("@")
+    if re.fullmatch(r"[A-Za-z0-9_.-]+", plain):
+        return plain
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return None
+    if parsed.scheme.lower() != "https" or parsed.hostname not in {
+        "onlyfans.com",
+        "www.onlyfans.com",
+    }:
+        return None
+    parts = [part for part in parsed.path.split("/") if part]
+    if not parts or parts[0].isdigit():
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", parts[0]):
+        return None
+    if len(parts) == 1 or parts[1].lower() in {"media", "posts", "photos", "videos"}:
+        return parts[0]
+    return None
+
+
 def download_link(url: str | None = None) -> int:
     url = url or input("Pega el enlace de la publicación: ")
+    username = profile_username(url)
+    if username:
+        print(f"✓ Enlace de perfil detectado: @{username}")
+        print("Se descargará el contenido completo permitido por tu cuenta.")
+        return download_user(username)
     return run_ofscraper(["manual", "--url", normalize_url(url), "--output", "normal"])
 
 
 def download_user(username: str | None = None) -> int:
     state = get_state()
-    username = (username or input("Usuario, sin @: ") or state.get("username", ""))
-    username = username.strip().lstrip("@")
+    username = (
+        username
+        or input("Usuario o enlace del perfil: ")
+        or state.get("username", "")
+    )
+    username = profile_username(username) or ""
     if not re.fullmatch(r"[A-Za-z0-9_.-]+", username):
         raise UserError("El nombre de usuario no es válido.")
     state["username"] = username
