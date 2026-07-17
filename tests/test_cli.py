@@ -98,6 +98,14 @@ class ThemeTests(unittest.TestCase):
         self.assertTrue(all(len(line) <= 44 for line in ofbackup_cli.MENU_LOGO_LINES))
         self.assertTrue(any("⣿" in line for line in ofbackup_cli.MENU_LOGO_LINES))
 
+    def test_logo_is_composed_on_the_right_without_widening_menu(self):
+        output = io.StringIO()
+        with mock.patch.object(ofbackup_cli.sys, "stdout", output):
+            ofbackup_cli.menu_brand_line("OF DOWNLOADER", ofbackup_cli.MENU_LOGO_LINES[0])
+        rendered = output.getvalue().rstrip("\n")
+        self.assertEqual(len(rendered), 46)
+        self.assertLess(rendered.index("OF DOWNLOADER"), rendered.index("⣠"))
+
     def test_plain_text_is_kept_when_colors_are_not_supported(self):
         output = io.StringIO()
         with mock.patch.object(ofbackup_cli.sys, "stdout", output):
