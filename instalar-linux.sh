@@ -84,6 +84,11 @@ step 4 "Instalando el motor de descarga…"
 
 step 5 "Creando accesos directos…"
 install -m 755 "$SOURCE_DIR/of-downloader-linux" "$BIN_DIR/of-downloader"
+if [[ ! -e "$BIN_DIR/of" || -L "$BIN_DIR/of" ]]; then
+    ln -sfn "$BIN_DIR/of-downloader" "$BIN_DIR/of"
+else
+    echo "AVISO: no se reemplazó $BIN_DIR/of porque ya pertenece a otro programa."
+fi
 cat >"$APPLICATIONS_DIR/of-downloader.desktop" <<EOF
 [Desktop Entry]
 Type=Application
@@ -98,10 +103,10 @@ chmod 644 "$APPLICATIONS_DIR/of-downloader.desktop"
 echo
 echo "${GREEN}✓ OF Downloader quedó instalado.${RESET}"
 echo "Ábrelo desde el menú de aplicaciones o ejecuta:"
-echo "  $BIN_DIR/of-downloader"
+echo "  $BIN_DIR/of"
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     echo
-    echo "Para usar solamente 'of-downloader' en una terminal nueva, añade a tu shell:"
+    echo "Para usar 'of' u 'of-downloader' en una terminal nueva, añade a tu shell:"
     echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
 fi
 echo "Descargas: ${XDG_DOWNLOAD_DIR:-$HOME/Downloads}/OFDownloader"

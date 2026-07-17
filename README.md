@@ -38,7 +38,7 @@ servicio, los derechos de los creadores y la legislación aplicable.
 
 | Equipo | Instalación | Cómo se abre |
 | --- | --- | --- |
-| **Linux de escritorio** | [`instalar-linux.sh`](#instalar-of-downloader-en-linux) | Menú de aplicaciones o `of-downloader` |
+| **Linux de escritorio** | [`instalar-linux.sh`](#instalar-of-downloader-en-linux) | Menú de aplicaciones, `of` o `of-downloader` |
 | **Android con Termux** | [`instalar-termux.sh`](#instalar-of-downloader-en-termux) | Comando `of` |
 | **Chrome o Chromium en PC** | [Descargar extensión](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip) | Icono de extensiones |
 | **Windows** | `iniciar.bat` | Ventana de OF Downloader |
@@ -64,7 +64,7 @@ El instalador comprueba Python, tkinter y FFmpeg, instala el motor en una carpet
 privada y crea dos accesos:
 
 - **OF Downloader** en el menú de aplicaciones de Linux.
-- `of-downloader` en `~/.local/bin` para abrirlo desde una terminal.
+- `of` y `of-downloader` en `~/.local/bin` para abrirlo desde una terminal.
 
 Puede tardar varios minutos. Si encuentra un error se detiene y deja el detalle
 en `/tmp/of-downloader-instalacion.log`.
