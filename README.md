@@ -78,6 +78,7 @@ Otros comandos:
 ```bash
 of configurar
 of importar
+of probar
 of usuario NOMBRE
 of diagnostico
 of actualizar
@@ -95,6 +96,7 @@ carpeta `extension/` y preparada para Firefox Android y escritorio. El flujo es:
 3. Abre la extensión y pulsa **Exportar para OF Backup**.
 4. En Termux ejecuta `of importar` o usa la opción **Conectar mi cuenta**.
 5. Elige `OFBackup-auth.json` con el selector Android.
+6. Ejecuta `of probar` para confirmar la sesión sin descargar contenido.
 
 La variante para Chrome PC se genera desde `chrome/` con:
 
@@ -115,6 +117,11 @@ La extensión crea el archivo localmente y no utiliza Google Drive, servidores,
 telemetría ni portapapeles. OF Backup valida el archivo, conserva únicamente
 `sess`, `auth_id`, `x-bc` y `User-Agent`, y compara su huella SHA-256 antes de
 eliminar de Descargas el original. La copia temporal privada siempre se elimina.
+
+`of probar` realiza una única consulta autenticada al perfil mediante el motor
+de OF-Scraper. No descarga publicaciones y no imprime cookies, nombres ni
+identificadores. Informa si la sesión es válida, fue rechazada o no pudo
+comprobarse por un problema técnico.
 
 Los métodos anteriores siguen disponibles: puedes pegar una Cookie normal, una
 lista JSON del navegador o el JSON completo de OnlyFans-Cookie-Helper. Las

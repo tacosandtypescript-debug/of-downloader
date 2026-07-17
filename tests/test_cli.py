@@ -202,6 +202,63 @@ class ExecutableTests(unittest.TestCase):
                 self.assertEqual(ofbackup_cli.find_ofscraper_binary(), str(ofscraper))
 
 
+class AuthenticationTestTests(unittest.TestCase):
+    def run_test_with(self, completed):
+        with (
+            mock.patch.object(ofbackup_cli, "require_credentials") as require,
+            mock.patch.object(ofbackup_cli, "write_ofscraper_config") as write_config,
+            mock.patch.object(
+                ofbackup_cli, "ofscraper_binary", return_value="ofscraper"
+            ),
+            mock.patch.object(
+                ofbackup_cli.subprocess, "run", return_value=completed
+            ) as run,
+            mock.patch("builtins.print"),
+        ):
+            result = ofbackup_cli.test_credentials()
+        require.assert_called_once_with()
+        write_config.assert_called_once_with()
+        run.assert_called_once_with(
+            [ofbackup_cli.sys.executable, "-c", ofbackup_cli.AUTH_TEST_SCRIPT],
+            stdout=ofbackup_cli.subprocess.PIPE,
+            stderr=ofbackup_cli.subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+            check=False,
+        )
+        return result
+
+    def test_valid_cookie_returns_success(self):
+        completed = mock.Mock(
+            returncode=0, stdout="OFBACKUP_AUTH_OK\n", stderr=""
+        )
+        self.assertEqual(self.run_test_with(completed), 0)
+
+    def test_rejected_cookie_returns_failure(self):
+        completed = mock.Mock(
+            returncode=3, stdout="OFBACKUP_AUTH_REJECTED\n", stderr=""
+        )
+        self.assertEqual(self.run_test_with(completed), 1)
+
+    def test_timeout_returns_failure(self):
+        with (
+            mock.patch.object(ofbackup_cli, "require_credentials"),
+            mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
+            mock.patch.object(
+                ofbackup_cli, "ofscraper_binary", return_value="ofscraper"
+            ),
+            mock.patch.object(
+                ofbackup_cli.subprocess,
+                "run",
+                side_effect=ofbackup_cli.subprocess.TimeoutExpired("auth", 60),
+            ),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(ofbackup_cli.test_credentials(), 1)
+
+
 class DownloadTests(unittest.TestCase):
     def test_traceback_is_failure_even_with_zero_exit_code(self):
         process = mock.Mock()

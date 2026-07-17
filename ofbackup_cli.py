@@ -16,7 +16,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.3.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -32,6 +32,33 @@ OFSCRAPER_DIR = HOME / ".config" / "ofscraper"
 OFSCRAPER_CONFIG_PATH = OFSCRAPER_DIR / "config.json"
 AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
 EXPORTED_AUTH_PATH = HOME / "storage" / "downloads" / AUTH_EXPORT_FILENAME
+
+AUTH_TEST_SCRIPT = r"""
+import sys
+
+try:
+    from ofscraper.main.open import load
+    import ofscraper.managers.manager as manager
+    from ofscraper.data.api import me
+
+    load.systemSet()
+    load.settings_loader()
+    load.setdate()
+    load.readConfig()
+    load.make_folder()
+    manager.Manager = manager.mainManager()
+    account = me.scrape_user()
+    if isinstance(account, dict) and account.get("isAuth") is True:
+        print("OFBACKUP_AUTH_OK")
+        raise SystemExit(0)
+    print("OFBACKUP_AUTH_REJECTED")
+    raise SystemExit(3)
+except SystemExit:
+    raise
+except Exception as exc:
+    print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}", file=sys.stderr)
+    raise SystemExit(4)
+"""
 
 
 class UserError(RuntimeError):
@@ -255,7 +282,7 @@ def import_credentials_file(path: Path) -> None:
             f"AVISO: elimina manualmente {AUTH_EXPORT_FILENAME} de Descargas "
             "si todavía aparece."
         )
-    print("OnlyFans comprobará estos datos al iniciar la próxima descarga.")
+    print("Comprueba ahora la sesión ejecutando: of probar")
 
 
 def hidden_prompt(label: str) -> str:
@@ -386,6 +413,57 @@ def require_credentials() -> None:
     print("Todavía no hay credenciales configuradas.")
     if configure_credentials() == IMPORT_REQUEST_EXIT:
         raise UserError("Vuelve al menú y usa Conectar mi cuenta para abrir el selector.")
+
+
+def _status_text(message: str, color: str) -> str:
+    if not sys.stdout.isatty():
+        return message
+    colors = {"green": "\033[32m", "red": "\033[31m", "yellow": "\033[33m"}
+    return f"{colors[color]}{message}\033[0m"
+
+
+def test_credentials(timeout: int = 60) -> int:
+    """Comprueba la sesión con una consulta mínima y sin descargar contenido."""
+    require_credentials()
+    write_ofscraper_config()
+    ofscraper_binary()
+    print("\nProbando la sesión con OnlyFans…")
+    print("No se descargará contenido ni se mostrarán datos privados.")
+
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", AUTH_TEST_SCRIPT],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        print(_status_text("\n✗ LA PRUEBA TARDÓ DEMASIADO", "red"))
+        print("Comprueba Internet y vuelve a ejecutar: of probar")
+        return 1
+    except OSError as exc:
+        raise UserError(f"No se pudo iniciar la prueba de acceso: {exc}") from exc
+
+    output = f"{completed.stdout}\n{completed.stderr}"
+    if completed.returncode == 0 and "OFBACKUP_AUTH_OK" in output:
+        print(_status_text("\n✓ COOKIE VÁLIDA", "green"))
+        print("OnlyFans aceptó la sesión. OF Backup está listo para descargar.")
+        return 0
+
+    if "OFBACKUP_AUTH_REJECTED" in output:
+        print(_status_text("\n✗ COOKIE RECHAZADA O VENCIDA", "red"))
+        print("Genera un nuevo OFBackup-auth.json desde una sesión abierta,")
+        print("impórtalo con 'of importar' y repite 'of probar'.")
+        return 1
+
+    print(_status_text("\n✗ NO SE PUDO COMPROBAR LA COOKIE", "red"))
+    print("La prueba no recibió una respuesta válida. Comprueba Internet y")
+    print("ejecuta 'of diagnostico'. Después vuelve a intentar 'of probar'.")
+    return 1
 
 
 def find_ofscraper_binary() -> str | None:
@@ -585,6 +663,7 @@ def menu() -> int:
         print("4. Cambiar carpeta de descargas")
         print("5. Ver diagnóstico")
         print("6. Actualizar motor de descarga")
+        print("7. Probar si la cookie funciona")
         print("0. Salir")
         print(f"\nDestino: {state['download_dir']}")
         choice = input("\nElige una opción: ").strip()
@@ -603,6 +682,8 @@ def menu() -> int:
                 diagnostics()
             elif choice == "6":
                 update_engine()
+            elif choice == "7":
+                test_credentials()
             elif choice == "0":
                 print("Hasta luego.")
                 return 0
@@ -623,6 +704,7 @@ def print_help() -> None:
   of usuario NOMBRE                Descargar todo un usuario
   of configurar                    Guardar o renovar credenciales
   of importar                      Elegir OFBackup-auth.json en Android
+  of probar                        Comprobar la cookie sin descargar contenido
   of diagnostico                   Comprobar la instalación
   of actualizar                    Actualizar el motor de descarga
 
@@ -655,6 +737,8 @@ def main(argv: list[str] | None = None) -> int:
         if command in {"diagnostico", "diagnóstico", "status"}:
             diagnostics()
             return 0
+        if command in {"probar", "test", "comprobar"}:
+            return test_credentials()
         if command in {"actualizar", "update"}:
             return update_engine()
         if command == "usuario":

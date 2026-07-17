@@ -33,7 +33,8 @@ La primera vez elige "Conectar mi cuenta". Puedes pegar una Cookie normal o
 el JSON completo exportado por el navegador. El método recomendado es usar OF
 Backup Exporter en Firefox y después ejecutar:
 
-   of importar
+of importar
+of probar
 
 Elige OFBackup-auth.json en el selector Android. Este selector requiere el
 paquete y la aplicación Termux:API; la aplicación debe proceder de la misma
