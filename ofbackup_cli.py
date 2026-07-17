@@ -14,7 +14,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.1.4"
+APP_VERSION = "2.1.5"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 
@@ -499,15 +499,17 @@ def menu() -> int:
 def print_help() -> None:
     print(
         """Uso:
-  ofbackup                         Abrir menú interactivo
-  ofbackup ENLACE                 Descargar una publicación
-  ofbackup usuario NOMBRE         Descargar todo un usuario
-  ofbackup configurar             Guardar o renovar credenciales
-  ofbackup diagnostico            Comprobar la instalación
-  ofbackup actualizar             Actualizar el motor de descarga
+  of                               Abrir menú interactivo
+  of ENLACE                        Descargar una publicación
+  of usuario NOMBRE                Descargar todo un usuario
+  of configurar                    Guardar o renovar credenciales
+  of diagnostico                   Comprobar la instalación
+  of actualizar                    Actualizar el motor de descarga
 
 Las credenciales se solicitan de forma oculta para que no queden en el
 historial del terminal. Usa únicamente contenido al que tu cuenta tenga acceso.
+
+El comando anterior `ofbackup` continúa disponible como alias.
 """
     )
 

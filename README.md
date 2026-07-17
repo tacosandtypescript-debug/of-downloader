@@ -46,7 +46,7 @@ El instalador:
 2. Solicita acceso a la carpeta Descargas de Android.
 3. Instala un contenedor Debian sin necesidad de root.
 4. Instala Python 3.13, FFmpeg y OF-Scraper.
-5. Crea el comando global `ofbackup`.
+5. Crea el comando global `of` y conserva `ofbackup` como alias.
 
 Se usa Debian porque Termux ofrece actualmente Python 3.14 y OF-Scraper 3.14.7
 requiere Python 3.11, 3.12 o 3.13.
@@ -54,23 +54,25 @@ requiere Python 3.11, 3.12 o 3.13.
 Abre el menú con:
 
 ```bash
-ofbackup
+of
 ```
 
 También puedes descargar directamente con un enlace:
 
 ```bash
-ofbackup "https://onlyfans.com/ID/usuario"
+of "https://onlyfans.com/ID/usuario"
 ```
 
 Otros comandos:
 
 ```bash
-ofbackup configurar
-ofbackup usuario NOMBRE
-ofbackup diagnostico
-ofbackup actualizar
+of configurar
+of usuario NOMBRE
+of diagnostico
+of actualizar
 ```
+
+El nombre anterior `ofbackup` sigue funcionando para mantener compatibilidad.
 
 En la opción **Conectar mi cuenta** puedes pegar una Cookie normal o una lista
 JSON completa exportada por el navegador. El JSON puede ocupar varias líneas:

@@ -23,11 +23,11 @@ TERMUX / ANDROID
 
 Para volver a abrirlo:
 
-   ofbackup
+   of
 
 Para descargar directamente con un enlace:
 
-   ofbackup "https://onlyfans.com/ID/usuario"
+   of "https://onlyfans.com/ID/usuario"
 
 La primera vez elige "Conectar mi cuenta". Puedes pegar una Cookie normal o
 el JSON completo exportado por el navegador. Si eliges JSON, pégalo entero,

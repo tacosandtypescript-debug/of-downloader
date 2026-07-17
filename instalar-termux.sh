@@ -62,10 +62,12 @@ proot-distro login --shared-home "$CONTAINER" -- bash -lc '
     .venv/bin/python -m pip check
 '
 
-echo "[7/7] Creando el comando ofbackup…"
+echo "[7/7] Creando el comando of…"
+install -m 755 "$SOURCE_DIR/ofbackup" "$PREFIX/bin/of"
+# Se conserva el nombre anterior para instalaciones y tutoriales existentes.
 install -m 755 "$SOURCE_DIR/ofbackup" "$PREFIX/bin/ofbackup"
 mkdir -p "$HOME/storage/downloads/OFBackup" 2>/dev/null || mkdir -p "$HOME/OFBackup"
 
 echo
 echo "Instalación terminada. Abriendo el menú…"
-exec ofbackup
+exec of
