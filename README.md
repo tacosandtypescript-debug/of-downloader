@@ -45,6 +45,11 @@ la conexión. Durante la preparación de Python y OF-Scraper pueden transcurrir
 varios minutos sin texto nuevo en pantalla; no cierres Termux mientras el
 proceso continúe. Es recomendable usar Wi-Fi y mantener el móvil cargando.
 
+El instalador muestra una barra de progreso compacta y guarda el detalle en
+`~/ofbackup-instalacion.log`. Si un comando falla, se detiene, marca el paso en
+rojo, muestra las últimas líneas útiles y propone una corrección. Para ver toda
+la salida mientras instala, utiliza `OFBACKUP_VERBOSE=1 bash instalar-termux.sh`.
+
 El instalador:
 
 1. Actualiza los paquetes de Termux.
