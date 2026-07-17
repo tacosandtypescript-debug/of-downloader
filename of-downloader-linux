@@ -1,22 +1,123 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/of-downloader"
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/of-downloader"
-
-if command -v xdg-user-dir >/dev/null 2>&1; then
-    DOWNLOAD_ROOT="$(xdg-user-dir DOWNLOAD 2>/dev/null || true)"
-fi
-DOWNLOAD_ROOT="${DOWNLOAD_ROOT:-$HOME/Downloads}"
-
-export OFDOWNLOADER_DATA_DIR="$CONFIG_DIR"
-export OFDOWNLOADER_DOWNLOAD_DIR="$DOWNLOAD_ROOT/OFDownloader"
-
 PYTHON="$APP_DIR/.venv/bin/python"
-if [[ ! -x "$PYTHON" ]]; then
+CLI="$APP_DIR/ofbackup_cli.py"
+IMPORT_REQUEST_EXIT=42
+UPDATE_REQUEST_EXIT=43
+UPDATE_STATUS="unknown"
+
+if [[ ! -x "$PYTHON" || ! -f "$CLI" ]]; then
     echo "OF Downloader no está instalado correctamente."
     echo "Vuelve a ejecutar instalar-linux.sh desde el repositorio."
     exit 1
 fi
 
-exec "$PYTHON" "$APP_DIR/app.py" "$@"
+download_root() {
+    local root=""
+    if command -v xdg-user-dir >/dev/null 2>&1; then
+        root="$(xdg-user-dir DOWNLOAD 2>/dev/null || true)"
+    fi
+    printf '%s' "${root:-$HOME/Downloads}"
+}
+
+repo_dir() {
+    local repo=""
+    if [[ -f "$APP_DIR/repo-path" ]]; then
+        IFS= read -r repo <"$APP_DIR/repo-path"
+    fi
+    if [[ -n "$repo" && -d "$repo/.git" ]]; then
+        printf '%s' "$repo"
+    elif [[ -d "$HOME/of-downloader/.git" ]]; then
+        printf '%s' "$HOME/of-downloader"
+    else
+        return 1
+    fi
+}
+
+check_repository_update() {
+    local repo current remote
+    repo="$(repo_dir)" || { printf 'repo-missing'; return; }
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 6 git -C "$repo" fetch --quiet origin main </dev/null 2>/dev/null || {
+            printf 'offline'; return;
+        }
+    elif ! git -C "$repo" fetch --quiet origin main </dev/null 2>/dev/null; then
+        printf 'offline'; return
+    fi
+    current="$(git -C "$repo" rev-parse HEAD 2>/dev/null)" || { printf 'error'; return; }
+    remote="$(git -C "$repo" rev-parse origin/main 2>/dev/null)" || { printf 'error'; return; }
+    if [[ "$current" == "$remote" ]]; then
+        printf 'current'
+    elif git -C "$repo" merge-base --is-ancestor "$current" "$remote" 2>/dev/null; then
+        printf 'available'
+    else
+        printf 'diverged'
+    fi
+}
+
+run_cli() {
+    env \
+        OFDOWNLOADER_PLATFORM="LINUX" \
+        OFDOWNLOADER_DOWNLOAD_DIR="$(download_root)/OFDownloader" \
+        OFDOWNLOADER_UPDATE_STATUS="$UPDATE_STATUS" \
+        OFSCRAPER_BIN="$APP_DIR/.venv/bin/ofscraper" \
+        "$PYTHON" "$CLI" "$@"
+}
+
+import_file() {
+    local selected="${1:-}"
+    if [[ -z "$selected" ]]; then
+        echo
+        echo "Escribe o arrastra aquí OFBackup-auth.json y pulsa Enter."
+        read -r -p "Archivo: " selected || return 1
+    fi
+    selected="${selected/#\~/$HOME}"
+    selected="${selected#\'}"; selected="${selected%\'}"
+    selected="${selected#\"}"; selected="${selected%\"}"
+    if [[ ! -f "$selected" ]]; then
+        echo "✗ No encuentro el archivo: $selected"
+        return 2
+    fi
+    run_cli importar-archivo "$selected"
+}
+
+update_application() {
+    local repo
+    if ! repo="$(repo_dir)"; then
+        echo "✗ No encuentro el repositorio para actualizar."
+        return 2
+    fi
+    echo "Actualizando OF Downloader…"
+    git -C "$repo" pull --ff-only origin main || return 2
+    bash "$repo/instalar-linux.sh" || return 2
+    UPDATE_STATUS="current"
+    echo "✓ Actualización terminada. Reiniciando…"
+}
+
+if [[ "${1:-}" == "importar" ]]; then
+    import_file "${2:-}"
+    exit $?
+fi
+
+case "${1:-menu}" in
+    menu|actualizar-app|update-app) UPDATE_STATUS="$(check_repository_update)" ;;
+esac
+
+while true; do
+    run_cli "$@"
+    status=$?
+    if [[ "$status" -eq "$IMPORT_REQUEST_EXIT" ]]; then
+        import_file || true
+        set -- menu
+        continue
+    fi
+    if [[ "$status" -eq "$UPDATE_REQUEST_EXIT" ]]; then
+        if update_application; then
+            set -- menu
+            continue
+        fi
+    fi
+    exit "$status"
+done

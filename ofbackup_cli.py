@@ -17,7 +17,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.6.7"
+APP_VERSION = "2.6.8"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -98,8 +98,12 @@ def read_json(path: Path, default: dict | None = None) -> dict:
 
 
 def default_download_dir() -> Path:
+    configured = os.getenv("OFDOWNLOADER_DOWNLOAD_DIR")
+    if configured:
+        return Path(configured).expanduser()
     shared = HOME / "storage" / "downloads"
-    return (shared if shared.exists() else HOME) / "OFDownloader"
+    desktop = HOME / "Downloads"
+    return (shared if shared.exists() else desktop) / "OFDownloader"
 
 
 def get_state() -> dict:
@@ -321,7 +325,10 @@ def json_cookie_prompt(*, allow_object: bool = False) -> str:
 def configure_credentials() -> int:
     print("\nCONECTAR MI CUENTA")
     print("Elige el tipo de datos que has copiado:")
-    print("1. Importar OFBackup-auth.json con el selector Android (recomendado)")
+    if os.getenv("OFDOWNLOADER_PLATFORM") == "LINUX":
+        print("1. Importar OFBackup-auth.json desde el equipo (recomendado)")
+    else:
+        print("1. Importar OFBackup-auth.json con el selector Android (recomendado)")
     print("2. Cookie normal en una sola línea")
     print("3. Lista JSON exportada por el navegador o una extensión")
     print("4. JSON completo de OnlyFans-Cookie-Helper")
@@ -333,7 +340,7 @@ def configure_credentials() -> int:
     elif cookie_format == "4":
         raw_cookie = json_cookie_prompt(allow_object=True)
     elif cookie_format == "2":
-        print("La entrada queda oculta y no se guarda en el historial de Termux.")
+        print("La entrada queda oculta y no se guarda en el historial de la terminal.")
         raw_cookie = hidden_prompt("Pega la Cookie completa: ")
     else:
         raise UserError("Elige 1, 2, 3 o 4.")
@@ -817,7 +824,7 @@ def menu() -> int:
         print()
         brand_labels = (
             "OF DOWNLOADER",
-            f"TERMUX · v{APP_VERSION}",
+            f"{os.getenv('OFDOWNLOADER_PLATFORM', 'TERMUX')} · v{APP_VERSION}",
             "Descargas simples",
             "",
         )

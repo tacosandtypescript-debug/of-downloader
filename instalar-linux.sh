@@ -42,13 +42,13 @@ install_system_packages() {
 
     if command -v apt-get >/dev/null 2>&1; then
         "${runner[@]}" apt-get update >>"$LOG_FILE" 2>&1 || return 1
-        "${runner[@]}" apt-get install -y python3 python3-venv python3-tk ffmpeg >>"$LOG_FILE" 2>&1 || return 1
+        "${runner[@]}" apt-get install -y python3 python3-venv ffmpeg >>"$LOG_FILE" 2>&1 || return 1
     elif command -v dnf >/dev/null 2>&1; then
-        "${runner[@]}" dnf install -y python3 python3-tkinter ffmpeg-free >>"$LOG_FILE" 2>&1 || return 1
+        "${runner[@]}" dnf install -y python3 ffmpeg-free >>"$LOG_FILE" 2>&1 || return 1
     elif command -v pacman >/dev/null 2>&1; then
-        "${runner[@]}" pacman -Sy --needed --noconfirm python tk ffmpeg >>"$LOG_FILE" 2>&1 || return 1
+        "${runner[@]}" pacman -Sy --needed --noconfirm python ffmpeg >>"$LOG_FILE" 2>&1 || return 1
     else
-        fail "No reconozco el gestor de paquetes. Instala Python 3.11–3.13, tkinter, venv y FFmpeg."
+        fail "No reconozco el gestor de paquetes. Instala Python 3.11–3.13, venv y FFmpeg."
     fi
 }
 
@@ -60,8 +60,8 @@ echo
 step 1 "Comprobando dependencias del sistema…"
 if ! command -v python3 >/dev/null 2>&1 || \
    ! command -v ffmpeg >/dev/null 2>&1 || \
-   ! python3 -c 'import tkinter, venv' >/dev/null 2>&1; then
-    echo "Se instalarán Python, tkinter, venv y FFmpeg. Puede pedir tu contraseña."
+   ! python3 -c 'import venv' >/dev/null 2>&1; then
+    echo "Se instalarán Python, venv y FFmpeg. Puede pedir tu contraseña."
     install_system_packages || fail "No se pudieron instalar las dependencias."
 fi
 
@@ -71,7 +71,10 @@ fi
 
 step 2 "Copiando la aplicación…"
 mkdir -p "$APP_DIR" "$BIN_DIR" "$APPLICATIONS_DIR"
-cp "$SOURCE_DIR/app.py" "$SOURCE_DIR/requirements.txt" "$APP_DIR/"
+install -m 600 "$SOURCE_DIR/ofbackup_cli.py" "$APP_DIR/ofbackup_cli.py"
+install -m 600 "$SOURCE_DIR/requirements-termux.txt" "$APP_DIR/requirements-linux.txt"
+printf '%s\n' "$SOURCE_DIR" >"$APP_DIR/repo-path"
+chmod 600 "$APP_DIR/repo-path"
 
 step 3 "Creando el entorno privado de Python…"
 if [[ ! -x "$APP_DIR/.venv/bin/python" ]]; then
@@ -80,7 +83,7 @@ fi
 
 step 4 "Instalando el motor de descarga…"
 "$APP_DIR/.venv/bin/python" -m pip install --upgrade pip >>"$LOG_FILE" 2>&1 || fail "No se pudo actualizar pip."
-"$APP_DIR/.venv/bin/python" -m pip install -r "$APP_DIR/requirements.txt" >>"$LOG_FILE" 2>&1 || fail "No se pudieron instalar los paquetes de Python."
+"$APP_DIR/.venv/bin/python" -m pip install -r "$APP_DIR/requirements-linux.txt" >>"$LOG_FILE" 2>&1 || fail "No se pudieron instalar los paquetes de Python."
 
 step 5 "Creando accesos directos…"
 install -m 755 "$SOURCE_DIR/of-downloader-linux" "$BIN_DIR/of-downloader"
@@ -93,16 +96,16 @@ cat >"$APPLICATIONS_DIR/of-downloader.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=OF Downloader
-Comment=Organiza y descarga el contenido permitido por tu cuenta
-Exec=$BIN_DIR/of-downloader
-Terminal=false
+Comment=Menú de descargas en la terminal
+Exec=$BIN_DIR/of
+Terminal=true
 Categories=Network;Utility;
 EOF
 chmod 644 "$APPLICATIONS_DIR/of-downloader.desktop"
 
 echo
 echo "${GREEN}✓ OF Downloader quedó instalado.${RESET}"
-echo "Ábrelo desde el menú de aplicaciones o ejecuta:"
+echo "Abre el menú interactivo en la terminal ejecutando:"
 echo "  $BIN_DIR/of"
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     echo

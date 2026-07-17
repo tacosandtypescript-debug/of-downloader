@@ -32,7 +32,7 @@ servicio, los derechos de los creadores y la legislación aplicable.
 - Importación segura de `OFBackup-auth.json` desde Descargas.
 - Comprobación de la sesión sin descargar contenido.
 - Barra de progreso compacta y registro de errores privado.
-- Interfaz adicional para Windows y Linux de escritorio.
+- Menú de terminal para Linux y Termux; interfaz gráfica adicional para Windows.
 
 ## Elige dónde quieres usarlo
 
@@ -60,17 +60,17 @@ cd of-downloader
 bash instalar-linux.sh
 ```
 
-El instalador comprueba Python, tkinter y FFmpeg, instala el motor en una carpeta
-privada y crea dos accesos:
+El instalador comprueba Python y FFmpeg, instala el motor en una carpeta privada
+y crea dos accesos al menú de terminal:
 
-- **OF Downloader** en el menú de aplicaciones de Linux.
+- **OF Downloader** en el menú de aplicaciones de Linux, abriendo una terminal.
 - `of` y `of-downloader` en `~/.local/bin` para abrirlo desde una terminal.
 
 Puede tardar varios minutos. Si encuentra un error se detiene y deja el detalle
 en `/tmp/of-downloader-instalacion.log`.
 
 Las descargas quedan en `~/Downloads/OFDownloader` y la configuración privada en
-`~/.config/of-downloader`. Para actualizar una instalación existente:
+`~/.config/ofbackup`. Para actualizar una instalación existente:
 
 ```bash
 cd ~/of-downloader
