@@ -1,214 +1,256 @@
-# OF Downloader
+<p align="center">
+  <img src="docs/banner.svg" alt="OF Downloader" width="100%">
+</p>
 
-OF Downloader permite descargar y organizar contenido al que tu propia cuenta tenga
-acceso. Incluye una interfaz gráfica para Windows/Linux de escritorio y un menú
-interactivo para Termux.
+<p align="center">
+  <strong>Descarga publicaciones permitidas por tu cuenta desde un menú sencillo en Termux.</strong>
+</p>
 
-No evita muros de pago: necesitas acceso válido al contenido y eres responsable
-de cumplir las condiciones del servicio y la legislación aplicable.
+<p align="center">
+  <a href="https://github.com/tacosandtypescript-debug/respaldo_of/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip"><strong>Descargar extensión para Chrome</strong></a>
+  ·
+  <a href="#instalar-of-downloader-en-termux">Instalar en Termux</a>
+  ·
+  <a href="#usar-la-extensión-y-cargar-el-acceso">Cargar el acceso</a>
+</p>
 
-## Termux (Android)
+> [!IMPORTANT]
+> El repositorio y sus publicaciones son privados. Debes iniciar sesión en
+> GitHub con la cuenta autorizada para descargar la extensión.
 
-Usa Termux instalado desde F-Droid o desde las publicaciones oficiales de
-GitHub. La versión antigua de Google Play no está soportada.
+OF Downloader organiza contenido al que tu propia cuenta ya tiene acceso. No
+evita suscripciones ni muros de pago. Utilízalo respetando las condiciones del
+servicio, los derechos de los creadores y la legislación aplicable.
 
-### Instalación rápida desde GitHub
+## Qué incluye
 
-El repositorio es privado, por lo que primero debes autenticar GitHub CLI en
-Termux:
+- Menú interactivo y con colores para Termux.
+- Descarga mediante un enlace o por nombre de usuario.
+- Extensión local para exportar los datos necesarios desde Chrome PC.
+- Importación segura de `OFBackup-auth.json` desde Descargas.
+- Comprobación de la sesión sin descargar contenido.
+- Barra de progreso compacta y registro de errores privado.
+- Interfaz adicional para Windows y Linux de escritorio.
+
+## Guía rápida
+
+```text
+Chrome PC                 Teléfono Android                 Termux
+─────────                 ────────────────                 ──────
+1. Iniciar sesión         3. Guardar el JSON              4. of importar
+2. Exportar el JSON  ──────▶  en la carpeta Download  ──────▶  5. of probar
+                                                           6. of
+```
+
+## Instalar la extensión en Google Chrome
+
+La extensión se instala localmente y no se publica en Chrome Web Store. Chrome
+no permite instalar este tipo de extensión directamente con un solo clic: hay
+que descomprimirla y usar **Cargar descomprimida**. Esto se hace una sola vez.
+
+> [!NOTE]
+> Estas instrucciones son para **Chrome en PC**. Chrome para Android no admite
+> extensiones locales.
+
+### 1. Descargar
+
+Pulsa el botón y guarda el ZIP:
+
+### [⬇️ Descargar OF Downloader Exporter para Chrome](https://github.com/tacosandtypescript-debug/respaldo_of/releases/latest/download/of_downloader_exporter-chrome-1.0.1.zip)
+
+### 2. Descomprimir
+
+En Windows:
+
+1. Abre la carpeta **Descargas**.
+2. Pulsa con el botón derecho sobre el ZIP.
+3. Elige **Extraer todo**.
+4. Conserva la carpeta extraída. Dentro debe aparecer `manifest.json`.
+
+### 3. Cargar en Chrome
+
+1. Escribe `chrome://extensions` en la barra de direcciones.
+2. Activa **Modo de desarrollador** arriba a la derecha.
+3. Pulsa **Cargar descomprimida**.
+4. Selecciona la carpeta que contiene `manifest.json`.
+5. Fija **OF Downloader Exporter** desde el icono de extensiones de Chrome.
+
+Cuando el repositorio publique una versión nueva, descarga el ZIP nuevo,
+reemplaza la carpeta anterior y pulsa **Actualizar** en `chrome://extensions`.
+
+## Usar la extensión y cargar el acceso
+
+### En Chrome PC
+
+1. Abre `https://onlyfans.com` e inicia sesión.
+2. Recarga la página y espera a que termine de cargar.
+3. Pulsa el icono **OF Downloader Exporter**.
+4. Pulsa **Exportar para OF Downloader**.
+5. Chrome guardará `OFBackup-auth.json` en Descargas.
+
+La extensión procesa los datos localmente. No usa servidores propios,
+telemetría ni portapapeles.
+
+### Pasar el archivo al teléfono
+
+Coloca `OFBackup-auth.json` en la carpeta **Download** del almacenamiento
+interno de Android. Puedes transferirlo por cable o mediante tu almacenamiento
+personal. No lo envíes a otras personas ni lo publiques.
+
+### Cargarlo en Termux
+
+Con el selector de Android:
+
+```bash
+of importar
+```
+
+O indicando la ruta directamente, que suele ser más fiable:
+
+```bash
+of importar "$HOME/storage/downloads/OFBackup-auth.json"
+```
+
+Comprueba que quedó conectado:
+
+```bash
+of probar
+```
+
+El resultado correcto es:
+
+```text
+✓ COOKIE VÁLIDA
+OnlyFans aceptó la sesión.
+```
+
+Después elimina `OFBackup-auth.json` de Descargas. OF Downloader conserva solo
+los cuatro campos necesarios en un archivo privado con permisos restringidos.
+
+## Instalar OF Downloader en Termux
+
+### Requisitos
+
+- Termux de F-Droid o de las publicaciones oficiales de GitHub.
+- La aplicación **Termux:API** de la misma fuente que Termux.
+- Una conexión estable, espacio libre y preferiblemente el cargador conectado.
+- Acceso a este repositorio privado.
+
+No uses la antigua versión de Termux de Google Play.
+
+### Instalación desde cero
 
 ```bash
 pkg update -y && pkg install -y git gh
 gh auth login
+gh repo clone tacosandtypescript-debug/respaldo_of
+cd respaldo_of
+bash instalar-termux.sh
 ```
 
-Después puedes descargar e instalar todo con una sola línea:
+La primera instalación prepara Debian, Python, FFmpeg y OF-Scraper; puede tardar
+varios minutos. La barra indicará el avance. Si falla, consulta:
 
 ```bash
-gh repo clone tacosandtypescript-debug/respaldo_of && cd respaldo_of && bash instalar-termux.sh
+tail -n 30 ~/ofbackup-instalacion.log
 ```
 
-Repositorio: <https://github.com/tacosandtypescript-debug/respaldo_of>
-
-Si ya descargaste o copiaste la carpeta del proyecto, utiliza la instalación
-local indicada a continuación.
-
-Desde la carpeta del repositorio:
+### Actualizar sin reinstalar todo
 
 ```bash
-chmod +x instalar-termux.sh
-./instalar-termux.sh
+cd ~/respaldo_of
+git pull
+install -m 600 ofbackup_cli.py ~/.local/share/ofbackup/ofbackup_cli.py
+install -m 755 ofbackup $PREFIX/bin/of
+install -m 755 ofbackup $PREFIX/bin/ofbackup
 ```
 
-La primera instalación puede tardar bastante según la velocidad del móvil y
-la conexión. Durante la preparación de Python y OF-Scraper pueden transcurrir
-varios minutos sin texto nuevo en pantalla; no cierres Termux mientras el
-proceso continúe. Es recomendable usar Wi-Fi y mantener el móvil cargando.
+## Descargar contenido
 
-El instalador muestra una barra de progreso compacta y guarda el detalle en
-`~/ofbackup-instalacion.log`. Si un comando falla, se detiene, marca el paso en
-rojo, muestra las últimas líneas útiles y propone una corrección. Para ver toda
-la salida mientras instala, utiliza `OFBACKUP_VERBOSE=1 bash instalar-termux.sh`.
-
-El instalador:
-
-1. Actualiza los paquetes de Termux.
-2. Instala el comando de Termux:API y solicita acceso a Descargas.
-3. Instala un contenedor Debian sin necesidad de root.
-4. Instala Python 3.13, FFmpeg y OF-Scraper.
-5. Crea el comando global `of` y conserva `ofbackup` como alias.
-
-Se usa Debian porque Termux ofrece actualmente Python 3.14 y OF-Scraper 3.14.7
-requiere Python 3.11, 3.12 o 3.13.
-
-Abre el menú con:
+Abre el menú:
 
 ```bash
 of
 ```
 
-También puedes descargar directamente con un enlace:
+Para una publicación, elige **1** y pega su enlace. Para un usuario completo,
+elige **2** y escribe el nombre sin `@`.
+
+También puedes usar comandos directos:
 
 ```bash
 of "https://onlyfans.com/ID/usuario"
-```
-
-Otros comandos:
-
-```bash
-of configurar
-of importar
-of probar
 of usuario NOMBRE
+```
+
+Las descargas nuevas se guardan por defecto en:
+
+```text
+Descargas/OFDownloader
+```
+
+La carpeta se puede cambiar desde la opción **4**.
+
+## Soluciones rápidas
+
+### Android dice que el archivo está vacío
+
+Comprueba el nombre real:
+
+```bash
+ls -lh ~/storage/downloads/*.json
+```
+
+Luego impórtalo usando exactamente ese nombre:
+
+```bash
+of importar "$HOME/storage/downloads/NOMBRE-REAL.json"
+```
+
+### La cookie fue rechazada
+
+Vuelve a abrir OnlyFans en Chrome, recarga la página y genera un JSON nuevo.
+Los valores `sess`, `auth_id`, `x-bc` y `User-Agent` deben proceder de la misma
+sesión.
+
+### La descarga falla
+
+Ejecuta primero:
+
+```bash
 of diagnostico
-of actualizar
+of probar
 ```
 
-Si el selector de Android devuelve el archivo vacío, guárdalo en Descargas e
-impórtalo directamente con:
+El detalle de la última descarga queda en:
 
-```bash
-of importar ~/storage/downloads/OFBackup-auth.json
+```text
+~/.config/ofbackup/ultima-descarga.log
 ```
-
-El nombre anterior `ofbackup` sigue funcionando para mantener compatibilidad.
-
-### Conectar la cuenta desde Firefox Android o Chrome PC
-
-OF Downloader incorpora **OF Downloader Exporter**, una extensión situada en la
-carpeta `extension/` y preparada para Firefox Android y escritorio. El flujo es:
-
-1. Instala una copia firmada de la extensión en Firefox.
-2. Abre OnlyFans, inicia sesión y recarga la página.
-3. Abre la extensión y pulsa **Exportar para OF Downloader**.
-4. En Termux ejecuta `of importar` o usa la opción **Conectar mi cuenta**.
-5. Elige `OFBackup-auth.json` con el selector Android.
-6. Ejecuta `of probar` para confirmar la sesión sin descargar contenido.
-
-La variante para Chrome PC se genera desde `chrome/` con:
-
-```bash
-npm run build:chrome
-```
-
-El comando crea `build/chrome`, que puede cargarse desde `chrome://extensions`
-con **Modo de desarrollador > Cargar descomprimida**, y también crea
-`artifacts/of_downloader_exporter-chrome-1.0.1.zip`. Firefox y Chrome producen el
-mismo archivo compatible con `of importar`.
-
-El selector necesita dos componentes: el paquete `termux-api`, instalado por el
-script, y la aplicación complementaria **Termux:API**. Termux y Termux:API deben
-proceder de la misma fuente; no mezcles instalaciones de F-Droid y GitHub.
-
-La extensión crea el archivo localmente y no utiliza Google Drive, servidores,
-telemetría ni portapapeles. OF Downloader valida el archivo, conserva únicamente
-`sess`, `auth_id`, `x-bc` y `User-Agent`, y compara su huella SHA-256 antes de
-eliminar de Descargas el original. La copia temporal privada siempre se elimina.
-
-`of probar` realiza una única consulta autenticada al perfil mediante el motor
-de OF-Scraper. No descarga publicaciones y no imprime cookies, nombres ni
-identificadores. Informa si la sesión es válida, fue rechazada o no pudo
-comprobarse por un problema técnico.
-
-Los métodos anteriores siguen disponibles: puedes pegar una Cookie normal, una
-lista JSON del navegador o el JSON completo de OnlyFans-Cookie-Helper. Las
-listas de cookies solo aportan `sess` y `auth_id`; `x-bc` y `User-Agent` deben
-pertenecer a esa misma sesión.
-
-La Cookie normal se solicita mediante una entrada oculta y no aparece en el
-historial del terminal. Los archivos de autenticación se guardan con permisos
-`0600`.
-
-Las descargas se guardan por defecto en `Descargas/OFDownloader`. Desde el menú se
-puede elegir otra carpeta.
-
-### Error `Python.h: No such file or directory`
-
-Las primeras instalaciones podían quedarse detenidas al compilar `xxhash`,
-`lxml`, `psutil` o `faust-cchardet`. El instalador actual ya incluye
-`python3-dev` y las bibliotecas necesarias. Si ocurrió con una copia anterior,
-actualiza el repositorio y vuelve a ejecutar el instalador:
-
-```bash
-cd ~/respaldo_of
-git pull
-bash instalar-termux.sh
-```
-
-No hace falta borrar Debian, las credenciales ni las descargas; el instalador
-repara el entorno existente y continúa desde donde quedó.
-
-### Error `getattr() takes 1 positional argument but 2 were given`
-
-OF Downloader incluye una compatibilidad para este fallo de configuración de
-OF-Scraper 3.14.7. Actualiza el repositorio y vuelve a ejecutar el instalador:
-
-```bash
-cd ~/respaldo_of
-git pull
-bash instalar-termux.sh
-```
-
-El proceso conserva las credenciales y los archivos descargados. Además, el
-menú ya detecta un `Traceback` aunque OF-Scraper devuelva por error un código de
-salida correcto, por lo que no vuelve a mostrar "Descarga terminada" tras un
-fallo interno.
-
-### Mensaje `Auth Failed`
-
-`sess`, `auth_id`, `x-bc` y `User-Agent` deben proceder de la misma sesión del
-navegador. No sirve un User-Agent aproximado. OF Downloader también acepta el
-JSON completo generado por OnlyFans-Cookie-Helper y extrae esos cuatro campos.
-Si OnlyFans rechaza el acceso, OF Downloader termina con un mensaje claro en vez de
-abrir el menú interno de navegadores de OF-Scraper.
-
-## Windows o Linux de escritorio
-
-Se necesita Python 3.11, 3.12 o 3.13.
-
-- Windows: doble clic en `iniciar.bat`.
-- Linux: ejecuta `bash iniciar.sh`.
-
-Los scripts crean `.venv`, actualizan pip e instalan las versiones declaradas en
-`requirements.txt` antes de abrir la interfaz.
 
 ## Seguridad
 
-- Nunca publiques `config.json` ni `auth.json`.
-- Renueva la Cookie si sospechas que alguien pudo verla.
-- No escribas Cookies como argumentos de comandos: quedan en el historial.
-- No compartas ni conserves `OFBackup-auth.json` después de importarlo.
-- La autenticación de Termux se almacena en `~/.config/ofscraper/main_profile`.
+- Nunca publiques `OFBackup-auth.json`, `config.json` ni `auth.json`.
+- No pegues cookies en chats, capturas, incidencias o argumentos de comandos.
+- Si compartiste un archivo de acceso, cierra esa sesión y genera otro.
+- Elimina el JSON exportado después de importarlo.
+- Revisa la [política de privacidad de la extensión](extension/PRIVACY.md).
 
-## Desarrollo de la extensión
+## Windows y Linux de escritorio
 
-El código fuente, la política de privacidad, la atribución MIT y las
-instrucciones de prueba están en `extension/`. Antes de una publicación pública
-se generará una versión firmada **unlisted** en Mozilla Add-ons para probarla en
-Firefox Android y escritorio. Ejecuta las comprobaciones JavaScript con:
+Se requiere Python 3.11, 3.12 o 3.13.
+
+- Windows: ejecuta `iniciar.bat`.
+- Linux: ejecuta `bash iniciar.sh`.
+
+## Desarrollo
 
 ```bash
+python -m unittest discover -s tests
 npm run test:extension
 npm run build:chrome
 npx web-ext lint --source-dir extension
 ```
+
+El código de Firefox está en `extension/`. La variante local de Chrome se
+genera en `build/chrome/`; los ZIP y directorios generados no se guardan en Git.

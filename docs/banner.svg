@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title description">
+  <title id="title">OF Downloader</title>
+  <desc id="description">Descargas sencillas desde Termux con extensión local para Chrome y Firefox.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#061a2b"/>
+      <stop offset="0.55" stop-color="#00395d"/>
+      <stop offset="1" stop-color="#008ccf"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00aff0"/>
+      <stop offset="1" stop-color="#20d5a6"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#00101d" flood-opacity=".45"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="360" rx="30" fill="url(#background)"/>
+  <circle cx="1080" cy="40" r="180" fill="#00aff0" opacity=".09"/>
+  <circle cx="1040" cy="330" r="240" fill="#20d5a6" opacity=".07"/>
+  <g transform="translate(92 72)" filter="url(#shadow)">
+    <rect width="216" height="216" rx="54" fill="#0c2335" stroke="#00aff0" stroke-width="5"/>
+    <circle cx="108" cy="108" r="66" fill="none" stroke="url(#accent)" stroke-width="15"/>
+    <path d="M108 68v78m-32-30 32 32 32-32" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g font-family="Inter,Segoe UI,Arial,sans-serif">
+    <text x="360" y="142" fill="#fff" font-size="70" font-weight="750" letter-spacing="1">OF Downloader</text>
+    <text x="364" y="198" fill="#bcecff" font-size="27" font-weight="500">Descarga con un enlace desde Termux</text>
+    <g transform="translate(364 235)">
+      <rect width="176" height="48" rx="24" fill="#00aff0"/>
+      <text x="88" y="32" fill="#001522" font-size="20" font-weight="700" text-anchor="middle">TERMUX</text>
+      <rect x="192" width="176" height="48" rx="24" fill="#fff" opacity=".12"/>
+      <text x="280" y="32" fill="#fff" font-size="20" font-weight="650" text-anchor="middle">CHROME</text>
+      <rect x="384" width="176" height="48" rx="24" fill="#fff" opacity=".12"/>
+      <text x="472" y="32" fill="#fff" font-size="20" font-weight="650" text-anchor="middle">FIREFOX</text>
+    </g>
+  </g>
+</svg>
