@@ -275,6 +275,12 @@ class AuthenticationTestTests(unittest.TestCase):
 
 
 class DownloadTests(unittest.TestCase):
+    def test_cdm_startup_check_has_a_short_timeout(self):
+        with mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True):
+            environment = ofbackup_cli.ofscraper_environment()
+        self.assertEqual(environment["OFSC_CDM_TEST_TIMEOUT"], "8")
+        self.assertEqual(environment["OFSC_CDM_TEST_NUM_TRIES"], "1")
+
     def test_traceback_is_failure_even_with_zero_exit_code(self):
         process = mock.Mock()
         process.stdout = io.StringIO(
@@ -299,6 +305,7 @@ class DownloadTests(unittest.TestCase):
             encoding="utf-8",
             errors="replace",
             bufsize=1,
+            env=mock.ANY,
         )
 
     def test_auth_failure_is_detected_without_opening_internal_menu(self):

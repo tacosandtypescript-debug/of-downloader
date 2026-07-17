@@ -17,7 +17,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 
 
-APP_VERSION = "2.3.2"
+APP_VERSION = "2.3.3"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -544,11 +544,20 @@ def build_ofscraper_command(executable: str, arguments: list[str]) -> list[str]:
     return [executable, "--auth-fail", *arguments]
 
 
+def ofscraper_environment() -> dict[str, str]:
+    """Evita que la comprobación externa de CDM bloquee mucho el inicio."""
+    environment = os.environ.copy()
+    environment["OFSC_CDM_TEST_TIMEOUT"] = "8"
+    environment["OFSC_CDM_TEST_NUM_TRIES"] = "1"
+    return environment
+
+
 def run_ofscraper(arguments: list[str]) -> int:
     require_credentials()
     write_ofscraper_config()
     executable = ofscraper_binary()
     print("\nIniciando OF-Scraper…\n")
+    print("La comprobación inicial de video puede tardar hasta unos 12 segundos.\n")
     traceback_seen = False
     auth_failed = False
     try:
@@ -560,6 +569,7 @@ def run_ofscraper(arguments: list[str]) -> int:
             encoding="utf-8",
             errors="replace",
             bufsize=1,
+            env=ofscraper_environment(),
         )
         if process.stdout is None:  # pragma: no cover - garantía de subprocess
             raise UserError("No se pudo leer la salida de OF-Scraper.")
