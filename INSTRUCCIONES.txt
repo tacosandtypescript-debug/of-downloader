@@ -76,7 +76,7 @@ Descarga Chrome:
 
 Descarga Firefox:
 
-   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.3.zip
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.4.zip
 
 En Chrome:
 1. Descomprime el ZIP.

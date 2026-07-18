@@ -112,7 +112,7 @@ Descargas rápidas:
 - Chrome / Chromium:
   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.3.zip
 - Firefox:
-  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.3.zip
+  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.4.zip
 
 ### Instalar la extensión en Chrome
 
