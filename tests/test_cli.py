@@ -355,6 +355,49 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(ofbackup_cli.extract_download_percent("Video 73.8%"), 73)
         self.assertIsNone(ofbackup_cli.extract_download_percent("sin porcentaje"))
 
+    def test_extracts_media_totals_from_output(self):
+        self.assertEqual(
+            ofbackup_cli.extract_media_totals("Images: 27 Videos: 16"),
+            (27, 16),
+        )
+        self.assertEqual(
+            ofbackup_cli.extract_media_totals("Se encontraron 9 fotos y 2 videos"),
+            (9, 2),
+        )
+
+    def test_counts_new_media_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            existing = root / "old.jpg"
+            existing.write_bytes(b"old")
+            before = ofbackup_cli.media_snapshot(root)
+            (root / "new.mp4").write_bytes(b"video")
+            (root / "new.webp").write_bytes(b"image")
+            (root / "ignored.part").write_bytes(b"partial")
+            counts = ofbackup_cli.count_changed_media(
+                before, ofbackup_cli.media_snapshot(root)
+            )
+        self.assertEqual(counts.images, 1)
+        self.assertEqual(counts.videos, 1)
+        self.assertEqual(counts.other, 0)
+
+    def test_download_user_does_not_force_normal_only(self):
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(
+                ofbackup_cli,
+                "get_state",
+                return_value={"download_dir": temporary, "username": ""},
+            ),
+            mock.patch.object(ofbackup_cli, "save_state"),
+            mock.patch.object(ofbackup_cli, "run_ofscraper", return_value=0) as run,
+        ):
+            self.assertEqual(ofbackup_cli.download_user("creator.example"), 0)
+        arguments = run.call_args.args[0]
+        self.assertNotIn("--normal-only", arguments)
+        self.assertIn("--posts", arguments)
+        self.assertIn("all", arguments)
+
     def test_traceback_is_failure_even_with_zero_exit_code(self):
         process = mock.Mock()
         process.stdout = io.StringIO(
@@ -366,6 +409,12 @@ class DownloadTests(unittest.TestCase):
             mock.patch.object(ofbackup_cli, "require_credentials"),
             mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
             mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli,
+                "get_state",
+                return_value={"download_dir": temporary},
+            ),
+            mock.patch.object(ofbackup_cli, "APP_DIR", Path(temporary) / "app"),
             mock.patch.object(
                 ofbackup_cli, "DOWNLOAD_LOG_PATH", Path(temporary) / "download.log"
             ),
@@ -395,6 +444,12 @@ class DownloadTests(unittest.TestCase):
             mock.patch.object(ofbackup_cli, "require_credentials"),
             mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
             mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli,
+                "get_state",
+                return_value={"download_dir": temporary},
+            ),
+            mock.patch.object(ofbackup_cli, "APP_DIR", Path(temporary) / "app"),
             mock.patch.object(
                 ofbackup_cli, "DOWNLOAD_LOG_PATH", Path(temporary) / "download.log"
             ),

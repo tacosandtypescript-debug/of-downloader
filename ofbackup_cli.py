@@ -12,13 +12,14 @@ import shutil
 import subprocess
 import sys
 import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.6.9"
+APP_VERSION = "2.7.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -36,6 +37,9 @@ OFSCRAPER_CONFIG_PATH = OFSCRAPER_DIR / "config.json"
 AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
 EXPORTED_AUTH_PATH = HOME / "storage" / "downloads" / AUTH_EXPORT_FILENAME
 DOWNLOAD_LOG_PATH = APP_DIR / "ultima-descarga.log"
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"}
+VIDEO_EXTENSIONS = {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".ts"}
+PARTIAL_EXTENSIONS = {".part", ".partial", ".tmp", ".temp", ".download"}
 
 AUTH_TEST_SCRIPT = r"""
 import sys
@@ -625,28 +629,179 @@ def extract_download_percent(line: str) -> int | None:
     return min(100, max(0, int(matches[-1])))
 
 
-def extract_content_counts(line: str) -> dict[str, int]:
-    """Intenta extraer de la salida cuántas imágenes/videos detectó ofscraper."""
-    counts: dict[str, int] = {}
-    lowered = line.lower()
-    for media, label in (("images", r"image|imágenes|fotos"), ("videos", r"video|vídeos")):
-        match = re.search(rf"(\d+)\s+(?:{label})", lowered)
-        if match:
-            counts[media] = int(match.group(1))
+@dataclass
+class MediaCounts:
+    images: int = 0
+    videos: int = 0
+    other: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.images + self.videos + self.other
+
+
+@dataclass
+class DownloadStats:
+    detected_images: int | None = None
+    detected_videos: int | None = None
+    downloaded: MediaCounts = field(default_factory=MediaCounts)
+    failed: int = 0
+    skipped: int = 0
+    seen_events: set[str] = field(default_factory=set, repr=False)
+
+    def label(self, stage: str) -> str:
+        parts = [stage]
+        if self.detected_images is not None or self.downloaded.images:
+            if self.detected_images is None:
+                parts.append(f"Fotos {self.downloaded.images}")
+            else:
+                parts.append(f"Fotos {self.downloaded.images}/{self.detected_images}")
+        if self.detected_videos is not None or self.downloaded.videos:
+            if self.detected_videos is None:
+                parts.append(f"Videos {self.downloaded.videos}")
+            else:
+                parts.append(f"Videos {self.downloaded.videos}/{self.detected_videos}")
+        if self.failed:
+            parts.append(f"Fallos {self.failed}")
+        if self.skipped:
+            parts.append(f"Omitidos {self.skipped}")
+        return " · ".join(parts)
+
+
+def media_kind(path: Path) -> str | None:
+    suffix = path.suffix.lower()
+    if suffix in PARTIAL_EXTENSIONS:
+        return None
+    if suffix in IMAGE_EXTENSIONS:
+        return "images"
+    if suffix in VIDEO_EXTENSIONS:
+        return "videos"
+    return None
+
+
+def media_snapshot(root: Path) -> dict[str, tuple[int, int]]:
+    root = root.expanduser()
+    if not root.exists():
+        return {}
+    snapshot: dict[str, tuple[int, int]] = {}
+    try:
+        paths = root.rglob("*")
+        for path in paths:
+            try:
+                if not path.is_file() or media_kind(path) is None:
+                    continue
+                stat = path.stat()
+            except OSError:
+                continue
+            snapshot[str(path)] = (stat.st_size, stat.st_mtime_ns)
+    except OSError:
+        return snapshot
+    return snapshot
+
+
+def count_changed_media(
+    before: dict[str, tuple[int, int]], after: dict[str, tuple[int, int]]
+) -> MediaCounts:
+    counts = MediaCounts()
+    for raw_path, signature in after.items():
+        if before.get(raw_path) == signature:
+            continue
+        kind = media_kind(Path(raw_path))
+        if kind == "images":
+            counts.images += 1
+        elif kind == "videos":
+            counts.videos += 1
+        else:
+            counts.other += 1
     return counts
 
 
-def show_content_summary(detected: dict[str, int], downloaded: dict[str, int]) -> None:
-    """Muestra un resumen claro de imágenes/videos detectados y descargados."""
-    img_detected = detected.get("images", 0)
-    vid_detected = detected.get("videos", 0)
-    img_downloaded = downloaded.get("images", 0)
-    vid_downloaded = downloaded.get("videos", 0)
+def extract_media_totals(line: str) -> tuple[int | None, int | None]:
+    image_patterns = (
+        r"\b(?:images?|photos?|fotos?)\b\s*[:=]\s*(\d+)",
+        r"\b(\d+)\s*(?:images?|photos?|fotos?)\b",
+    )
+    video_patterns = (
+        r"\b(?:videos?|v[ií]deos?)\b\s*[:=]\s*(\d+)",
+        r"\b(\d+)\s*(?:videos?|v[ií]deos?)\b",
+    )
 
-    if img_detected or vid_detected:
-        print(f"\n  Contenido detectado:  {img_detected} imágenes · {vid_detected} videos")
-    if img_downloaded or vid_downloaded:
-        print(f"  Contenido descargado: {img_downloaded} imágenes · {vid_downloaded} videos")
+    def first_match(patterns: tuple[str, ...]) -> int | None:
+        for pattern in patterns:
+            match = re.search(pattern, line, flags=re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return None
+
+    return first_match(image_patterns), first_match(video_patterns)
+
+
+def update_download_stats_from_line(stats: DownloadStats, line: str) -> bool:
+    changed = False
+    images, videos = extract_media_totals(line)
+    if images is not None and images > (stats.detected_images or 0):
+        stats.detected_images = images
+        changed = True
+    if videos is not None and videos > (stats.detected_videos or 0):
+        stats.detected_videos = videos
+        changed = True
+
+    lowered = line.lower()
+    event_key = lowered.strip()
+    if not event_key or event_key in stats.seen_events:
+        return changed
+    stats.seen_events.add(event_key)
+
+    if "download" in lowered and any(
+        phrase in lowered
+        for phrase in (
+            "failed to download",
+            "download failed",
+            "error downloading",
+            "download error",
+            "could not download",
+        )
+    ):
+        stats.failed += 1
+        changed = True
+    elif any(phrase in lowered for phrase in ("already downloaded", "skipped", "skip media")):
+        stats.skipped += 1
+        changed = True
+    return changed
+
+
+def print_download_summary(
+    stats: DownloadStats, destination: Path, *, completed: bool
+) -> None:
+    detected_parts = []
+    if stats.detected_images is not None:
+        detected_parts.append(f"{stats.detected_images} fotos")
+    if stats.detected_videos is not None:
+        detected_parts.append(f"{stats.detected_videos} videos")
+
+    print("\nRESUMEN")
+    if detected_parts:
+        print(f"Detectados por el motor: {', '.join(detected_parts)}")
+    else:
+        print("Detectados por el motor: no informado")
+    print(
+        "Archivos nuevos: "
+        f"{stats.downloaded.images} fotos, {stats.downloaded.videos} videos"
+    )
+    if stats.downloaded.other:
+        print(f"Otros archivos nuevos: {stats.downloaded.other}")
+    print(f"Fallos detectados: {stats.failed}")
+    if stats.skipped:
+        print(f"Omitidos porque ya existian: {stats.skipped}")
+    if completed and detected_parts and not stats.failed:
+        detected_total = (stats.detected_images or 0) + (stats.detected_videos or 0)
+        if stats.downloaded.total < detected_total:
+            print(
+                "Aviso: se detectaron mas elementos que archivos nuevos. "
+                "Puede que algunos ya existieran, fueran DRM o no estuvieran "
+                "permitidos por la cuenta."
+            )
+    print(f"Carpeta: {destination}")
 
 
 def show_download_progress(percent: int, label: str, *, failed: bool = False) -> None:
@@ -666,14 +821,17 @@ def run_ofscraper(arguments: list[str]) -> int:
     require_credentials()
     write_ofscraper_config()
     executable = ofscraper_binary()
+    destination = Path(get_state()["download_dir"]).expanduser()
+    before_download = media_snapshot(destination)
     print("\nOF Downloader está preparando la descarga…")
     traceback_seen = False
     auth_failed = False
+    stats = DownloadStats()
     progress = 3
     last_stage = "Iniciando"
-    detected_counts: dict[str, int] = {}
-    downloaded_counts: dict[str, int] = {}
-    show_download_progress(progress, last_stage)
+    last_label = stats.label(last_stage)
+    last_scan = 0.0
+    show_download_progress(progress, last_label)
     APP_DIR.mkdir(parents=True, exist_ok=True)
     try:
         with DOWNLOAD_LOG_PATH.open("w", encoding="utf-8") as log_file:
@@ -702,17 +860,19 @@ def run_ofscraper(arguments: list[str]) -> int:
                     process.terminate()
                     break
 
-                counts = extract_content_counts(line)
-                for key, value in counts.items():
-                    if "download" in lowered or extract_download_percent(line) is not None:
-                        downloaded_counts[key] = max(downloaded_counts.get(key, 0), value)
-                    else:
-                        detected_counts[key] = max(detected_counts.get(key, 0), value)
+                stats_changed = update_download_stats_from_line(stats, line)
+                now = time.monotonic()
+                if now - last_scan >= 1:
+                    stats.downloaded = count_changed_media(
+                        before_download, media_snapshot(destination)
+                    )
+                    last_scan = now
+                    stats_changed = True
 
                 reported = extract_download_percent(line)
                 if reported is not None:
                     new_progress = max(progress, min(95, 35 + reported * 3 // 5))
-                    stage = f"Descargando archivos ({reported}% reportado)"
+                    stage = "Descargando archivos"
                 elif "key mode:" in lowered:
                     new_progress, stage = max(progress, 10), "Preparando video"
                 elif "checking auth status" in lowered:
@@ -722,20 +882,27 @@ def run_ofscraper(arguments: list[str]) -> int:
                 elif "download" in lowered:
                     new_progress, stage = max(progress, 45), "Descargando archivos"
                 else:
-                    continue
+                    new_progress, stage = progress, last_stage
 
-                if new_progress != progress or stage != last_stage:
+                label = stats.label(stage)
+                if (
+                    new_progress != progress
+                    or stage != last_stage
+                    or label != last_label
+                    or stats_changed
+                ):
                     progress, last_stage = new_progress, stage
-                    show_download_progress(progress, last_stage)
+                    last_label = label
+                    show_download_progress(progress, last_label)
             returncode = process.wait()
     except OSError as exc:
         raise UserError(f"No se pudo iniciar OF-Scraper: {exc}") from exc
 
+    stats.downloaded = count_changed_media(before_download, media_snapshot(destination))
     if returncode or traceback_seen or auth_failed:
         shown_code = returncode or 1
-        show_download_progress(progress, "ERROR: descarga detenida", failed=True)
+        show_download_progress(progress, stats.label("ERROR: descarga detenida"), failed=True)
         print("\n✗ La descarga no se completó.")
-        show_content_summary(detected_counts, downloaded_counts)
         if auth_failed:
             print("OnlyFans rechazó los datos de acceso.")
             print("Abre la opción 3 y pega x-bc y User-Agent de la misma sesión.")
@@ -743,13 +910,13 @@ def run_ofscraper(arguments: list[str]) -> int:
             print("OF-Scraper informó un error interno aunque devolvió código 0.")
         else:
             print(f"OF-Scraper terminó con código {returncode}.")
+        print_download_summary(stats, destination, completed=False)
         print(f"Registro para revisar el error: {DOWNLOAD_LOG_PATH}")
         return shown_code
     else:
-        show_download_progress(100, "Descarga completada")
-        print("\n✓ Descarga finalizada exitosamente.")
-        show_content_summary(detected_counts, downloaded_counts)
-        print(f"  Archivos guardados en: {get_state()['download_dir']}")
+        show_download_progress(100, stats.label("Descarga completada"))
+        print(f"\n✓ Descarga terminada. Archivos en: {get_state()['download_dir']}")
+        print_download_summary(stats, destination, completed=True)
         return 0
 
 
@@ -819,7 +986,6 @@ def download_user(username: str | None = None) -> int:
             "all",
             "--mediatype",
             "images,videos",
-            "--normal-only",
             "--no-live",
             "--output",
             "normal",
