@@ -698,7 +698,6 @@ def run_ofscraper(arguments: list[str]) -> int:
                     traceback_seen = True
                 if "auth failed" in lowered:
                     auth_failed = True
-                if traceback_seen or auth_failed:
                     process.terminate()
                     break
 
@@ -731,7 +730,7 @@ def run_ofscraper(arguments: list[str]) -> int:
     except OSError as exc:
         raise UserError(f"No se pudo iniciar OF-Scraper: {exc}") from exc
 
-    if returncode or traceback_seen or auth_failed:
+    if returncode or auth_failed:
         shown_code = returncode or 1
         show_download_progress(progress, "ERROR: descarga detenida", failed=True)
         print("\n✗ La descarga no se completó.")
@@ -739,8 +738,6 @@ def run_ofscraper(arguments: list[str]) -> int:
         if auth_failed:
             print("OnlyFans rechazó los datos de acceso.")
             print("Abre la opción 3 y pega x-bc y User-Agent de la misma sesión.")
-        elif traceback_seen and not returncode:
-            print("OF-Scraper informó un error interno aunque devolvió código 0.")
         else:
             print(f"OF-Scraper terminó con código {returncode}.")
         print(f"Registro para revisar el error: {DOWNLOAD_LOG_PATH}")
@@ -750,6 +747,8 @@ def run_ofscraper(arguments: list[str]) -> int:
         print("\n✓ Descarga finalizada exitosamente.")
         show_content_summary(detected_counts, downloaded_counts)
         print(f"  Archivos guardados en: {get_state()['download_dir']}")
+        if traceback_seen:
+            print(f"  Algunos elementos tuvieron errores. Registro: {DOWNLOAD_LOG_PATH}")
         return 0
 
 

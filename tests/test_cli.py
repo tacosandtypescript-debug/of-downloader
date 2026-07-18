@@ -355,12 +355,13 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(ofbackup_cli.extract_download_percent("Video 73.8%"), 73)
         self.assertIsNone(ofbackup_cli.extract_download_percent("sin porcentaje"))
 
-    def test_traceback_is_failure_even_with_zero_exit_code(self):
+    def test_traceback_with_zero_exit_code_is_success_with_warning(self):
         process = mock.Mock()
         process.stdout = io.StringIO(
             "Traceback (most recent call last):\nTypeError: example\n"
         )
         process.wait.return_value = 0
+        printed: list[str] = []
         with (
             tempfile.TemporaryDirectory() as temporary,
             mock.patch.object(ofbackup_cli, "require_credentials"),
@@ -372,9 +373,9 @@ class DownloadTests(unittest.TestCase):
             mock.patch.object(
                 ofbackup_cli.subprocess, "Popen", return_value=process
             ) as popen,
-            mock.patch("builtins.print"),
+            mock.patch("builtins.print", side_effect=lambda *a, **kw: printed.append(str(a))),
         ):
-            self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
+            self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 0)
         popen.assert_called_once_with(
             ["ofscraper", "manual", "--auth-fail"],
             stdout=ofbackup_cli.subprocess.PIPE,
@@ -385,6 +386,28 @@ class DownloadTests(unittest.TestCase):
             bufsize=1,
             env=mock.ANY,
         )
+        self.assertTrue(any("Algunos elementos tuvieron errores" in line for line in printed))
+        process.terminate.assert_not_called()
+
+    def test_traceback_with_nonzero_exit_code_is_failure(self):
+        process = mock.Mock()
+        process.stdout = io.StringIO(
+            "Traceback (most recent call last):\nTypeError: example\n"
+        )
+        process.wait.return_value = 1
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(ofbackup_cli, "require_credentials"),
+            mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
+            mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli, "DOWNLOAD_LOG_PATH", Path(temporary) / "download.log"
+            ),
+            mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
+        process.terminate.assert_not_called()
 
     def test_auth_failure_is_detected_without_opening_internal_menu(self):
         process = mock.Mock()
