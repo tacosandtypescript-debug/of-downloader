@@ -112,7 +112,7 @@ class UrlTests(unittest.TestCase):
                 ),
                 0,
             )
-        download_user.assert_called_once_with("luceroguevara.oficial")
+        download_user.assert_called_once_with("luceroguevara.oficial", source="enlace")
 
 
 class JsonTests(unittest.TestCase):
@@ -407,12 +407,16 @@ class DownloadTests(unittest.TestCase):
             ),
             mock.patch.object(ofbackup_cli, "save_state"),
             mock.patch.object(ofbackup_cli, "run_ofscraper", return_value=0) as run,
+            mock.patch("builtins.print"),
         ):
             self.assertEqual(ofbackup_cli.download_user("creator.example"), 0)
         arguments = run.call_args.args[0]
+        keyword_arguments = run.call_args.kwargs
         self.assertNotIn("--normal-only", arguments)
         self.assertIn("--posts", arguments)
         self.assertIn("all", arguments)
+        self.assertEqual(keyword_arguments["mode"], "perfil")
+        self.assertEqual(keyword_arguments["target"], "creator.example")
 
     def test_traceback_is_failure_even_with_zero_exit_code(self):
         process = mock.Mock()
@@ -497,10 +501,18 @@ class DownloadTests(unittest.TestCase):
                 mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
                 mock.patch("builtins.print"),
             ):
-                self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
+                self.assertEqual(
+                    ofbackup_cli.run_ofscraper(
+                        ["--username", "creator.example"], mode="perfil", target="creator.example"
+                    ),
+                    1,
+                )
             mirrored = destination / ofbackup_cli.PUBLIC_DOWNLOAD_LOG_NAME
             self.assertTrue(mirrored.exists())
-            self.assertIn("Auth Failed", mirrored.read_text(encoding="utf-8"))
+            mirrored_text = mirrored.read_text(encoding="utf-8")
+            self.assertIn("Modo: perfil", mirrored_text)
+            self.assertIn("--username creator.example", mirrored_text)
+            self.assertIn("Auth Failed", mirrored_text)
 
     def test_auth_fail_option_precedes_root_arguments(self):
         self.assertEqual(

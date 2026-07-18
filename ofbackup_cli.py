@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.7.1"
+APP_VERSION = "2.7.2"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -615,6 +615,11 @@ def build_ofscraper_command(executable: str, arguments: list[str]) -> list[str]:
     return [executable, "--auth-fail", *arguments]
 
 
+def format_command_for_log(command: list[str]) -> str:
+    executable = Path(command[0]).name if command else ""
+    return " ".join([executable, *command[1:]])
+
+
 def ofscraper_environment() -> dict[str, str]:
     """Evita que la comprobación externa de CDM bloquee mucho el inicio."""
     environment = os.environ.copy()
@@ -836,13 +841,21 @@ def show_download_progress(percent: int, label: str, *, failed: bool = False) ->
         print(message)
 
 
-def run_ofscraper(arguments: list[str]) -> int:
+def run_ofscraper(
+    arguments: list[str], *, mode: str = "publicacion", target: str | None = None
+) -> int:
     require_credentials()
     write_ofscraper_config()
     executable = ofscraper_binary()
+    command = build_ofscraper_command(executable, arguments)
     destination = Path(get_state()["download_dir"]).expanduser()
     before_download = media_snapshot(destination)
     print("\nOF Downloader está preparando la descarga…")
+    if mode == "perfil":
+        print(f"Modo: perfil completo @{target or 'desconocido'}")
+    else:
+        print("Modo: publicación por enlace")
+    print(f"Motor: {format_command_for_log(command)}")
     traceback_seen = False
     auth_failed = False
     stats = DownloadStats()
@@ -855,8 +868,13 @@ def run_ofscraper(arguments: list[str]) -> int:
     try:
         with DOWNLOAD_LOG_PATH.open("w", encoding="utf-8") as log_file:
             _chmod(DOWNLOAD_LOG_PATH, 0o600)
+            log_file.write(f"OF Downloader {APP_VERSION}\n")
+            log_file.write(f"Modo: {mode}\n")
+            if target:
+                log_file.write(f"Objetivo: {target}\n")
+            log_file.write(f"Comando: {format_command_for_log(command)}\n\n")
             process = subprocess.Popen(
-                build_ofscraper_command(executable, arguments),
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -897,7 +915,10 @@ def run_ofscraper(arguments: list[str]) -> int:
                 elif "checking auth status" in lowered:
                     new_progress, stage = max(progress, 20), "Verificando acceso"
                 elif any(word in lowered for word in ("scrap", "timeline", "post")):
-                    new_progress, stage = max(progress, 35), "Buscando la publicación"
+                    search_label = (
+                        "Buscando el perfil" if mode == "perfil" else "Buscando la publicación"
+                    )
+                    new_progress, stage = max(progress, 35), search_label
                 elif "download" in lowered:
                     new_progress, stage = max(progress, 45), "Descargando archivos"
                 else:
@@ -1000,13 +1021,15 @@ def download_link(url: str | None = None) -> int:
     url = url or input("Pega el enlace de la publicación: ")
     username = profile_username(url)
     if username:
-        print(f"✓ Enlace de perfil detectado: @{username}")
-        print("Se descargará el contenido completo permitido por tu cuenta.")
-        return download_user(username)
-    return run_ofscraper(["manual", "--url", normalize_url(url), "--output", "normal"])
+        return download_user(username, source="enlace")
+    return run_ofscraper(
+        ["manual", "--url", normalize_url(url), "--output", "normal"],
+        mode="publicacion",
+        target=normalize_url(url),
+    )
 
 
-def download_user(username: str | None = None) -> int:
+def download_user(username: str | None = None, *, source: str = "menu") -> int:
     state = get_state()
     username = (
         username
@@ -1018,6 +1041,11 @@ def download_user(username: str | None = None) -> int:
         raise UserError("El nombre de usuario no es válido.")
     state["username"] = username
     save_state(state)
+    if source == "enlace":
+        print(f"✓ Enlace de perfil detectado: @{username}")
+    else:
+        print(f"✓ Perfil detectado: @{username}")
+    print("Se lanzará la búsqueda del perfil completo permitido por tu cuenta.")
     return run_ofscraper(
         [
             "--username",
@@ -1031,7 +1059,9 @@ def download_user(username: str | None = None) -> int:
             "--no-live",
             "--output",
             "normal",
-        ]
+        ],
+        mode="perfil",
+        target=username,
     )
 
 
