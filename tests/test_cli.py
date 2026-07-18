@@ -458,6 +458,34 @@ class DownloadTests(unittest.TestCase):
         ):
             self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
 
+    def test_failed_download_mirrors_log_to_download_folder(self):
+        process = mock.Mock()
+        process.stdout = io.StringIO("Auth Failed\nauth failed quitting on error\n")
+        process.wait.return_value = 0
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            app_dir = root / "app"
+            log_path = app_dir / "ultima-descarga.log"
+            destination = root / "downloads"
+            with (
+                mock.patch.object(ofbackup_cli, "require_credentials"),
+                mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
+                mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+                mock.patch.object(
+                    ofbackup_cli,
+                    "get_state",
+                    return_value={"download_dir": str(destination)},
+                ),
+                mock.patch.object(ofbackup_cli, "APP_DIR", app_dir),
+                mock.patch.object(ofbackup_cli, "DOWNLOAD_LOG_PATH", log_path),
+                mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
+                mock.patch("builtins.print"),
+            ):
+                self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
+            mirrored = destination / ofbackup_cli.PUBLIC_DOWNLOAD_LOG_NAME
+            self.assertTrue(mirrored.exists())
+            self.assertIn("Auth Failed", mirrored.read_text(encoding="utf-8"))
+
     def test_auth_fail_option_precedes_root_arguments(self):
         self.assertEqual(
             ofbackup_cli.build_ofscraper_command(

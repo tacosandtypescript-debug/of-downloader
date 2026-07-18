@@ -37,6 +37,7 @@ OFSCRAPER_CONFIG_PATH = OFSCRAPER_DIR / "config.json"
 AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
 EXPORTED_AUTH_PATH = HOME / "storage" / "downloads" / AUTH_EXPORT_FILENAME
 DOWNLOAD_LOG_PATH = APP_DIR / "ultima-descarga.log"
+PUBLIC_DOWNLOAD_LOG_NAME = "ultima-descarga.log"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"}
 VIDEO_EXTENSIONS = {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".ts"}
 PARTIAL_EXTENSIONS = {".part", ".partial", ".tmp", ".temp", ".download"}
@@ -804,6 +805,24 @@ def print_download_summary(
     print(f"Carpeta: {destination}")
 
 
+def public_download_log_path(destination: Path) -> Path:
+    return destination.expanduser() / PUBLIC_DOWNLOAD_LOG_NAME
+
+
+def mirror_download_log(destination: Path) -> Path | None:
+    source = DOWNLOAD_LOG_PATH
+    if not source.exists():
+        return None
+    target = public_download_log_path(destination)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        _chmod(target, 0o600)
+    except OSError:
+        return None
+    return target
+
+
 def show_download_progress(percent: int, label: str, *, failed: bool = False) -> None:
     percent = min(100, max(0, percent))
     width = 24
@@ -911,7 +930,11 @@ def run_ofscraper(arguments: list[str]) -> int:
         else:
             print(f"OF-Scraper terminó con código {returncode}.")
         print_download_summary(stats, destination, completed=False)
-        print(f"Registro para revisar el error: {DOWNLOAD_LOG_PATH}")
+        mirrored = mirror_download_log(destination)
+        if mirrored is not None:
+            print(f"Registro para revisar el error: {mirrored}")
+        else:
+            print(f"Registro para revisar el error: {DOWNLOAD_LOG_PATH}")
         return shown_code
     else:
         show_download_progress(100, stats.label("Descarga completada"))
