@@ -11,7 +11,7 @@
   ·
   <a href="#instalar-of-downloader-en-termux">Instalar en Termux</a>
   ·
-  <a href="https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip">Extensión para Chrome</a>
+  <a href="https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip">Extensión para Chrome</a>
   ·
   <a href="#usar-la-extensión-y-cargar-el-acceso">Cargar el acceso</a>
 </p>
@@ -40,8 +40,8 @@ servicio, los derechos de los creadores y la legislación aplicable.
 | --- | --- | --- |
 | **Linux de escritorio** | [`instalar-linux.sh`](#instalar-of-downloader-en-linux) | Menú de aplicaciones, `of` o `of-downloader` |
 | **Android con Termux** | [`instalar-termux.sh`](#instalar-of-downloader-en-termux) | Comando `of` |
-| **Chrome o Chromium en PC** | [Descargar extensión](https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip) | Icono de extensiones |
-| **Firefox** | [Repositorio Firefox](https://github.com/tacosandtypescript-debug/of-downloader-firefox-extension) | Icono de extensiones |
+| **Chrome o Chromium en PC** | [Descargar extensión](https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip) | Icono de extensiones |
+| **Firefox** | [Repositorio de extensiones](https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions) | Icono de extensiones |
 | **Windows** | `iniciar.bat` | Ventana de OF Downloader |
 
 ## Instalar OF Downloader en Linux
@@ -103,7 +103,7 @@ que descomprimirla y usar **Cargar descomprimida**. Esto se hace una sola vez.
 
 Pulsa el botón y guarda el ZIP:
 
-### [⬇️ Descargar OF Downloader Exporter para Chrome](https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip)
+### [⬇️ Descargar OF Downloader Exporter para Chrome](https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip)
 
 ### 2. Descomprimir
 
@@ -122,8 +122,8 @@ En Windows:
 4. Selecciona la carpeta que contiene `manifest.json`.
 5. Fija **OF Downloader Exporter** desde el icono de extensiones de Chrome.
 
-El código fuente de Chrome vive ahora en un repositorio separado:
-`https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension`.
+El código fuente de Chrome y Firefox vive ahora en un repositorio separado:
+`https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions`.
 
 Cuando el repositorio publique una versión nueva, descarga el ZIP nuevo,
 reemplaza la carpeta anterior y pulsa **Actualizar** en `chrome://extensions`.
@@ -132,8 +132,7 @@ reemplaza la carpeta anterior y pulsa **Actualizar** en `chrome://extensions`.
 
 Repositorios separados:
 
-- Chrome: `https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension`
-- Firefox: `https://github.com/tacosandtypescript-debug/of-downloader-firefox-extension`
+- Chrome y Firefox: `https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions`
 
 ### En Chrome PC
 
