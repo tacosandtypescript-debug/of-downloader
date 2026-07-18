@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from http.cookies import SimpleCookie
@@ -18,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.6.9"
+APP_VERSION = "2.7.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -786,6 +787,113 @@ def profile_username(value: str) -> str | None:
     return None
 
 
+def _run_spinner(label: str, stop: threading.Event) -> None:
+    """Muestra una animación de espera hasta que se active *stop*."""
+    frames = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+    i = 0
+    while not stop.wait(0.2):
+        print(f"\r{frames[i % len(frames)]} {label}   ", end="", flush=True)
+        i += 1
+
+
+def scan_user_media(username: str, timeout: int = 300) -> dict[str, int]:
+    """Cuenta imágenes y videos de un usuario sin descargar ningún archivo.
+
+    Ejecuta ofscraper con ``--action metadata`` y analiza su salida para
+    obtener el número de imágenes y videos disponibles.  Si la sesión no está
+    autenticada o el proceso supera *timeout* segundos, devuelve un diccionario
+    vacío sin abortar la sesión del usuario.
+
+    Args:
+        username: Nombre de usuario de OnlyFans.
+        timeout:  Segundos máximos de espera (por defecto 300 s / 5 min).
+
+    Returns:
+        Diccionario con las claves ``"images"`` y/o ``"videos"`` y sus conteos.
+    """
+    executable = ofscraper_binary()
+    counts: dict[str, int] = {}
+    interactive = sys.stdout.isatty()
+
+    try:
+        process = subprocess.Popen(
+            build_ofscraper_command(
+                executable,
+                [
+                    "--username",
+                    username,
+                    "--action",
+                    "metadata",
+                    "--posts",
+                    "all",
+                    "--mediatype",
+                    "images,videos",
+                    "--normal-only",
+                    "--no-live",
+                    "--output",
+                    "normal",
+                ],
+            ),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+            env=ofscraper_environment(),
+        )
+    except OSError:
+        return counts
+
+    if process.stdout is None:  # pragma: no cover
+        return counts
+
+    stop_spinner: threading.Event = threading.Event()
+    spinner_thread: threading.Thread | None = None
+    if interactive:
+        spinner_thread = threading.Thread(
+            target=_run_spinner,
+            args=(f"Analizando @{username}…", stop_spinner),
+            daemon=True,
+        )
+        spinner_thread.start()
+
+    try:
+        deadline = time.monotonic() + timeout
+        for line in process.stdout:
+            if time.monotonic() > deadline:
+                process.terminate()
+                break
+            if "auth failed" in line.lower():
+                process.terminate()
+                break
+            for key, value in extract_content_counts(line).items():
+                counts[key] = max(counts.get(key, 0), value)
+        process.wait()
+    finally:
+        stop_spinner.set()
+        if spinner_thread is not None:
+            spinner_thread.join(timeout=0.5)
+        if interactive:
+            print("\r" + " " * 55 + "\r", end="", flush=True)
+
+    return counts
+
+
+def confirm_download(username: str) -> bool:
+    """Analiza la cuenta, muestra el conteo y pide confirmación."""
+    print(f"\nAnalizando la cuenta @{username} antes de descargar…")
+    counts = scan_user_media(username)
+    images = counts.get("images", 0)
+    videos = counts.get("videos", 0)
+    if images or videos:
+        print(f"  Contenido disponible: {images} imágenes · {videos} videos")
+    else:
+        print("  No se pudo determinar el número exacto de archivos.")
+    answer = input("¿Deseas descargar todo? [S/n]: ").strip().lower()
+    return answer not in ("n", "no")
+
+
 def download_link(url: str | None = None) -> int:
     url = url or input("Pega el enlace de la publicación: ")
     username = profile_username(url)
@@ -808,6 +916,9 @@ def download_user(username: str | None = None) -> int:
         raise UserError("El nombre de usuario no es válido.")
     state["username"] = username
     save_state(state)
+    if not confirm_download(username):
+        print("Descarga cancelada.")
+        return 0
     return run_ofscraper(
         [
             "--username",
