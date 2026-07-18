@@ -415,8 +415,42 @@ class DownloadTests(unittest.TestCase):
         self.assertNotIn("--normal-only", arguments)
         self.assertIn("--posts", arguments)
         self.assertIn("all", arguments)
+        self.assertIn("--download-area", arguments)
+        self.assertIn(
+            "Timeline,Archived,Pinned,Stories,Streams,Profile,Purchased", arguments
+        )
         self.assertEqual(keyword_arguments["mode"], "perfil")
         self.assertEqual(keyword_arguments["target"], "creator.example")
+
+    def test_profile_lookup_writes_visible_log(self):
+        completed = mock.Mock(
+            returncode=0,
+            stdout=(
+                "OFDOWNLOADER_PROFILE_OK username=creator.example id=123 "
+                "posts=9 photos=7 videos=2 archived=1\n"
+            ),
+            stderr="",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "downloads"
+            with (
+                mock.patch.object(ofbackup_cli, "require_credentials"),
+                mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
+                mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+                mock.patch.object(
+                    ofbackup_cli,
+                    "get_state",
+                    return_value={"download_dir": str(destination)},
+                ),
+                mock.patch.object(ofbackup_cli.subprocess, "run", return_value=completed),
+                mock.patch("builtins.print"),
+            ):
+                self.assertEqual(
+                    ofbackup_cli.test_profile_lookup("creator.example"), 0
+                )
+            log_path = destination / ofbackup_cli.PROFILE_TEST_LOG_NAME
+            self.assertTrue(log_path.exists())
+            self.assertIn("posts=9", log_path.read_text(encoding="utf-8"))
 
     def test_traceback_is_failure_even_with_zero_exit_code(self):
         process = mock.Mock()

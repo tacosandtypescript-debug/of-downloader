@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.7.2"
+APP_VERSION = "2.8.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -38,6 +38,7 @@ AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
 EXPORTED_AUTH_PATH = HOME / "storage" / "downloads" / AUTH_EXPORT_FILENAME
 DOWNLOAD_LOG_PATH = APP_DIR / "ultima-descarga.log"
 PUBLIC_DOWNLOAD_LOG_NAME = "ultima-descarga.log"
+PROFILE_TEST_LOG_NAME = "prueba-perfil.log"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"}
 VIDEO_EXTENSIONS = {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".ts"}
 PARTIAL_EXTENSIONS = {".part", ".partial", ".tmp", ".temp", ".download"}
@@ -67,6 +68,46 @@ except SystemExit:
 except Exception as exc:
     print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}", file=sys.stderr)
     raise SystemExit(4)
+"""
+
+PROFILE_TEST_SCRIPT = r"""
+import sys
+
+username = sys.argv[1]
+
+try:
+    from ofscraper.main.open import load
+    import ofscraper.managers.manager as manager
+    from ofscraper.data.api import profile
+
+    load.systemSet()
+    load.settings_loader()
+    load.setdate()
+    load.readConfig()
+    load.make_folder()
+    manager.Manager = manager.mainManager()
+    data = profile.scrape_profile(username)
+    if not isinstance(data, dict) or not data.get("id"):
+        print("OFDOWNLOADER_PROFILE_EMPTY")
+        raise SystemExit(3)
+    if data.get("username") == "deleted":
+        print("OFDOWNLOADER_PROFILE_DELETED")
+        raise SystemExit(4)
+    print(
+        "OFDOWNLOADER_PROFILE_OK "
+        f"username={data.get('username', '')} "
+        f"id={data.get('id', '')} "
+        f"posts={data.get('postsCount', 0)} "
+        f"photos={data.get('photosCount', 0)} "
+        f"videos={data.get('videosCount', 0)} "
+        f"archived={data.get('archivedPostsCount', 0)}"
+    )
+    raise SystemExit(0)
+except SystemExit:
+    raise
+except Exception as exc:
+    print(f"OFDOWNLOADER_PROFILE_ERROR:{type(exc).__name__}", file=sys.stderr)
+    raise SystemExit(5)
 """
 
 
@@ -828,6 +869,17 @@ def mirror_download_log(destination: Path) -> Path | None:
     return target
 
 
+def write_visible_log(destination: Path, filename: str, content: str) -> Path | None:
+    target = destination.expanduser() / filename
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        _chmod(target, 0o600)
+    except OSError:
+        return None
+    return target
+
+
 def show_download_progress(percent: int, label: str, *, failed: bool = False) -> None:
     percent = min(100, max(0, percent))
     width = 24
@@ -1054,6 +1106,8 @@ def download_user(username: str | None = None, *, source: str = "menu") -> int:
             "download",
             "--posts",
             "all",
+            "--download-area",
+            "Timeline,Archived,Pinned,Stories,Streams,Profile,Purchased",
             "--mediatype",
             "images,videos",
             "--no-live",
@@ -1063,6 +1117,74 @@ def download_user(username: str | None = None, *, source: str = "menu") -> int:
         mode="perfil",
         target=username,
     )
+
+
+def test_profile_lookup(username: str | None = None, timeout: int = 60) -> int:
+    require_credentials()
+    write_ofscraper_config()
+    ofscraper_binary()
+    state = get_state()
+    destination = Path(state["download_dir"]).expanduser()
+    username = profile_username(
+        username or input("Usuario o enlace del perfil a probar: ")
+    ) or ""
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", username):
+        raise UserError("El nombre de usuario no es válido.")
+
+    print(f"\nProbando búsqueda de perfil: @{username}")
+    print("No se descargará contenido; solo se consulta si OnlyFans devuelve el perfil.")
+    try:
+        process = subprocess.run(
+            [sys.executable, "-c", PROFILE_TEST_SCRIPT, username],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            check=False,
+            env=ofscraper_environment(),
+        )
+    except subprocess.TimeoutExpired as exc:
+        log_content = (
+            f"OF Downloader {APP_VERSION}\n"
+            f"Prueba de perfil: {username}\n"
+            "Codigo: timeout\n\n"
+            f"La prueba superó {timeout} segundos.\n"
+        )
+        visible_log = write_visible_log(destination, PROFILE_TEST_LOG_NAME, log_content)
+        print("✗ La prueba de perfil tardó demasiado y fue detenida.")
+        if visible_log:
+            print(f"Log visible: {visible_log}")
+        return 124
+    log_content = (
+        f"OF Downloader {APP_VERSION}\n"
+        f"Prueba de perfil: {username}\n"
+        f"Codigo: {process.returncode}\n\n"
+        "SALIDA\n"
+        f"{process.stdout}\n"
+        "ERRORES\n"
+        f"{process.stderr}\n"
+    )
+    visible_log = write_visible_log(destination, PROFILE_TEST_LOG_NAME, log_content)
+    if "OFDOWNLOADER_PROFILE_OK" in process.stdout:
+        print("✓ OnlyFans devolvió el perfil.")
+        for part in process.stdout.strip().split():
+            if part.startswith(("posts=", "photos=", "videos=", "archived=")):
+                print(f"  {part}")
+        if visible_log:
+            print(f"Log visible: {visible_log}")
+        return 0
+    print("✗ OnlyFans no devolvió datos útiles para ese perfil.")
+    if process.returncode == 3:
+        print("La respuesta vino vacía.")
+    elif process.returncode == 4:
+        print("El perfil aparece como eliminado o no disponible.")
+    else:
+        print("Puede ser sesión inválida, perfil sin acceso o bloqueo de la API.")
+    if visible_log:
+        print(f"Log visible: {visible_log}")
+    return process.returncode or 1
 
 
 def change_destination() -> None:
@@ -1148,6 +1270,7 @@ def menu() -> int:
         print(styled("\n  MI CUENTA", "blue", bold=True))
         menu_option("3", "Conectar o renovar el acceso")
         menu_option("7", "Probar si la cookie funciona")
+        menu_option("9", "Probar búsqueda de perfil")
 
         print(styled("\n  HERRAMIENTAS", "blue", bold=True))
         menu_option("4", "Cambiar carpeta de descargas")
@@ -1190,6 +1313,8 @@ def menu() -> int:
                 result = test_credentials()
                 if result == IMPORT_REQUEST_EXIT:
                     return IMPORT_REQUEST_EXIT
+            elif choice == "9":
+                test_profile_lookup()
             elif choice == "8":
                 return APP_UPDATE_REQUEST_EXIT
             elif choice == "0":
@@ -1214,6 +1339,7 @@ def print_help() -> None:
   of importar                      Elegir OFBackup-auth.json en Android
   of importar RUTA                 Importar el archivo directamente
   of probar                        Comprobar la cookie sin descargar contenido
+  of probar-perfil USUARIO          Comprobar si OnlyFans devuelve un perfil
   of diagnostico                   Comprobar la instalación
   of actualizar                    Actualizar el motor de descarga
   of actualizar-app                Actualizar la aplicación y reiniciarla
@@ -1249,6 +1375,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if command in {"probar", "test", "comprobar"}:
             return test_credentials()
+        if command in {"probar-perfil", "test-perfil", "perfil-test"}:
+            return test_profile_lookup(argv[1] if len(argv) > 1 else None)
         if command in {"actualizar", "update"}:
             return update_engine()
         if command in {"actualizar-app", "update-app"}:
