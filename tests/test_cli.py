@@ -355,12 +355,13 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(ofbackup_cli.extract_download_percent("Video 73.8%"), 73)
         self.assertIsNone(ofbackup_cli.extract_download_percent("sin porcentaje"))
 
-    def test_traceback_is_failure_even_with_zero_exit_code(self):
+    def test_traceback_with_zero_exit_code_is_success_with_warning(self):
         process = mock.Mock()
         process.stdout = io.StringIO(
             "Traceback (most recent call last):\nTypeError: example\n"
         )
         process.wait.return_value = 0
+        printed: list[str] = []
         with (
             tempfile.TemporaryDirectory() as temporary,
             mock.patch.object(ofbackup_cli, "require_credentials"),
@@ -372,9 +373,9 @@ class DownloadTests(unittest.TestCase):
             mock.patch.object(
                 ofbackup_cli.subprocess, "Popen", return_value=process
             ) as popen,
-            mock.patch("builtins.print"),
+            mock.patch("builtins.print", side_effect=lambda *a, **kw: printed.append(str(a))),
         ):
-            self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
+            self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 0)
         popen.assert_called_once_with(
             ["ofscraper", "manual", "--auth-fail"],
             stdout=ofbackup_cli.subprocess.PIPE,
@@ -385,6 +386,28 @@ class DownloadTests(unittest.TestCase):
             bufsize=1,
             env=mock.ANY,
         )
+        self.assertTrue(any("Algunos elementos tuvieron errores" in line for line in printed))
+        process.terminate.assert_not_called()
+
+    def test_traceback_with_nonzero_exit_code_is_failure(self):
+        process = mock.Mock()
+        process.stdout = io.StringIO(
+            "Traceback (most recent call last):\nTypeError: example\n"
+        )
+        process.wait.return_value = 1
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(ofbackup_cli, "require_credentials"),
+            mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
+            mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli, "DOWNLOAD_LOG_PATH", Path(temporary) / "download.log"
+            ),
+            mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(ofbackup_cli.run_ofscraper(["manual"]), 1)
+        process.terminate.assert_not_called()
 
     def test_auth_failure_is_detected_without_opening_internal_menu(self):
         process = mock.Mock()
@@ -410,6 +433,134 @@ class DownloadTests(unittest.TestCase):
             ),
             ["ofscraper", "--auth-fail", "--username", "example"],
         )
+
+
+class ScanTests(unittest.TestCase):
+    def _make_scan_process(self, output: str, returncode: int = 0):
+        process = mock.Mock()
+        process.stdout = io.StringIO(output)
+        process.wait.return_value = returncode
+        return process
+
+    def test_scan_returns_counts_from_metadata_output(self):
+        process = self._make_scan_process("Found 47 images and 12 videos available\n")
+        with (
+            mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
+            mock.patch.object(ofbackup_cli.sys.stdout, "isatty", return_value=False),
+        ):
+            counts = ofbackup_cli.scan_user_media("testuser")
+        self.assertEqual(counts.get("images", 0), 47)
+        self.assertEqual(counts.get("videos", 0), 12)
+
+    def test_scan_returns_empty_dict_on_auth_failure(self):
+        process = self._make_scan_process("Auth Failed\nauth failed quitting\n")
+        with (
+            mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
+            mock.patch.object(ofbackup_cli.sys.stdout, "isatty", return_value=False),
+        ):
+            counts = ofbackup_cli.scan_user_media("testuser")
+        self.assertEqual(counts, {})
+        process.terminate.assert_called_once()
+
+    def test_scan_returns_empty_dict_on_oserror(self):
+        with (
+            mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli.subprocess, "Popen", side_effect=OSError("not found")
+            ),
+            mock.patch.object(ofbackup_cli.sys.stdout, "isatty", return_value=False),
+        ):
+            counts = ofbackup_cli.scan_user_media("testuser")
+        self.assertEqual(counts, {})
+
+    def test_scan_uses_metadata_action(self):
+        process = self._make_scan_process("")
+        with (
+            mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli.subprocess, "Popen", return_value=process
+            ) as popen,
+            mock.patch.object(ofbackup_cli.sys.stdout, "isatty", return_value=False),
+        ):
+            ofbackup_cli.scan_user_media("alice")
+        cmd = popen.call_args[0][0]
+        self.assertIn("--action", cmd)
+        self.assertIn("metadata", cmd)
+        self.assertIn("--username", cmd)
+        self.assertIn("alice", cmd)
+
+    def test_confirm_download_returns_true_when_confirmed(self):
+        with (
+            mock.patch.object(
+                ofbackup_cli, "scan_user_media", return_value={"images": 10, "videos": 3}
+            ),
+            mock.patch("builtins.input", return_value="s"),
+            mock.patch("builtins.print"),
+        ):
+            self.assertTrue(ofbackup_cli.confirm_download("alice"))
+
+    def test_confirm_download_returns_false_when_declined(self):
+        with (
+            mock.patch.object(
+                ofbackup_cli, "scan_user_media", return_value={"images": 10, "videos": 3}
+            ),
+            mock.patch("builtins.input", return_value="n"),
+            mock.patch("builtins.print"),
+        ):
+            self.assertFalse(ofbackup_cli.confirm_download("alice"))
+
+    def test_confirm_download_shows_counts_when_available(self):
+        printed: list[str] = []
+        with (
+            mock.patch.object(
+                ofbackup_cli,
+                "scan_user_media",
+                return_value={"images": 25, "videos": 8},
+            ),
+            mock.patch("builtins.input", return_value=""),
+            mock.patch("builtins.print", side_effect=lambda *a, **kw: printed.append(str(a))),
+        ):
+            ofbackup_cli.confirm_download("bob")
+        self.assertTrue(any("25" in line and "8" in line for line in printed))
+
+    def test_confirm_download_handles_empty_counts(self):
+        printed: list[str] = []
+        with (
+            mock.patch.object(ofbackup_cli, "scan_user_media", return_value={}),
+            mock.patch("builtins.input", return_value=""),
+            mock.patch("builtins.print", side_effect=lambda *a, **kw: printed.append(str(a))),
+        ):
+            ofbackup_cli.confirm_download("bob")
+        self.assertTrue(any("No se pudo determinar" in line for line in printed))
+
+    def test_download_user_scans_then_downloads_on_confirmation(self):
+        with (
+            mock.patch.object(ofbackup_cli, "get_state", return_value={"username": ""}),
+            mock.patch.object(ofbackup_cli, "save_state"),
+            mock.patch.object(ofbackup_cli, "confirm_download", return_value=True),
+            mock.patch.object(ofbackup_cli, "run_ofscraper", return_value=0) as run,
+            mock.patch("builtins.input", return_value=""),
+        ):
+            ofbackup_cli.download_user("alice")
+        run.assert_called_once()
+        args = run.call_args[0][0]
+        self.assertIn("download", args)
+        self.assertIn("alice", args)
+
+    def test_download_user_cancels_when_not_confirmed(self):
+        with (
+            mock.patch.object(ofbackup_cli, "get_state", return_value={"username": ""}),
+            mock.patch.object(ofbackup_cli, "save_state"),
+            mock.patch.object(ofbackup_cli, "confirm_download", return_value=False),
+            mock.patch.object(ofbackup_cli, "run_ofscraper") as run,
+            mock.patch("builtins.input", return_value=""),
+            mock.patch("builtins.print"),
+        ):
+            result = ofbackup_cli.download_user("alice")
+        self.assertEqual(result, 0)
+        run.assert_not_called()
 
 
 if __name__ == "__main__":
