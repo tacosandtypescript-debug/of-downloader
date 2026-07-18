@@ -40,6 +40,15 @@ draw_progress() {
     fi
 }
 
+safe_sleep() {
+    local seconds="${1:-0.25}"
+    if command -v sleep >/dev/null 2>&1; then
+        sleep "$seconds"
+    else
+        read -r -t "$seconds" _unused_sleep_input 2>/dev/null || true
+    fi
+}
+
 suggest_fix() {
     if grep -Eqi 'No space left on device|not enough space' "$LOG_FILE"; then
         echo "Libera espacio de almacenamiento y vuelve a ejecutar el instalador."
@@ -110,7 +119,7 @@ run_task() {
                 if ((display >= end)); then display=$((end - 1)); fi
                 draw_progress "$display" "$label" "${spinner[position % 4]}"
                 position=$((position + 1))
-                sleep 0.25
+                safe_sleep 0.25
             done
         fi
         if wait "$ACTIVE_PID"; then
