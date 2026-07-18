@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.7.0"
+APP_VERSION = "2.7.1"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -947,14 +947,33 @@ def normalize_url(value: str) -> str:
     value = value.strip()
     if re.fullmatch(r"\d+", value):
         return value
-    if not re.match(r"^https://(?:www\.)?onlyfans\.com/", value, re.IGNORECASE):
+    extracted = extract_onlyfans_url(value)
+    if extracted is None:
         raise UserError("Introduce un enlace https://onlyfans.com/... o un ID numérico.")
-    return value
+    return extracted
+
+
+def extract_onlyfans_url(value: str) -> str | None:
+    """Extrae el primer enlace de OnlyFans aunque venga embebido en Markdown o texto extra."""
+    value = value.strip()
+    match = re.search(r"https://(?:www\.)?onlyfans\.com/[^\s\])>]+", value, re.IGNORECASE)
+    if match:
+        return match.group(0).rstrip(".,;")
+    if value.startswith("<") and value.endswith(">"):
+        inner = value[1:-1].strip()
+        if inner.lower().startswith("https://onlyfans.com/") or inner.lower().startswith(
+            "https://www.onlyfans.com/"
+        ):
+            return inner
+    return None
 
 
 def profile_username(value: str) -> str | None:
     """Devuelve el usuario cuando el valor representa un perfil de OnlyFans."""
     value = value.strip()
+    extracted_url = extract_onlyfans_url(value)
+    if extracted_url is not None:
+        value = extracted_url
     plain = value.lstrip("@")
     if re.fullmatch(r"[A-Za-z0-9_.-]+", plain):
         return plain

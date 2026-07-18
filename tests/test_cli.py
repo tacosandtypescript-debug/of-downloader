@@ -78,6 +78,22 @@ class UrlTests(unittest.TestCase):
             "luceroguevara.oficial",
         )
 
+    def test_extracts_username_from_markdown_link(self):
+        self.assertEqual(
+            ofbackup_cli.profile_username(
+                "[perfil](https://onlyfans.com/luceroguevara.oficial)"
+            ),
+            "luceroguevara.oficial",
+        )
+
+    def test_extracts_username_from_embedded_text(self):
+        self.assertEqual(
+            ofbackup_cli.profile_username(
+                "Usuario o enlace: https://onlyfans.com/luceroguevara.oficial"
+            ),
+            "luceroguevara.oficial",
+        )
+
     def test_post_url_is_not_mistaken_for_profile(self):
         self.assertIsNone(
             ofbackup_cli.profile_username("https://onlyfans.com/123456/user")
