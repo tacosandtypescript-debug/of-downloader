@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.8.0"
+APP_VERSION = "2.8.1"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -1098,18 +1098,23 @@ def download_user(username: str | None = None, *, source: str = "menu") -> int:
     else:
         print(f"✓ Perfil detectado: @{username}")
     print("Se lanzará la búsqueda del perfil completo permitido por tu cuenta.")
+    print("Reescaneo completo activado para evitar caché vacía o antigua.")
     return run_ofscraper(
         [
             "--username",
             username,
             "--action",
             "download",
+            "--no-cache",
+            "--no-api-cache",
+            "--update-profile",
             "--posts",
             "all",
             "--download-area",
             "Timeline,Archived,Pinned,Stories,Streams,Profile,Purchased",
             "--mediatype",
             "images,videos",
+            "--force-all",
             "--no-live",
             "--output",
             "normal",

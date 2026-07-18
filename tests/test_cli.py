@@ -413,6 +413,10 @@ class DownloadTests(unittest.TestCase):
         arguments = run.call_args.args[0]
         keyword_arguments = run.call_args.kwargs
         self.assertNotIn("--normal-only", arguments)
+        self.assertIn("--no-cache", arguments)
+        self.assertIn("--no-api-cache", arguments)
+        self.assertIn("--update-profile", arguments)
+        self.assertIn("--force-all", arguments)
         self.assertIn("--posts", arguments)
         self.assertIn("all", arguments)
         self.assertIn("--download-area", arguments)
