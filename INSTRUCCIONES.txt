@@ -72,11 +72,11 @@ Repositorio privado con Chrome y Firefox:
 
 Descarga Chrome:
 
-   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.3.zip
 
 Descarga Firefox:
 
-   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.1.zip
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.3.zip
 
 En Chrome:
 1. Descomprime el ZIP.
