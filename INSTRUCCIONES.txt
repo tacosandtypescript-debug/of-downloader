@@ -4,73 +4,133 @@
 
 IMPORTANTE
 ----------
-La aplicación solo descarga contenido al que tu cuenta ya tenga acceso.
+OF Downloader solo organiza contenido al que tu cuenta ya tenga acceso.
 No evita suscripciones ni muros de pago.
 
 
 TERMUX / ANDROID
 ----------------
-1. Instala Termux desde F-Droid o desde GitHub, no desde Google Play.
-2. Abre Termux y entra en la carpeta de este proyecto.
-3. Ejecuta:
+1. Instala Termux desde F-Droid o GitHub, no desde Google Play.
+2. Instala Termux:API desde la misma fuente.
+3. En Termux ejecuta:
 
-   chmod +x instalar-termux.sh
-   ./instalar-termux.sh
+   pkg update -y && pkg install -y git gh
+   gh auth login
+   gh repo clone tacosandtypescript-debug/of-downloader
+   cd of-downloader
+   bash instalar-termux.sh
 
-4. El instalador actualizará Termux, solicitará permiso para Descargas e
-   instalará Debian, Python 3.13, FFmpeg y OF-Scraper.
-5. Al terminar aparecerá el menú interactivo.
+La primera instalación puede tardar varios minutos. Prepara Debian, Python,
+FFmpeg y OF-Scraper.
 
-Para volver a abrirlo:
+Para abrir el menú:
 
    of
 
-Para descargar directamente con un enlace:
+Para importar la cookie desde Descargas:
 
-   of "https://onlyfans.com/ID/usuario"
+   of importar "$HOME/storage/downloads/OFBackup-auth.json"
 
-La primera vez elige "Conectar mi cuenta". Puedes pegar una Cookie normal o
-el JSON completo exportado por el navegador. El método recomendado es usar OF
-Downloader Exporter desde el repositorio separado de extensiones para Chrome y
-Firefox y después ejecutar:
+Para probarla:
 
-of importar
-of probar
+   of probar
 
-El menú avisa cuando hay una versión nueva. Usa la opción 8 para actualizar
-OF Downloader y reiniciar automáticamente sin borrar cookies ni descargas.
+Para probar si un perfil se detecta bien:
 
-Si Android entrega un archivo vacío al selector, usa la ruta directa:
-of importar ~/storage/downloads/OFBackup-auth.json
+   of probar-perfil NOMBRE
 
-Elige OFBackup-auth.json en el selector Android. Este selector requiere el
-paquete y la aplicación Termux:API; la aplicación debe proceder de la misma
-fuente que Termux. OF Downloader conserva solo sess, auth_id, x-bc y User-Agent.
+Logs visibles:
 
-También puedes pegar el JSON entero, aunque ocupe varias líneas. Si solo pegas
-cookies, después se solicitarán x-bc y User-Agent.
+   /root/storage/downloads/OFBackup/ultima-descarga.log
+   /root/storage/downloads/OFBackup/prueba-perfil.log
 
 
-WINDOWS
--------
-1. Instala Python 3.11, 3.12 o 3.13 y marca "Add Python to PATH".
-2. Ejecuta iniciar.bat.
-3. Introduce username, sess, auth_id y x-bc en la interfaz.
+LINUX
+-----
+1. En la terminal ejecuta:
+
+   sudo apt update && sudo apt install -y git gh
+   gh auth login
+   gh repo clone tacosandtypescript-debug/of-downloader
+   cd of-downloader
+   bash instalar-linux.sh
+
+2. Abre la app con:
+
+   of
+
+Las descargas quedan en:
+
+   ~/Downloads/OFDownloader
 
 
-LINUX DE ESCRITORIO
--------------------
-1. Instala Python 3.11, 3.12 o 3.13 y soporte para entornos virtuales.
-2. Ejecuta:
+EXTENSIÓN DEL NAVEGADOR
+-----------------------
+Repositorio privado con Chrome y Firefox:
 
-   bash iniciar.sh
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions
+
+Descarga Chrome:
+
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip
+
+Descarga Firefox:
+
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.1.zip
+
+En Chrome:
+1. Descomprime el ZIP.
+2. Abre chrome://extensions.
+3. Activa Modo de desarrollador.
+4. Pulsa Cargar descomprimida.
+5. Selecciona la carpeta que contiene manifest.json.
+
+Si Chrome dice que falta el manifiesto, elegiste la carpeta equivocada.
+Selecciona la carpeta exacta donde está manifest.json.
+
+
+CONECTAR LA CUENTA
+------------------
+1. Abre OnlyFans en el navegador.
+2. Inicia sesión.
+3. Recarga la página.
+4. Pulsa OF Downloader Exporter.
+5. Exporta OFBackup-auth.json.
+6. Cárgalo con of importar.
+7. Comprueba con of probar.
+
+La app conserva solo:
+
+   sess
+   auth_id
+   x-bc
+   User-Agent
+
+El resto del JSON se descarta.
+
+
+ACTUALIZAR
+----------
+Desde el menú usa:
+
+   8. Actualizar OF Downloader y reiniciar
+
+O desde terminal:
+
+   of actualizar-app
+
+Manual en Termux:
+
+   cd ~/of-downloader
+   git pull
+   bash instalar-termux.sh
 
 
 SEGURIDAD
 ---------
-- No publiques config.json, auth.json ni OFBackup-auth.json.
-- No envíes capturas que muestren sess, auth_id o x-bc.
-- Renueva las credenciales si sospechas que alguien pudo copiarlas.
-- Las descargas se guardan por defecto en Descargas/OFDownloader en Android.
+- No pegues cookies en chats ni capturas.
+- No publiques OFBackup-auth.json, config.json ni auth.json.
+- Borra OFBackup-auth.json después de importarlo.
+- Si una cookie se filtró, cierra esa sesión y genera otra.
 
-Consulta README.md para ver todos los comandos y detalles.
+Lee README.md para la guía completa.
