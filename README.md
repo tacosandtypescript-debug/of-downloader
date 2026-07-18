@@ -11,7 +11,7 @@
   ·
   <a href="#instalar-of-downloader-en-termux">Instalar en Termux</a>
   ·
-  <a href="https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip">Extensión para Chrome</a>
+  <a href="https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip">Extensión para Chrome</a>
   ·
   <a href="#usar-la-extensión-y-cargar-el-acceso">Cargar el acceso</a>
 </p>
@@ -28,7 +28,7 @@ servicio, los derechos de los creadores y la legislación aplicable.
 
 - Menú interactivo y con colores para Termux.
 - Descarga mediante un enlace o por nombre de usuario.
-- Extensión local para exportar los datos necesarios desde Chrome PC.
+- Extensiones externas para exportar los datos necesarios desde Chrome o Firefox.
 - Importación segura de `OFBackup-auth.json` desde Descargas.
 - Comprobación de la sesión sin descargar contenido.
 - Barra de progreso compacta y registro de errores privado.
@@ -40,7 +40,8 @@ servicio, los derechos de los creadores y la legislación aplicable.
 | --- | --- | --- |
 | **Linux de escritorio** | [`instalar-linux.sh`](#instalar-of-downloader-en-linux) | Menú de aplicaciones, `of` o `of-downloader` |
 | **Android con Termux** | [`instalar-termux.sh`](#instalar-of-downloader-en-termux) | Comando `of` |
-| **Chrome o Chromium en PC** | [Descargar extensión](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip) | Icono de extensiones |
+| **Chrome o Chromium en PC** | [Descargar extensión](https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip) | Icono de extensiones |
+| **Firefox** | [Repositorio Firefox](https://github.com/tacosandtypescript-debug/of-downloader-firefox-extension) | Icono de extensiones |
 | **Windows** | `iniciar.bat` | Ventana de OF Downloader |
 
 ## Instalar OF Downloader en Linux
@@ -102,7 +103,7 @@ que descomprimirla y usar **Cargar descomprimida**. Esto se hace una sola vez.
 
 Pulsa el botón y guarda el ZIP:
 
-### [⬇️ Descargar OF Downloader Exporter para Chrome](https://github.com/tacosandtypescript-debug/of-downloader/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip)
+### [⬇️ Descargar OF Downloader Exporter para Chrome](https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension/releases/latest/download/of_downloader_exporter-chrome-1.0.2.zip)
 
 ### 2. Descomprimir
 
@@ -121,28 +122,18 @@ En Windows:
 4. Selecciona la carpeta que contiene `manifest.json`.
 5. Fija **OF Downloader Exporter** desde el icono de extensiones de Chrome.
 
-> [!WARNING]
-> No selecciones la carpeta `chrome/` del código fuente: contiene solamente
-> archivos de construcción y no es una extensión completa. Selecciona la carpeta
-> extraída del ZIP, donde aparecen juntos `manifest.json`, `popup`, `lib`,
-> `content` e `icons`.
-
-### Instalación asistida en Linux
-
-Desde la carpeta clonada del repositorio ejecuta:
-
-```bash
-bash scripts/instalar-extension-linux.sh
-```
-
-El script descarga la publicación privada, la descomprime en
-`~/OFDownloader-Extension`, comprueba que no falten archivos y muestra la ruta
-exacta que debes elegir en `chrome://extensions` o `chromium://extensions`.
+El código fuente de Chrome vive ahora en un repositorio separado:
+`https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension`.
 
 Cuando el repositorio publique una versión nueva, descarga el ZIP nuevo,
 reemplaza la carpeta anterior y pulsa **Actualizar** en `chrome://extensions`.
 
 ## Usar la extensión y cargar el acceso
+
+Repositorios separados:
+
+- Chrome: `https://github.com/tacosandtypescript-debug/of-downloader-chrome-extension`
+- Firefox: `https://github.com/tacosandtypescript-debug/of-downloader-firefox-extension`
 
 ### En Chrome PC
 
@@ -315,7 +306,7 @@ El detalle de la última descarga queda en:
 - No pegues cookies en chats, capturas, incidencias o argumentos de comandos.
 - Si compartiste un archivo de acceso, cierra esa sesión y genera otro.
 - Elimina el JSON exportado después de importarlo.
-- Revisa la [política de privacidad de la extensión](extension/PRIVACY.md).
+- Revisa la política de privacidad en el repositorio de la extensión que uses.
 
 ## Windows de escritorio
 
@@ -328,10 +319,6 @@ guía para que se creen correctamente el comando y el acceso del menú.
 
 ```bash
 python -m unittest discover -s tests
-npm run test:extension
-npm run build:chrome
-npx web-ext lint --source-dir extension
 ```
 
-El código de Firefox está en `extension/`. La variante local de Chrome se
-genera en `build/chrome/`; los ZIP y directorios generados no se guardan en Git.
+Las extensiones de Chrome y Firefox viven en repositorios separados.

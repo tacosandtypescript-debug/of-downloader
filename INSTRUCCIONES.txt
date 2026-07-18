@@ -31,7 +31,8 @@ Para descargar directamente con un enlace:
 
 La primera vez elige "Conectar mi cuenta". Puedes pegar una Cookie normal o
 el JSON completo exportado por el navegador. El método recomendado es usar OF
-Downloader Exporter en Chrome o Firefox y después ejecutar:
+Downloader Exporter desde su repositorio separado de Chrome o Firefox y después
+ejecutar:
 
 of importar
 of probar

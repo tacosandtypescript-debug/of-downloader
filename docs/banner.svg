@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title description">
   <title id="title">OF Downloader</title>
-  <desc id="description">Descargas sencillas desde Termux con extensión local para Chrome y Firefox.</desc>
+  <desc id="description">Descargas sencillas desde Termux y Linux con acceso importado desde extensiones separadas.</desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#061a2b"/>
