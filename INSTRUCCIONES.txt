@@ -66,8 +66,10 @@ Las descargas quedan en:
 
 WINDOWS
 -------
-1. Instala Python 3.11 o 3.12 desde python.org.
-2. Marca "Add Python to PATH".
+1. Si no tienes Python 3.11 o 3.12, el instalador intentara poner Python 3.12
+   automaticamente con winget.
+2. Si winget no esta disponible, instala Python 3.12 desde python.org y marca
+   "Add Python to PATH".
 3. Clona el repositorio privado:
 
    gh auth login

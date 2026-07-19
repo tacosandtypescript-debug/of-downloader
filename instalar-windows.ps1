@@ -40,20 +40,51 @@ function Step-Info($Text) {
     Write-Host $Text -ForegroundColor Cyan
 }
 
-function Find-Python {
-    $candidates = @(
-        @("py", "-3.12"),
-        @("py", "-3.11"),
-        @("python", "")
+function Python-Candidates {
+    $items = @(
+        @{ Command = "py"; Args = @("-3.12") },
+        @{ Command = "py"; Args = @("-3.11") },
+        @{ Command = "python"; Args = @() }
     )
-    foreach ($candidate in $candidates) {
-        $command = $candidate[0]
-        $arg = $candidate[1]
+    $localPrograms = Join-Path $env:LOCALAPPDATA "Programs\Python"
+    if (Test-Path $localPrograms) {
+        Get-ChildItem -Path $localPrograms -Filter "python.exe" -Recurse -ErrorAction SilentlyContinue |
+            ForEach-Object { $items += @{ Command = $_.FullName; Args = @() } }
+    }
+    $programFiles = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+    foreach ($root in $programFiles) {
+        $pythonRoot = Join-Path $root "Python312"
+        $exe = Join-Path $pythonRoot "python.exe"
+        if (Test-Path $exe) {
+            $items += @{ Command = $exe; Args = @() }
+        }
+    }
+    return $items
+}
+
+function Install-Python312 {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        return $false
+    }
+    Write-Host "No encontre Python 3.12/3.11. Intentare instalar Python 3.12 con winget..." -ForegroundColor Yellow
+    Run-Checked "winget" @(
+        "install",
+        "--id", "Python.Python.3.12",
+        "-e",
+        "--accept-package-agreements",
+        "--accept-source-agreements"
+    ) "No se pudo instalar Python 3.12 automaticamente con winget."
+    return $true
+}
+
+function Find-Python {
+    foreach ($candidate in (Python-Candidates)) {
+        $command = $candidate.Command
+        $candidateArgs = @($candidate.Args)
         if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
             continue
         }
-        $args = @()
-        if ($arg) { $args += $arg }
+        $args = @($candidateArgs)
         $args += @("-c", "import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,13) else 1)")
         try {
             & $command @args > $null 2> $null
@@ -61,10 +92,26 @@ function Find-Python {
             continue
         }
         if ($LASTEXITCODE -eq 0) {
-            if ($arg) {
-                return @{ Command = $command; Args = @($arg) }
+            return @{ Command = $command; Args = $candidateArgs }
+        }
+    }
+    if (Install-Python312) {
+        foreach ($candidate in (Python-Candidates)) {
+            $command = $candidate.Command
+            $candidateArgs = @($candidate.Args)
+            if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
+                continue
             }
-            return @{ Command = $command; Args = @() }
+            $args = @($candidateArgs)
+            $args += @("-c", "import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,13) else 1)")
+            try {
+                & $command @args > $null 2> $null
+            } catch {
+                continue
+            }
+            if ($LASTEXITCODE -eq 0) {
+                return @{ Command = $command; Args = $candidateArgs }
+            }
         }
     }
     throw "No encontre Python 3.11 o 3.12. En Windows no uses Python 3.13 para esta app porque varias dependencias pueden intentar compilarse. Instala Python 3.12 desde https://www.python.org/downloads/windows/ y marca 'Add Python to PATH'."
