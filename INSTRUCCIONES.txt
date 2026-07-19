@@ -64,6 +64,38 @@ Las descargas quedan en:
    ~/Downloads/OFDownloader
 
 
+WINDOWS
+-------
+1. Instala Python 3.11, 3.12 o 3.13 desde python.org.
+2. Marca "Add Python to PATH".
+3. Clona el repositorio privado:
+
+   gh auth login
+   gh repo clone tacosandtypescript-debug/of-downloader
+   cd of-downloader
+
+4. Ejecuta:
+
+   instalar-windows.bat
+
+5. Abre una terminal nueva y usa:
+
+   of
+
+6. Para abrir la ventana grafica:
+
+   of-downloader
+
+Para importar el archivo de la extension:
+
+   of importar "%USERPROFILE%\Downloads\OFBackup-auth.json"
+   of probar
+
+Las descargas quedan en:
+
+   %USERPROFILE%\Downloads\OFDownloader
+
+
 EXTENSIÓN DEL NAVEGADOR
 -----------------------
 Repositorio privado con Chrome y Firefox:

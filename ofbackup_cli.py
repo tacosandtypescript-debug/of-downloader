@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interfaz de terminal de OF Downloader para Termux y Linux."""
+"""Interfaz de terminal de OF Downloader para Termux, Linux y Windows."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.8.1"
+APP_VERSION = "2.9.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -35,7 +35,6 @@ STATE_PATH = APP_DIR / "settings.json"
 OFSCRAPER_DIR = HOME / ".config" / "ofscraper"
 OFSCRAPER_CONFIG_PATH = OFSCRAPER_DIR / "config.json"
 AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
-EXPORTED_AUTH_PATH = HOME / "storage" / "downloads" / AUTH_EXPORT_FILENAME
 DOWNLOAD_LOG_PATH = APP_DIR / "ultima-descarga.log"
 PUBLIC_DOWNLOAD_LOG_NAME = "ultima-descarga.log"
 PROFILE_TEST_LOG_NAME = "prueba-perfil.log"
@@ -151,6 +150,18 @@ def default_download_dir() -> Path:
     shared = HOME / "storage" / "downloads"
     desktop = HOME / "Downloads"
     return (shared if shared.exists() else desktop) / "OFDownloader"
+
+
+def default_auth_export_path() -> Path:
+    configured = os.getenv("OFDOWNLOADER_AUTH_EXPORT")
+    if configured:
+        return Path(configured).expanduser()
+    if os.name == "nt":
+        return HOME / "Downloads" / AUTH_EXPORT_FILENAME
+    return HOME / "storage" / "downloads" / AUTH_EXPORT_FILENAME
+
+
+EXPORTED_AUTH_PATH = default_auth_export_path()
 
 
 def get_state() -> dict:
@@ -372,7 +383,8 @@ def json_cookie_prompt(*, allow_object: bool = False) -> str:
 def configure_credentials() -> int:
     print("\nCONECTAR MI CUENTA")
     print("Elige el tipo de datos que has copiado:")
-    if os.getenv("OFDOWNLOADER_PLATFORM") == "LINUX":
+    platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "TERMUX").upper()
+    if platform_name in {"LINUX", "WINDOWS"}:
         print("1. Importar OFBackup-auth.json desde el equipo (recomendado)")
     else:
         print("1. Importar OFBackup-auth.json con el selector Android (recomendado)")
@@ -381,6 +393,9 @@ def configure_credentials() -> int:
     print("4. JSON completo de OnlyFans-Cookie-Helper")
     cookie_format = input("Opción [1]: ").strip() or "1"
     if cookie_format == "1":
+        if platform_name in {"LINUX", "WINDOWS"}:
+            import_credentials_file(default_auth_export_path())
+            return 0
         return IMPORT_REQUEST_EXIT
     if cookie_format == "3":
         raw_cookie = json_cookie_prompt()
@@ -1369,6 +1384,13 @@ def main(argv: list[str] | None = None) -> int:
         if command in {"configurar", "config"}:
             return configure_credentials()
         if command == "importar":
+            if len(argv) >= 2:
+                import_credentials_file(Path(argv[1]))
+                return 0
+            platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "TERMUX").upper()
+            if platform_name in {"LINUX", "WINDOWS"}:
+                import_credentials_file(default_auth_export_path())
+                return 0
             return IMPORT_REQUEST_EXIT
         if command == "importar-archivo":
             if len(argv) != 2:

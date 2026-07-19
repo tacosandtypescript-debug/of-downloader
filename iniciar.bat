@@ -1,5 +1,6 @@
 @echo off
 cd /d "%~dp0"
+set "OFDOWNLOADER_PLATFORM=WINDOWS"
 where python >nul 2>nul
 if errorlevel 1 (
     echo Python no esta instalado o no esta disponible en PATH.

@@ -271,6 +271,38 @@ class AuthImportTests(unittest.TestCase):
                 ofbackup_cli.IMPORT_REQUEST_EXIT,
             )
 
+    def test_default_auth_export_path_uses_windows_downloads(self):
+        with (
+            mock.patch.object(ofbackup_cli.os, "name", "nt"),
+            mock.patch.object(ofbackup_cli, "HOME", Path("C:/Users/Test")),
+            mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True),
+        ):
+            self.assertEqual(
+                ofbackup_cli.default_auth_export_path(),
+                Path("C:/Users/Test") / "Downloads" / ofbackup_cli.AUTH_EXPORT_FILENAME,
+            )
+
+    def test_import_command_accepts_direct_path_on_windows(self):
+        with (
+            mock.patch.dict(ofbackup_cli.os.environ, {"OFDOWNLOADER_PLATFORM": "WINDOWS"}),
+            mock.patch.object(ofbackup_cli, "import_credentials_file") as importer,
+        ):
+            self.assertEqual(ofbackup_cli.main(["importar", "C:/Temp/OFBackup-auth.json"]), 0)
+        importer.assert_called_once_with(Path("C:/Temp/OFBackup-auth.json"))
+
+    def test_import_command_uses_default_downloads_file_on_windows(self):
+        with (
+            mock.patch.dict(ofbackup_cli.os.environ, {"OFDOWNLOADER_PLATFORM": "WINDOWS"}),
+            mock.patch.object(
+                ofbackup_cli,
+                "default_auth_export_path",
+                return_value=Path("C:/Users/Test/Downloads/OFBackup-auth.json"),
+            ),
+            mock.patch.object(ofbackup_cli, "import_credentials_file") as importer,
+        ):
+            self.assertEqual(ofbackup_cli.main(["importar"]), 0)
+        importer.assert_called_once_with(Path("C:/Users/Test/Downloads/OFBackup-auth.json"))
+
 
 class ExecutableTests(unittest.TestCase):
     def test_finds_ofscraper_next_to_virtualenv_python(self):

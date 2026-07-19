@@ -11,6 +11,8 @@
   ·
   <a href="#instalación-rápida-en-linux">Instalar en Linux</a>
   ·
+  <a href="#instalación-rápida-en-windows">Instalar en Windows</a>
+  ·
   <a href="#extensiones-para-chrome-y-firefox">Extensiones</a>
   ·
   <a href="#conectar-la-cuenta">Conectar cuenta</a>
@@ -27,6 +29,7 @@ condiciones del servicio, los derechos de los creadores y la ley aplicable.
 ## Qué hace
 
 - Abre un menú claro en Termux o en una terminal Linux.
+- En Windows abre interfaz gráfica y también comando `of` en terminal.
 - Descarga una publicación con un enlace.
 - Descarga un perfil con la opción **2. Descargar todo un usuario**.
 - Importa un archivo `OFBackup-auth.json` creado por la extensión del navegador.
@@ -100,6 +103,65 @@ Carpetas principales en Linux:
 - Descargas: `~/Downloads/OFDownloader`
 - Configuración privada: `~/.config/ofbackup`
 - Configuración interna de OF-Scraper: `~/.config/ofscraper`
+
+## Instalación rápida en Windows
+
+Requisitos:
+
+- Windows 10 u 11.
+- Python 3.11, 3.12 o 3.13 desde https://www.python.org/downloads/windows/.
+- Durante la instalación de Python marca **Add Python to PATH**.
+- GitHub CLI si vas a clonar el repo privado desde Windows.
+
+Instalación desde PowerShell o CMD:
+
+```bat
+gh auth login
+gh repo clone tacosandtypescript-debug/of-downloader
+cd of-downloader
+instalar-windows.bat
+```
+
+El instalador no necesita permisos de administrador. Crea:
+
+- Entorno privado de Python en `.venv`.
+- Comando `of` para terminal.
+- Comando `of-downloader` para abrir la interfaz gráfica.
+- Acceso **OF Downloader** en el menú Inicio.
+- Carpeta de descargas en `%USERPROFILE%\Downloads\OFDownloader`.
+
+Abre una terminal nueva y ejecuta:
+
+```bat
+of
+```
+
+Para abrir la ventana gráfica:
+
+```bat
+of-downloader
+```
+
+Para cargar la cookie exportada desde la extensión:
+
+```bat
+of importar "%USERPROFILE%\Downloads\OFBackup-auth.json"
+of probar
+```
+
+Si el archivo se llama exactamente `OFBackup-auth.json` y está en Descargas,
+también funciona:
+
+```bat
+of importar
+```
+
+FFmpeg es recomendable para videos. Si no está instalado, el instalador lo avisa.
+Puedes intentar instalarlo con:
+
+```powershell
+.\instalar-windows.ps1 -InstallFFmpeg
+```
 
 ## Extensiones para Chrome y Firefox
 
@@ -291,6 +353,14 @@ En Linux:
 cd ~/of-downloader
 git pull
 bash instalar-linux.sh
+```
+
+En Windows:
+
+```bat
+cd ruta\al\of-downloader
+git pull
+instalar-windows.bat
 ```
 
 ## Seguridad
