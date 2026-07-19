@@ -13,6 +13,8 @@
   ·
   <a href="#extension-del-navegador">Extension</a>
   ·
+  <a href="#google-drive">Google Drive</a>
+  ·
   <a href="#menu-actual">Menu</a>
   ·
   <a href="#reinstalar-limpio">Reinstalar limpio</a>
@@ -36,6 +38,7 @@ aplicable.
 - Pregunta antes de descargar un perfil.
 - Descarga perfiles por usuario/enlace y publicaciones por enlace.
 - Muestra barra de progreso, resumen y logs visibles.
+- Puede subir automaticamente archivos nuevos a Google Drive usando rclone.
 - Permite actualizar la app desde el menu.
 
 Version actual de la app: `2.10.1`.
@@ -54,6 +57,8 @@ Version actual de la app: `2.10.1`.
   https://github.com/tacosandtypescript-debug/of-downloader/blob/main/instalar-linux.sh
 - Repo de extensiones Chrome/Firefox:
   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions
+- rclone:
+  https://rclone.org/
 
 ## Instalacion rapida
 
@@ -190,6 +195,7 @@ HERRAMIENTAS
 [7] Ver diagnostico
 [8] Actualizar OF Downloader y reiniciar
 [9] Actualizar motor de descarga
+[10] Google Drive
 [0] Salir
 ```
 
@@ -203,7 +209,30 @@ of "https://onlyfans.com/..."
 of probar
 of diagnostico
 of actualizar-app
+of drive estado
 ```
+
+## Google Drive
+
+OF Downloader usa `rclone` para subir a Google Drive. La primera configuracion
+requiere iniciar sesion en Google desde el flujo de `rclone config`.
+
+Comandos:
+
+```bash
+of drive configurar
+of drive activar
+of drive subir
+of drive estado
+of drive desactivar
+```
+
+Por defecto:
+
+- Remote: `gdrive`
+- Carpeta en Drive: `OFDownloader`
+- No borra archivos locales despues de subir.
+- Si falla una subida, queda en pendientes y se puede reintentar con `of drive subir`.
 
 Comando avanzado para revisar deteccion de un perfil:
 

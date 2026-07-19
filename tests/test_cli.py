@@ -222,6 +222,7 @@ class ThemeTests(unittest.TestCase):
             rendered.index("[2] Descargar perfil"),
             rendered.index("[3] Descargar publicacion"),
         )
+        self.assertIn("[10] Google Drive", rendered)
         self.assertNotIn("Probar búsqueda de perfil", rendered)
 
     def test_menu_option_one_uses_subscription_picker(self):
@@ -603,6 +604,89 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(counts.images, 1)
         self.assertEqual(counts.videos, 1)
         self.assertEqual(counts.other, 0)
+
+    def test_changed_media_files_returns_new_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "old.jpg").write_bytes(b"old")
+            before = ofbackup_cli.media_snapshot(root)
+            new_file = root / "creator" / "images" / "ñ 💙.jpg"
+            new_file.parent.mkdir(parents=True)
+            new_file.write_bytes(b"new")
+            files = ofbackup_cli.changed_media_files(before, ofbackup_cli.media_snapshot(root))
+        self.assertEqual(files, [new_file])
+
+    def test_drive_queue_preserves_relative_drive_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            queue = root / "queue.json"
+            destination = root / "downloads"
+            file = destination / "creator" / "videos" / "clip.mp4"
+            file.parent.mkdir(parents=True)
+            file.write_bytes(b"video")
+            state = {"drive_remote": "gdrive", "drive_folder": "OFDownloader"}
+            with mock.patch.object(ofbackup_cli, "DRIVE_QUEUE_PATH", queue):
+                self.assertEqual(ofbackup_cli.enqueue_drive_files([file], destination, state), 1)
+                items = ofbackup_cli.drive_queue()
+        self.assertEqual(items[0]["remote"], "gdrive:OFDownloader/creator/videos/clip.mp4")
+
+    def test_upload_drive_queue_keeps_failed_items(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            queue = root / "queue.json"
+            destination = root / "downloads"
+            file = destination / "creator" / "images" / "pic.jpg"
+            file.parent.mkdir(parents=True)
+            file.write_bytes(b"image")
+            with (
+                mock.patch.object(ofbackup_cli, "DRIVE_QUEUE_PATH", queue),
+                mock.patch.object(
+                    ofbackup_cli,
+                    "get_state",
+                    return_value={
+                        "download_dir": str(destination),
+                        "drive_remote": "gdrive",
+                        "drive_folder": "OFDownloader",
+                    },
+                ),
+                mock.patch.object(ofbackup_cli, "find_rclone_binary", return_value="rclone"),
+                mock.patch.object(ofbackup_cli, "drive_configured", return_value=True),
+                mock.patch.object(
+                    ofbackup_cli.subprocess,
+                    "run",
+                    return_value=mock.Mock(returncode=1, stdout="", stderr="boom"),
+                ),
+                mock.patch("builtins.print"),
+            ):
+                ofbackup_cli.enqueue_drive_files([file], destination)
+                self.assertEqual(ofbackup_cli.upload_drive_queue(), 1)
+                self.assertEqual(len(ofbackup_cli.drive_queue()), 1)
+
+    def test_maybe_upload_to_drive_queues_when_enabled(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary)
+            file = destination / "creator" / "images" / "pic.jpg"
+            file.parent.mkdir(parents=True)
+            file.write_bytes(b"image")
+            with (
+                mock.patch.object(
+                    ofbackup_cli,
+                    "get_state",
+                    return_value={
+                        "download_dir": str(destination),
+                        "drive_enabled": True,
+                        "drive_upload_after_download": True,
+                        "drive_remote": "gdrive",
+                        "drive_folder": "OFDownloader",
+                    },
+                ),
+                mock.patch.object(ofbackup_cli, "enqueue_drive_files", return_value=1) as enqueue,
+                mock.patch.object(ofbackup_cli, "upload_drive_queue", return_value=0) as upload,
+                mock.patch("builtins.print"),
+            ):
+                ofbackup_cli.maybe_upload_to_drive([file], destination)
+        enqueue.assert_called_once()
+        upload.assert_called_once_with(quiet=False)
 
     def test_download_user_does_not_force_normal_only(self):
         with (

@@ -135,6 +135,27 @@ function Install-FFmpeg {
     return $false
 }
 
+function Install-Rclone {
+    if (Get-Command rclone -ErrorAction SilentlyContinue) {
+        return $true
+    }
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Host "No encontre winget. No puedo instalar rclone automaticamente." -ForegroundColor Yellow
+        Write-Host "Instala rclone manualmente: https://rclone.org/install/" -ForegroundColor Yellow
+        return $false
+    }
+    Write-Host "rclone no esta instalado. Intentare instalarlo automaticamente con winget..." -ForegroundColor Yellow
+    Run-Checked "winget" @(
+        "install",
+        "--id", "Rclone.Rclone",
+        "-e",
+        "--accept-package-agreements",
+        "--accept-source-agreements"
+    ) "No se pudo instalar rclone automaticamente con winget."
+    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+    return [bool](Get-Command rclone -ErrorAction SilentlyContinue)
+}
+
 function Find-Python {
     foreach ($candidate in (Python-Candidates)) {
         $command = $candidate.Command
@@ -248,6 +269,12 @@ if (-not (Install-FFmpeg)) {
     Write-Host ""
     Write-Host "AVISO: FFmpeg no quedo disponible en PATH." -ForegroundColor Yellow
     Write-Host "Los videos pueden fallar hasta que instales FFmpeg o abras una terminal nueva si winget lo agrego al PATH." -ForegroundColor Yellow
+}
+
+if (-not (Install-Rclone)) {
+    Write-Host ""
+    Write-Host "AVISO: rclone no quedo disponible en PATH." -ForegroundColor Yellow
+    Write-Host "Google Drive no funcionara hasta que instales rclone." -ForegroundColor Yellow
 }
 
 Write-Host ""

@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.10.1"
+APP_VERSION = "2.11.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -40,6 +40,8 @@ PUBLIC_DOWNLOAD_LOG_NAME = "ultima-descarga.log"
 PROFILE_TEST_LOG_NAME = "prueba-perfil.log"
 SUBSCRIPTIONS_LOG_NAME = "perfiles-suscritos.log"
 SUBSCRIPTIONS_SENTINEL = "OFDOWNLOADER_SUBSCRIPTIONS_JSON:"
+DRIVE_LOG_NAME = "google-drive.log"
+DRIVE_QUEUE_PATH = APP_DIR / "drive-pending.json"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"}
 VIDEO_EXTENSIONS = {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".ts"}
 PARTIAL_EXTENSIONS = {".part", ".partial", ".tmp", ".temp", ".download"}
@@ -259,6 +261,11 @@ def get_state() -> dict:
     state = read_json(STATE_PATH)
     state.setdefault("download_dir", str(default_download_dir()))
     state.setdefault("username", "")
+    state.setdefault("drive_enabled", False)
+    state.setdefault("drive_remote", "gdrive")
+    state.setdefault("drive_folder", "OFDownloader")
+    state.setdefault("drive_upload_after_download", True)
+    state.setdefault("drive_delete_after_upload", False)
     return state
 
 
@@ -1055,6 +1062,18 @@ def count_changed_media(
     return counts
 
 
+def changed_media_files(
+    before: dict[str, tuple[int, int]], after: dict[str, tuple[int, int]]
+) -> list[Path]:
+    files: list[Path] = []
+    for raw_path, signature in after.items():
+        if before.get(raw_path) == signature:
+            continue
+        if media_kind(Path(raw_path)) is not None:
+            files.append(Path(raw_path))
+    return sorted(files, key=lambda path: str(path).lower())
+
+
 def extract_media_totals(line: str) -> tuple[int | None, int | None]:
     image_patterns = (
         r"\b(?:images?|photos?|fotos?)\b\s*[:=]\s*(\d+)",
@@ -1170,6 +1189,259 @@ def write_visible_log(destination: Path, filename: str, content: str) -> Path | 
     except OSError:
         return None
     return target
+
+
+def find_rclone_binary() -> str | None:
+    configured = os.getenv("RCLONE_BIN")
+    if configured:
+        resolved = shutil.which(configured) or configured
+        if Path(resolved).is_file():
+            return str(Path(resolved))
+    return shutil.which("rclone")
+
+
+def drive_remote_target(state: dict, relative_path: Path | None = None) -> str:
+    remote = str(state.get("drive_remote") or "gdrive").rstrip(":")
+    folder = str(state.get("drive_folder") or "OFDownloader").strip().strip("/\\")
+    parts = [part for part in (folder, relative_path.as_posix() if relative_path else "") if part]
+    return f"{remote}:{'/'.join(parts)}"
+
+
+def drive_queue() -> list[dict[str, str]]:
+    data = read_json(DRIVE_QUEUE_PATH, {"items": []})
+    items = data.get("items", [])
+    return items if isinstance(items, list) else []
+
+
+def save_drive_queue(items: list[dict[str, str]]) -> None:
+    secure_write_json(DRIVE_QUEUE_PATH, {"items": items})
+
+
+def enqueue_drive_files(files: list[Path], destination: Path, state: dict | None = None) -> int:
+    state = state or get_state()
+    destination = destination.expanduser()
+    queued = drive_queue()
+    seen = {(item.get("local"), item.get("remote")) for item in queued}
+    added = 0
+    for file in files:
+        try:
+            relative = file.expanduser().resolve().relative_to(destination.resolve())
+        except (OSError, ValueError):
+            relative = Path(file.name)
+        item = {
+            "local": str(file),
+            "remote": drive_remote_target(state, relative),
+        }
+        key = (item["local"], item["remote"])
+        if key in seen:
+            continue
+        queued.append(item)
+        seen.add(key)
+        added += 1
+    if added:
+        save_drive_queue(queued)
+    return added
+
+
+def rclone_remote_configured(remote: str) -> bool:
+    executable = find_rclone_binary()
+    if not executable:
+        return False
+    completed = subprocess.run(
+        [executable, "listremotes"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if completed.returncode:
+        return False
+    wanted = remote.rstrip(":") + ":"
+    return wanted in {line.strip() for line in completed.stdout.splitlines()}
+
+
+def drive_configured(state: dict | None = None) -> bool:
+    state = state or get_state()
+    return rclone_remote_configured(str(state.get("drive_remote") or "gdrive"))
+
+
+def drive_status_text(state: dict | None = None) -> str:
+    state = state or get_state()
+    if not find_rclone_binary():
+        return "rclone no instalado"
+    if not drive_configured(state):
+        return f"remote {state.get('drive_remote', 'gdrive')} no configurado"
+    return "configurado"
+
+
+def upload_drive_queue(*, quiet: bool = False) -> int:
+    state = get_state()
+    destination = Path(state["download_dir"]).expanduser()
+    executable = find_rclone_binary()
+    if not executable:
+        if not quiet:
+            print("rclone no esta instalado. Instala/configura Google Drive primero.")
+        return 2
+    if not drive_configured(state):
+        if not quiet:
+            print(f"Google Drive no esta configurado como remote '{state['drive_remote']}'.")
+        return 2
+
+    items = drive_queue()
+    if not items:
+        if not quiet:
+            print("No hay archivos pendientes para Google Drive.")
+        return 0
+
+    remaining: list[dict[str, str]] = []
+    uploaded = 0
+    failed = 0
+    log_lines = [f"OF Downloader {APP_VERSION}", "Google Drive upload", ""]
+    for item in items:
+        local = Path(str(item.get("local", ""))).expanduser()
+        remote = str(item.get("remote", ""))
+        if not local.is_file() or not remote:
+            continue
+        completed = subprocess.run(
+            [executable, "copyto", str(local), remote, "--create-empty-src-dirs"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        log_lines.append(f"LOCAL: {local}")
+        log_lines.append(f"REMOTE: {remote}")
+        log_lines.append(f"CODIGO: {completed.returncode}")
+        if completed.stdout:
+            log_lines.append(completed.stdout)
+        if completed.stderr:
+            log_lines.append(completed.stderr)
+        log_lines.append("")
+        if completed.returncode == 0:
+            uploaded += 1
+            if state.get("drive_delete_after_upload"):
+                try:
+                    local.unlink()
+                except OSError as exc:
+                    log_lines.append(f"No se pudo borrar local: {exc}")
+        else:
+            failed += 1
+            remaining.append(item)
+
+    save_drive_queue(remaining)
+    visible = write_visible_log(destination, DRIVE_LOG_NAME, "\n".join(log_lines))
+    if not quiet:
+        print(f"Google Drive: {uploaded} subidos, {failed} fallidos.")
+        if remaining:
+            print(f"Pendientes: {len(remaining)}")
+        if visible:
+            print(f"Log visible: {visible}")
+    return 0 if failed == 0 else 1
+
+
+def maybe_upload_to_drive(files: list[Path], destination: Path) -> None:
+    if not files:
+        return
+    state = get_state()
+    if not state.get("drive_enabled") or not state.get("drive_upload_after_download", True):
+        return
+    added = enqueue_drive_files(files, destination, state)
+    if added:
+        print(f"\nGoogle Drive: {added} archivos nuevos en cola.")
+    upload_drive_queue(quiet=False)
+
+
+def configure_drive() -> int:
+    state = get_state()
+    executable = find_rclone_binary()
+    if not executable:
+        print("No encontre rclone.")
+        print("Instalalo con el instalador de la app o con las instrucciones oficiales:")
+        print("https://rclone.org/install/")
+        return 2
+    remote = input(f"Nombre del remote de Google Drive [{state['drive_remote']}]: ").strip() or state["drive_remote"]
+    folder = input(f"Carpeta en Drive [{state['drive_folder']}]: ").strip() or state["drive_folder"]
+    state["drive_remote"] = remote.rstrip(":")
+    state["drive_folder"] = folder.strip().strip("/\\") or "OFDownloader"
+    save_state(state)
+    if not rclone_remote_configured(state["drive_remote"]):
+        print("\nSe abrira la configuracion de rclone.")
+        print("Crea un remote tipo Google Drive con este nombre:")
+        print(f"  {state['drive_remote']}")
+        print("Si ya existe con otro nombre, vuelve y escribe ese nombre.")
+        subprocess.run([executable, "config"], check=False)
+    state["drive_enabled"] = drive_configured(state)
+    save_state(state)
+    print(f"Google Drive: {drive_status_text(state)}")
+    return 0 if state["drive_enabled"] else 1
+
+
+def drive_menu() -> int:
+    while True:
+        state = get_state()
+        print("\nGOOGLE DRIVE")
+        print(f"Estado: {drive_status_text(state)}")
+        print(f"Subida automatica: {'activada' if state.get('drive_enabled') else 'desactivada'}")
+        print(f"Destino: {drive_remote_target(state)}")
+        print(f"Pendientes: {len(drive_queue())}")
+        print("1. Configurar Google Drive")
+        print("2. Activar/desactivar subida automatica")
+        print("3. Subir pendientes ahora")
+        print("4. Ver estado")
+        print("0. Volver")
+        choice = input("Elige una opcion: ").strip()
+        if choice == "1":
+            configure_drive()
+        elif choice == "2":
+            state = get_state()
+            state["drive_enabled"] = not bool(state.get("drive_enabled"))
+            save_state(state)
+            print(f"Subida automatica: {'activada' if state['drive_enabled'] else 'desactivada'}")
+        elif choice == "3":
+            upload_drive_queue()
+        elif choice == "4":
+            print(f"rclone: {find_rclone_binary() or 'NO ENCONTRADO'}")
+            print(f"Google Drive: {drive_status_text()}")
+            print(f"Remote: {state.get('drive_remote')}")
+            print(f"Carpeta: {state.get('drive_folder')}")
+            print(f"Pendientes: {len(drive_queue())}")
+        elif choice == "0":
+            return 0
+        else:
+            print("Opcion no valida.")
+
+
+def drive_command(args: list[str]) -> int:
+    action = (args[0].lower() if args else "estado")
+    if action in {"configurar", "config"}:
+        return configure_drive()
+    if action in {"activar", "on"}:
+        state = get_state()
+        state["drive_enabled"] = True
+        save_state(state)
+        print("Subida automatica a Google Drive activada.")
+        return 0
+    if action in {"desactivar", "off"}:
+        state = get_state()
+        state["drive_enabled"] = False
+        save_state(state)
+        print("Subida automatica a Google Drive desactivada.")
+        return 0
+    if action in {"subir", "upload"}:
+        return upload_drive_queue()
+    if action in {"estado", "status"}:
+        state = get_state()
+        print(f"rclone: {find_rclone_binary() or 'NO ENCONTRADO'}")
+        print(f"Google Drive: {drive_status_text(state)}")
+        print(f"Subida automatica: {'activada' if state.get('drive_enabled') else 'desactivada'}")
+        print(f"Destino: {drive_remote_target(state)}")
+        print(f"Pendientes: {len(drive_queue())}")
+        return 0
+    raise UserError("Uso: of drive configurar|activar|desactivar|subir|estado")
 
 
 def optional_int(value: object) -> int | None:
@@ -1579,7 +1851,9 @@ def run_ofscraper(
     except OSError as exc:
         raise UserError(f"No se pudo iniciar OF-Scraper: {exc}") from exc
 
-    stats.downloaded = count_changed_media(before_download, media_snapshot(destination))
+    after_download = media_snapshot(destination)
+    stats.downloaded = count_changed_media(before_download, after_download)
+    new_files = changed_media_files(before_download, after_download)
     if returncode or traceback_seen or auth_failed:
         shown_code = returncode or 1
         show_download_progress(progress, stats.label("ERROR: descarga detenida"), failed=True)
@@ -1602,6 +1876,7 @@ def run_ofscraper(
         show_download_progress(100, stats.label("Descarga completada"))
         print(f"\n✓ Descarga terminada. Archivos en: {get_state()['download_dir']}")
         print_download_summary(stats, destination, completed=True)
+        maybe_upload_to_drive(new_files, destination)
         return 0
 
 
@@ -1801,6 +2076,7 @@ def diagnostics() -> None:
     print(f"Python:          {sys.version.split()[0]}")
     print(f"OF-Scraper:      {executable or 'NO ENCONTRADO'}")
     print(f"FFmpeg:          {find_ffmpeg_binary() or 'NO ENCONTRADO'}")
+    print(f"Google Drive:    {drive_status_text(state)}")
     print(f"Credenciales:    {'configuradas' if credentials_ready() else 'pendientes'}")
     print(f"Descargas:       {state['download_dir']}")
     print(f"Config privada:  {APP_DIR}")
@@ -1875,6 +2151,7 @@ def menu() -> int:
             update_label += "  ← NUEVA"
         menu_option("8", update_label)
         menu_option("9", "Actualizar motor de descarga")
+        menu_option("10", "Google Drive")
         menu_option("0", "Salir")
 
         status = styled("● CONECTADA", "green", bold=True) if connected else styled(
@@ -1889,7 +2166,7 @@ def menu() -> int:
         print(f"  {styled('Destino:', 'muted')} {styled(state['download_dir'], 'white')}")
         choice = input(styled("\n  Elige una opción › ", "cyan", bold=True)).strip()
         try:
-            if choice in {"1", "10"}:
+            if choice == "1":
                 choose_profile_and_download()
             elif choice == "2":
                 download_user()
@@ -1911,6 +2188,8 @@ def menu() -> int:
                 return APP_UPDATE_REQUEST_EXIT
             elif choice == "9":
                 update_engine()
+            elif choice == "10":
+                drive_menu()
             elif choice == "0":
                 print(styled("\nHasta luego.", "cyan", bold=True))
                 return 0
@@ -1938,6 +2217,11 @@ def print_help() -> None:
   of diagnostico                   Comprobar la instalación
   of actualizar                    Actualizar el motor de descarga
   of actualizar-app                Actualizar la aplicación y reiniciarla
+  of drive estado                  Ver estado de Google Drive
+  of drive configurar              Configurar Google Drive con rclone
+  of drive activar                 Activar subida automatica
+  of drive desactivar              Desactivar subida automatica
+  of drive subir                   Subir pendientes ahora
 
 Las credenciales se solicitan de forma oculta para que no queden en el
 historial del terminal. Usa únicamente contenido al que tu cuenta tenga acceso.
@@ -1985,6 +2269,8 @@ def main(argv: list[str] | None = None) -> int:
             return update_engine()
         if command in {"actualizar-app", "update-app"}:
             return APP_UPDATE_REQUEST_EXIT
+        if command in {"drive", "gdrive"}:
+            return drive_command(argv[1:])
         if command == "usuario":
             return download_user(argv[1] if len(argv) > 1 else None)
         return download_link(argv[0])

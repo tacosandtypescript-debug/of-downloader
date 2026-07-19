@@ -180,8 +180,8 @@ printf '\n'
 
 run_task 0 8 "Consultando actualizaciones de Termux" pkg update -y
 run_task 8 16 "Actualizando Termux" pkg upgrade -y
-run_task 16 28 "Instalando herramientas base y selector Android" \
-    pkg install -y proot-distro git termux-tools termux-api
+run_task 16 28 "Instalando herramientas base, rclone y selector Android" \
+    pkg install -y proot-distro git termux-tools termux-api rclone
 
 if ! pm list packages 2>/dev/null | grep -q '^package:com.termux.api$'; then
     echo
