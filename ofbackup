@@ -31,8 +31,7 @@ find_repo_dir() {
     for candidate in \
         "${OFDOWNLOADER_REPO:-}" \
         "$PWD" \
-        "$HOME/of-downloader" \
-        "$HOME/respaldo_of"; do
+        "$HOME/of-downloader"; do
         if [[ -n "$candidate" && -d "$candidate/.git" ]]; then
             printf '%s' "$candidate"
             return 0

@@ -383,6 +383,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
 
 ## Desarrollo
 
+Estructura principal del repo:
+
+```text
+ofbackup_cli.py              Menú de terminal para Termux, Linux y Windows
+app.py                       Interfaz gráfica de escritorio
+instalar-termux.sh           Instalador Android/Termux
+instalar-linux.sh            Instalador Linux de escritorio
+instalar-windows.ps1         Instalador Windows por PowerShell
+ofbackup                     Launcher Termux
+of-downloader-linux          Launcher Linux
+of-windows.cmd               Launcher terminal Windows
+of-downloader-windows.cmd    Launcher gráfico Windows
+tests/                       Pruebas automáticas
+docs/                        Recursos visuales del README
+```
+
 Ejecutar pruebas:
 
 ```bash

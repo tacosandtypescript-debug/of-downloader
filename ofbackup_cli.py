@@ -1356,7 +1356,7 @@ def print_help() -> None:
   of ENLACE                        Descargar una publicación
   of usuario NOMBRE                Descargar todo un usuario
   of configurar                    Guardar o renovar credenciales
-  of importar                      Elegir OFBackup-auth.json en Android
+  of importar                      Importar OFBackup-auth.json
   of importar RUTA                 Importar el archivo directamente
   of probar                        Comprobar la cookie sin descargar contenido
   of probar-perfil USUARIO          Comprobar si OnlyFans devuelve un perfil
