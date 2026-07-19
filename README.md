@@ -32,6 +32,10 @@ condiciones del servicio, los derechos de los creadores y la ley aplicable.
 - En Windows abre interfaz gráfica y también comando `of` en terminal.
 - Descarga una publicación con un enlace.
 - Descarga un perfil con la opción **2. Descargar todo un usuario**.
+- Lista tus perfiles suscritos activos con **10. Elegir perfil de mis suscripciones**,
+  incluidos perfiles gratis cuando OnlyFans los devuelve como activos.
+- Antes de descargar un perfil elegido, detecta posts/fotos/videos y pide
+  confirmación.
 - Importa un archivo `OFBackup-auth.json` creado por la extensión del navegador.
 - Prueba si la cookie funciona antes de descargar.
 - Muestra barra de progreso, resumen y errores en pantalla.
@@ -73,6 +77,7 @@ Carpetas principales en Termux:
 - Configuración privada: `/root/.config/ofbackup`
 - Log de última descarga: `/root/storage/downloads/OFBackup/ultima-descarga.log`
 - Log de prueba de perfil: `/root/storage/downloads/OFBackup/prueba-perfil.log`
+- Log de perfiles suscritos: `/root/storage/downloads/OFBackup/perfiles-suscritos.log`
 
 ## Instalación rápida en Linux
 
@@ -111,6 +116,8 @@ Requisitos:
 - Windows 10 u 11.
 - Python 3.11 o 3.12. Si no está instalado, el instalador intentará poner
   Python 3.12 automáticamente con `winget`.
+- FFmpeg para videos. Si no esta instalado, el instalador intentara ponerlo
+  automaticamente con `winget`.
 - GitHub CLI si vas a clonar el repo privado desde Windows.
 
 No uses Python 3.13 en Windows para esta app: algunas dependencias de OF-Scraper
@@ -158,23 +165,18 @@ of-downloader
 Para cargar la cookie exportada desde la extensión:
 
 ```bat
-of importar "%USERPROFILE%\Downloads\OFBackup-auth.json"
+of importar
 of probar
 ```
 
-Si el archivo se llama exactamente `OFBackup-auth.json` y está en Descargas,
-también funciona:
+Si necesitas indicar una ruta manualmente, tambien funciona:
 
 ```bat
-of importar
+of importar "%USERPROFILE%\Downloads\OFBackup-auth.json"
 ```
 
-FFmpeg es recomendable para videos. Si no está instalado, el instalador lo avisa.
-Puedes intentar instalarlo con:
-
-```powershell
-.\instalar-windows.ps1 -InstallFFmpeg
-```
+FFmpeg se intenta instalar automaticamente. Si `winget` no esta disponible,
+instalalo manualmente desde https://www.gyan.dev/ffmpeg/builds/.
 
 ## Extensiones para Chrome y Firefox
 
@@ -231,19 +233,19 @@ portapapeles.
 
 ### 2. Cargar el archivo
 
-En Termux, si el archivo está en Descargas:
-
-```bash
-of importar "$HOME/storage/downloads/OFBackup-auth.json"
-```
-
-O abre el selector Android:
+En Termux abre el selector Android:
 
 ```bash
 of importar
 ```
 
-En Linux:
+En Windows o Linux abre el explorador de archivos:
+
+```bash
+of importar
+```
+
+Si el selector no esta disponible, puedes pasar la ruta manualmente:
 
 ```bash
 of importar ~/Downloads/OFBackup-auth.json
@@ -289,12 +291,14 @@ Opciones principales:
 - **5. Ver diagnóstico**
 - **7. Probar si la cookie funciona**
 - **8. Actualizar OF Downloader y reiniciar**
+- **10. Elegir perfil de mis suscripciones**
 
 Comandos directos:
 
 ```bash
 of "https://onlyfans.com/ID/usuario"
 of usuario NOMBRE
+of perfiles
 ```
 
 Para probar si el perfil se detecta bien antes de descargar:
@@ -308,6 +312,16 @@ Ese comando deja el detalle en:
 ```text
 /root/storage/downloads/OFBackup/prueba-perfil.log
 ```
+
+Para escoger desde tus perfiles suscritos activos:
+
+```bash
+of perfiles
+```
+
+La app muestra los perfiles, intenta indicar si son gratis/pagados cuando el
+dato existe, hace una detección previa de posts/fotos/videos y pregunta antes de
+descargar.
 
 ## Si la opción 2 no detecta contenido en Termux
 

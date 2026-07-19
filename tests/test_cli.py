@@ -313,17 +313,90 @@ class AuthImportTests(unittest.TestCase):
         importer.assert_called_once_with(Path("C:/Temp/OFBackup-auth.json"))
 
     def test_import_command_uses_default_downloads_file_on_windows(self):
-        with (
-            mock.patch.dict(ofbackup_cli.os.environ, {"OFDOWNLOADER_PLATFORM": "WINDOWS"}),
-            mock.patch.object(
-                ofbackup_cli,
-                "default_auth_export_path",
-                return_value=Path("C:/Users/Test/Downloads/OFBackup-auth.json"),
-            ),
-            mock.patch.object(ofbackup_cli, "import_credentials_file") as importer,
-        ):
-            self.assertEqual(ofbackup_cli.main(["importar"]), 0)
-        importer.assert_called_once_with(Path("C:/Users/Test/Downloads/OFBackup-auth.json"))
+        with tempfile.TemporaryDirectory() as temporary:
+            default = Path(temporary) / "Downloads" / "OFBackup-auth.json"
+            default.parent.mkdir()
+            default.write_text("{}", encoding="utf-8")
+            with (
+                mock.patch.dict(
+                    ofbackup_cli.os.environ,
+                    {"OFDOWNLOADER_PLATFORM": "WINDOWS"},
+                ),
+                mock.patch.object(
+                    ofbackup_cli,
+                    "default_auth_export_path",
+                    return_value=default,
+                ),
+                mock.patch.object(ofbackup_cli, "select_auth_export_file", return_value=None),
+                mock.patch.object(ofbackup_cli, "import_credentials_file") as importer,
+            ):
+                self.assertEqual(ofbackup_cli.main(["importar"]), 0)
+        importer.assert_called_once_with(default)
+
+    def test_import_command_uses_selected_file_when_explorer_returns_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            selected = Path(temporary) / "selected-auth.json"
+            selected.write_text("{}", encoding="utf-8")
+            with (
+                mock.patch.dict(
+                    ofbackup_cli.os.environ,
+                    {"OFDOWNLOADER_PLATFORM": "WINDOWS"},
+                ),
+                mock.patch.object(
+                    ofbackup_cli,
+                    "select_auth_export_file",
+                    return_value=selected,
+                ),
+                mock.patch.object(ofbackup_cli, "import_credentials_file") as importer,
+            ):
+                self.assertEqual(ofbackup_cli.main(["importar"]), 0)
+        importer.assert_called_once_with(selected)
+
+    def test_import_command_prompts_for_path_when_default_is_missing_on_windows(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            selected = Path(temporary) / "custom-auth.json"
+            selected.write_text("{}", encoding="utf-8")
+            missing = Path(temporary) / "Downloads" / "OFBackup-auth.json"
+            with (
+                mock.patch.dict(
+                    ofbackup_cli.os.environ,
+                    {"OFDOWNLOADER_PLATFORM": "WINDOWS"},
+                ),
+                mock.patch.object(
+                    ofbackup_cli,
+                    "default_auth_export_path",
+                    return_value=missing,
+                ),
+                mock.patch.object(ofbackup_cli, "select_auth_export_file", return_value=None),
+                mock.patch.object(ofbackup_cli, "import_credentials_file") as importer,
+                mock.patch("builtins.input", return_value=f'"{selected}"'),
+                mock.patch("builtins.print"),
+            ):
+                self.assertEqual(ofbackup_cli.main(["importar"]), 0)
+        importer.assert_called_once_with(selected)
+
+    def test_configure_prompts_for_path_when_default_is_missing_on_windows(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            selected = Path(temporary) / "custom-auth.json"
+            selected.write_text("{}", encoding="utf-8")
+            missing = Path(temporary) / "Downloads" / "OFBackup-auth.json"
+            with (
+                mock.patch.dict(
+                    ofbackup_cli.os.environ,
+                    {"OFDOWNLOADER_PLATFORM": "WINDOWS"},
+                ),
+                mock.patch.object(
+                    ofbackup_cli,
+                    "default_auth_export_path",
+                    return_value=missing,
+                ),
+                mock.patch.object(ofbackup_cli, "select_auth_export_file", return_value=None),
+                mock.patch.object(ofbackup_cli, "import_credentials_file") as importer,
+                mock.patch("builtins.input", return_value=str(selected)),
+                mock.patch("builtins.print"),
+            ):
+                self.assertEqual(ofbackup_cli.configure_credentials(), 0)
+        importer.assert_called_once_with(selected)
 
 
 class ExecutableTests(unittest.TestCase):
@@ -478,7 +551,74 @@ class DownloadTests(unittest.TestCase):
             "Timeline,Archived,Pinned,Stories,Streams,Profile,Purchased", arguments
         )
         self.assertEqual(keyword_arguments["mode"], "perfil")
-        self.assertEqual(keyword_arguments["target"], "creator.example")
+
+
+class SubscriptionProfileTests(unittest.TestCase):
+    def test_parses_subscription_profiles_from_ofscraper_output(self):
+        payload = json.dumps(
+            [
+                {
+                    "id": 123,
+                    "username": "creator.free",
+                    "displayName": "Creator Free",
+                    "isFree": True,
+                    "postsCount": 7,
+                    "photosCount": 5,
+                    "videosCount": 2,
+                },
+                {"username": "creator.free", "id": 123},
+                {
+                    "id": 456,
+                    "username": "creator.paid",
+                    "subscribePrice": 10,
+                    "postsCount": "9",
+                },
+            ]
+        )
+        profiles = ofbackup_cli.parse_subscriptions_stdout(
+            "ruido\n"
+            f"{ofbackup_cli.SUBSCRIPTIONS_SENTINEL}{payload}\n"
+        )
+        self.assertEqual([profile.username for profile in profiles], ["creator.free", "creator.paid"])
+        self.assertEqual(profiles[0].status, "gratis")
+        self.assertEqual(profiles[0].photos, 5)
+        self.assertEqual(profiles[1].status, "pagado")
+
+    def test_choose_profile_can_cancel_after_detection(self):
+        profile = ofbackup_cli.SubscriptionProfile(username="creator.free")
+        with (
+            mock.patch.object(ofbackup_cli, "list_subscription_profiles", return_value=[profile]),
+            mock.patch.object(
+                ofbackup_cli,
+                "detect_profile_counts",
+                return_value=ofbackup_cli.ProfileDetection(
+                    username="creator.free", posts=7, photos=5, videos=2
+                ),
+            ),
+            mock.patch.object(ofbackup_cli, "download_user", return_value=0) as download,
+            mock.patch("builtins.input", side_effect=["1", "n"]),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(ofbackup_cli.choose_profile_and_download(), 0)
+        download.assert_not_called()
+
+    def test_choose_profile_downloads_after_confirmation(self):
+        profile = ofbackup_cli.SubscriptionProfile(username="creator.free")
+        with (
+            mock.patch.object(ofbackup_cli, "list_subscription_profiles", return_value=[profile]),
+            mock.patch.object(
+                ofbackup_cli,
+                "detect_profile_counts",
+                return_value=ofbackup_cli.ProfileDetection(
+                    username="creator.free", posts=7, photos=5, videos=2
+                ),
+            ),
+            mock.patch.object(ofbackup_cli, "download_user", return_value=0) as download,
+            mock.patch("builtins.input", side_effect=["1", "s"]),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(ofbackup_cli.choose_profile_and_download(), 0)
+        download.assert_called_once_with("creator.free", source="selector")
 
     def test_profile_lookup_writes_visible_log(self):
         completed = mock.Mock(

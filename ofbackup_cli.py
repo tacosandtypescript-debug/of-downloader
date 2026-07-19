@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.9.0"
+APP_VERSION = "2.10.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -38,6 +38,8 @@ AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
 DOWNLOAD_LOG_PATH = APP_DIR / "ultima-descarga.log"
 PUBLIC_DOWNLOAD_LOG_NAME = "ultima-descarga.log"
 PROFILE_TEST_LOG_NAME = "prueba-perfil.log"
+SUBSCRIPTIONS_LOG_NAME = "perfiles-suscritos.log"
+SUBSCRIPTIONS_SENTINEL = "OFDOWNLOADER_SUBSCRIPTIONS_JSON:"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"}
 VIDEO_EXTENSIONS = {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".ts"}
 PARTIAL_EXTENSIONS = {".part", ".partial", ".tmp", ".temp", ".download"}
@@ -106,6 +108,33 @@ except SystemExit:
     raise
 except Exception as exc:
     print(f"OFDOWNLOADER_PROFILE_ERROR:{type(exc).__name__}", file=sys.stderr)
+    raise SystemExit(5)
+"""
+
+SUBSCRIPTIONS_LIST_SCRIPT = r"""
+import json
+import sys
+
+try:
+    from ofscraper.main.open import load
+    import ofscraper.managers.manager as manager
+    from ofscraper.data.api.subscriptions import subscriptions
+
+    load.systemSet()
+    load.settings_loader()
+    load.setdate()
+    load.readConfig()
+    load.make_folder()
+    manager.Manager = manager.mainManager()
+    data = subscriptions.get_all_subscriptions(0, account="active")
+    if not isinstance(data, list):
+        data = []
+    print("OFDOWNLOADER_SUBSCRIPTIONS_JSON:" + json.dumps(data, ensure_ascii=False))
+    raise SystemExit(0)
+except SystemExit:
+    raise
+except Exception as exc:
+    print(f"OFDOWNLOADER_SUBSCRIPTIONS_ERROR:{type(exc).__name__}", file=sys.stderr)
     raise SystemExit(5)
 """
 
@@ -350,6 +379,66 @@ def import_credentials_file(path: Path) -> None:
     print("Comprueba ahora la sesión ejecutando: of probar")
 
 
+def user_supplied_path(value: str) -> Path:
+    value = value.strip().strip('"').strip("'")
+    return Path(os.path.expandvars(value)).expanduser()
+
+
+def select_auth_export_file() -> Path | None:
+    """Abre un selector nativo para elegir el JSON exportado por la extension."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+    except Exception:
+        return None
+
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        downloads = HOME / "Downloads"
+        initial_dir = downloads if downloads.exists() else HOME
+        selected = filedialog.askopenfilename(
+            title="Selecciona OFBackup-auth.json",
+            initialdir=str(initial_dir),
+            filetypes=(
+                ("OF Downloader auth", "OFBackup-auth*.json"),
+                ("Archivos JSON", "*.json"),
+                ("Todos los archivos", "*.*"),
+            ),
+        )
+        root.destroy()
+    except Exception:
+        return None
+    if not selected:
+        return None
+    return Path(selected)
+
+
+def import_default_auth_export(*, prompt_if_missing: bool = True) -> None:
+    selected = select_auth_export_file()
+    if selected is not None:
+        import_credentials_file(selected)
+        return
+
+    default_path = default_auth_export_path()
+    if default_path.is_file():
+        import_credentials_file(default_path)
+        return
+    if not prompt_if_missing:
+        import_credentials_file(default_path)
+        return
+    print(f"No encontre el archivo en: {default_path}")
+    print("Si lo guardaste con otro nombre o en otra carpeta, pega la ruta completa.")
+    print(r"Ejemplo Windows: C:\Users\TU_USUARIO\Downloads\OFBackup-auth.json")
+    value = input("Ruta del archivo o Enter para cancelar: ").strip()
+    if not value:
+        raise UserError(
+            f"Pon {AUTH_EXPORT_FILENAME} en Descargas o usa: of importar RUTA_DEL_ARCHIVO"
+        )
+    import_credentials_file(user_supplied_path(value))
+
+
 def hidden_prompt(label: str) -> str:
     try:
         return getpass.getpass(label).strip()
@@ -382,8 +471,15 @@ def json_cookie_prompt(*, allow_object: bool = False) -> str:
 
 def configure_credentials() -> int:
     print("\nCONECTAR MI CUENTA")
-    print("Elige el tipo de datos que has copiado:")
+    print("Usa el archivo OFBackup-auth.json creado por la extension del navegador.")
     platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "TERMUX").upper()
+    if platform_name in {"LINUX", "WINDOWS"}:
+        print("Abriendo el explorador para elegir OFBackup-auth.json...")
+        import_default_auth_export()
+        return 0
+    print("Abriendo el selector Android para elegir OFBackup-auth.json...")
+    return IMPORT_REQUEST_EXIT
+
     if platform_name in {"LINUX", "WINDOWS"}:
         print("1. Importar OFBackup-auth.json desde el equipo (recomendado)")
     else:
@@ -394,7 +490,7 @@ def configure_credentials() -> int:
     cookie_format = input("Opción [1]: ").strip() or "1"
     if cookie_format == "1":
         if platform_name in {"LINUX", "WINDOWS"}:
-            import_credentials_file(default_auth_export_path())
+            import_default_auth_export()
             return 0
         return IMPORT_REQUEST_EXIT
     if cookie_format == "3":
@@ -745,6 +841,28 @@ class DownloadStats:
         return " · ".join(parts)
 
 
+@dataclass
+class ProfileDetection:
+    username: str
+    profile_id: str = ""
+    posts: int | None = None
+    photos: int | None = None
+    videos: int | None = None
+    archived: int | None = None
+
+
+@dataclass
+class SubscriptionProfile:
+    username: str
+    display_name: str = ""
+    profile_id: str = ""
+    status: str = "activo"
+    posts: int | None = None
+    photos: int | None = None
+    videos: int | None = None
+    archived: int | None = None
+
+
 def media_kind(path: Path) -> str | None:
     suffix = path.suffix.lower()
     if suffix in PARTIAL_EXTENSIONS:
@@ -908,6 +1026,298 @@ def write_visible_log(destination: Path, filename: str, content: str) -> Path | 
     except OSError:
         return None
     return target
+
+
+def optional_int(value: object) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(float(str(value)))
+    except (TypeError, ValueError):
+        return None
+
+
+def first_present(data: dict, keys: tuple[str, ...]) -> object:
+    for key in keys:
+        if key in data and data[key] not in (None, ""):
+            return data[key]
+    return None
+
+
+def subscription_status(data: dict) -> str:
+    for key in ("isFree", "free", "subscribedIsFree"):
+        value = data.get(key)
+        if isinstance(value, bool):
+            return "gratis" if value else "pagado"
+    price = first_present(
+        data,
+        (
+            "subscribePrice",
+            "subscriptionPrice",
+            "regularPrice",
+            "price",
+        ),
+    )
+    numeric = optional_int(price)
+    if numeric == 0:
+        return "gratis"
+    if numeric and numeric > 0:
+        return "pagado"
+    return "activo"
+
+
+def normalize_subscription_profile(data: dict) -> SubscriptionProfile | None:
+    username = str(first_present(data, ("username", "name", "model_username")) or "").strip()
+    username = profile_username(username) or username.lstrip("@")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", username):
+        return None
+    return SubscriptionProfile(
+        username=username,
+        display_name=str(
+            first_present(data, ("displayName", "name", "rawText", "username")) or ""
+        ).strip(),
+        profile_id=str(first_present(data, ("id", "userId", "model_id")) or "").strip(),
+        status=subscription_status(data),
+        posts=optional_int(first_present(data, ("postsCount", "post_count", "posts"))),
+        photos=optional_int(first_present(data, ("photosCount", "photo_count", "photos"))),
+        videos=optional_int(first_present(data, ("videosCount", "video_count", "videos"))),
+        archived=optional_int(
+            first_present(data, ("archivedPostsCount", "archived_count", "archived"))
+        ),
+    )
+
+
+def parse_subscriptions_stdout(stdout: str) -> list[SubscriptionProfile]:
+    raw_payload = None
+    for line in stdout.splitlines():
+        if line.startswith(SUBSCRIPTIONS_SENTINEL):
+            raw_payload = line[len(SUBSCRIPTIONS_SENTINEL) :]
+    if raw_payload is None:
+        return []
+    try:
+        payload = json.loads(raw_payload)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(payload, list):
+        return []
+    profiles: list[SubscriptionProfile] = []
+    seen: set[str] = set()
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        profile = normalize_subscription_profile(item)
+        if profile is None:
+            continue
+        key = profile.profile_id or profile.username.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        profiles.append(profile)
+    return sorted(profiles, key=lambda profile: profile.username.lower())
+
+
+def run_profile_lookup_process(
+    username: str, destination: Path, timeout: int
+) -> tuple[int, str, str, Path | None]:
+    try:
+        process = subprocess.run(
+            [sys.executable, "-c", PROFILE_TEST_SCRIPT, username],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            check=False,
+            env=ofscraper_environment(),
+        )
+        code, stdout, stderr = process.returncode, process.stdout, process.stderr
+    except subprocess.TimeoutExpired:
+        code, stdout, stderr = 124, "", f"La prueba supero {timeout} segundos.\n"
+    log_content = (
+        f"OF Downloader {APP_VERSION}\n"
+        f"Prueba de perfil: {username}\n"
+        f"Codigo: {code}\n\n"
+        "SALIDA\n"
+        f"{stdout}\n"
+        "ERRORES\n"
+        f"{stderr}\n"
+    )
+    visible_log = write_visible_log(destination, PROFILE_TEST_LOG_NAME, log_content)
+    return code, stdout, stderr, visible_log
+
+
+def parse_profile_detection(stdout: str) -> ProfileDetection | None:
+    line = next(
+        (raw for raw in stdout.splitlines() if raw.startswith("OFDOWNLOADER_PROFILE_OK")),
+        "",
+    )
+    if not line:
+        return None
+    values = dict(re.findall(r"(\w+)=([^\s]*)", line))
+    username = values.get("username", "").strip()
+    if not username:
+        return None
+    return ProfileDetection(
+        username=username,
+        profile_id=values.get("id", ""),
+        posts=optional_int(values.get("posts")),
+        photos=optional_int(values.get("photos")),
+        videos=optional_int(values.get("videos")),
+        archived=optional_int(values.get("archived")),
+    )
+
+
+def detect_profile_counts(username: str, timeout: int = 60) -> ProfileDetection | None:
+    require_credentials()
+    write_ofscraper_config()
+    ofscraper_binary()
+    destination = Path(get_state()["download_dir"]).expanduser()
+    code, stdout, stderr, visible_log = run_profile_lookup_process(
+        username, destination, timeout
+    )
+    detection = parse_profile_detection(stdout)
+    if code == 0 and detection is not None:
+        return detection
+    print("No se pudo detectar el contenido antes de descargar.")
+    if code == 124:
+        print("La deteccion tardo demasiado.")
+    elif "Auth Failed" in stdout or "Auth Failed" in stderr:
+        print("OnlyFans rechazo los datos de acceso.")
+    else:
+        print("Puede ser sesion invalida, perfil sin acceso o bloqueo de la API.")
+    if visible_log:
+        print(f"Log visible: {visible_log}")
+    return None
+
+
+def list_subscription_profiles(timeout: int = 90) -> list[SubscriptionProfile]:
+    require_credentials()
+    write_ofscraper_config()
+    ofscraper_binary()
+    destination = Path(get_state()["download_dir"]).expanduser()
+    print("\nBuscando perfiles de tus suscripciones activas...")
+    print("Incluye perfiles gratis si OnlyFans los muestra como activos.")
+    try:
+        process = subprocess.run(
+            [sys.executable, "-c", SUBSCRIPTIONS_LIST_SCRIPT],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            check=False,
+            env=ofscraper_environment(),
+        )
+        code, stdout, stderr = process.returncode, process.stdout, process.stderr
+    except subprocess.TimeoutExpired:
+        code, stdout, stderr = 124, "", f"La busqueda supero {timeout} segundos.\n"
+    log_content = (
+        f"OF Downloader {APP_VERSION}\n"
+        "Perfiles suscritos\n"
+        f"Codigo: {code}\n\n"
+        "SALIDA\n"
+        f"{stdout}\n"
+        "ERRORES\n"
+        f"{stderr}\n"
+    )
+    visible_log = write_visible_log(destination, SUBSCRIPTIONS_LOG_NAME, log_content)
+    profiles = parse_subscriptions_stdout(stdout)
+    if code == 0 and profiles:
+        print(f"Perfiles encontrados: {len(profiles)}")
+        return profiles
+    print("No se pudieron cargar perfiles suscritos.")
+    if code == 124:
+        print("La busqueda tardo demasiado.")
+    elif "Auth Failed" in stdout or "Auth Failed" in stderr:
+        print("OnlyFans rechazo los datos de acceso. Renueva la cookie en la opcion 3.")
+    else:
+        print("La sesion no devolvio perfiles o el motor no informo datos utiles.")
+    if visible_log:
+        print(f"Log visible: {visible_log}")
+    return []
+
+
+def compact_count(value: int | None) -> str:
+    return str(value) if value is not None else "-"
+
+
+def profile_list_line(index: int, profile: SubscriptionProfile) -> str:
+    display = f" ({profile.display_name})" if profile.display_name and profile.display_name != profile.username else ""
+    counts = (
+        f"posts {compact_count(profile.posts)} | "
+        f"fotos {compact_count(profile.photos)} | "
+        f"videos {compact_count(profile.videos)}"
+    )
+    return f"{index:>3}. @{profile.username}{display} - {profile.status} - {counts}"
+
+
+def choose_subscription_profile(
+    profiles: list[SubscriptionProfile],
+) -> SubscriptionProfile | None:
+    visible = profiles
+    while True:
+        print("\nPERFILES")
+        for index, profile in enumerate(visible[:40], start=1):
+            print(profile_list_line(index, profile))
+        if len(visible) > 40:
+            print(f"... y {len(visible) - 40} mas. Escribe texto para filtrar.")
+        choice = input("\nEscoge numero, @usuario, texto para filtrar o Enter para cancelar: ").strip()
+        if not choice:
+            return None
+        if choice.isdigit():
+            index = int(choice)
+            if 1 <= index <= min(len(visible), 40):
+                return visible[index - 1]
+            print("Numero fuera de la lista visible.")
+            continue
+        wanted = choice.lstrip("@").lower()
+        exact = [profile for profile in profiles if profile.username.lower() == wanted]
+        if len(exact) == 1:
+            return exact[0]
+        matches = [
+            profile
+            for profile in profiles
+            if wanted in profile.username.lower()
+            or wanted in profile.display_name.lower()
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        if matches:
+            visible = matches
+            print(f"Filtro aplicado: {len(matches)} perfiles.")
+            continue
+        print("No encontre perfiles con ese texto.")
+
+
+def print_detection_summary(profile: SubscriptionProfile, detection: ProfileDetection | None) -> None:
+    print("\nDETECCION")
+    print(f"Perfil: @{profile.username}")
+    if detection is None:
+        print("Detectados: no informado")
+        return
+    print(f"Posts:      {compact_count(detection.posts)}")
+    print(f"Fotos:      {compact_count(detection.photos)}")
+    print(f"Videos:     {compact_count(detection.videos)}")
+    print(f"Archivados: {compact_count(detection.archived)}")
+
+
+def choose_profile_and_download() -> int:
+    profiles = list_subscription_profiles()
+    if not profiles:
+        return 1
+    selected = choose_subscription_profile(profiles)
+    if selected is None:
+        print("Cancelado. No se descargo nada.")
+        return 0
+    detection = detect_profile_counts(selected.username)
+    print_detection_summary(selected, detection)
+    answer = input("\nDescargar este perfil completo? [s/N]: ").strip().lower()
+    if answer not in {"s", "si", "sí", "y", "yes"}:
+        print("Cancelado. No se descargo nada.")
+        return 0
+    return download_user(selected.username, source="selector")
 
 
 def show_download_progress(percent: int, label: str, *, failed: bool = False) -> None:
@@ -1301,6 +1711,7 @@ def menu() -> int:
         print(styled("\n  DESCARGAS", "blue", bold=True))
         menu_option("1", "Descargar una publicación con un enlace")
         menu_option("2", "Descargar todo un usuario")
+        menu_option("10", "Elegir perfil de mis suscripciones")
 
         print(styled("\n  MI CUENTA", "blue", bold=True))
         menu_option("3", "Conectar o renovar el acceso")
@@ -1334,6 +1745,8 @@ def menu() -> int:
                 download_link()
             elif choice == "2":
                 download_user()
+            elif choice == "10":
+                choose_profile_and_download()
             elif choice == "3":
                 result = configure_credentials()
                 if result == IMPORT_REQUEST_EXIT:
@@ -1370,6 +1783,7 @@ def print_help() -> None:
   of                               Abrir menú interactivo
   of ENLACE                        Descargar una publicación
   of usuario NOMBRE                Descargar todo un usuario
+  of perfiles                      Elegir perfil de tus suscripciones
   of configurar                    Guardar o renovar credenciales
   of importar                      Importar OFBackup-auth.json
   of importar RUTA                 Importar el archivo directamente
@@ -1404,7 +1818,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "TERMUX").upper()
             if platform_name in {"LINUX", "WINDOWS"}:
-                import_credentials_file(default_auth_export_path())
+                import_default_auth_export()
                 return 0
             return IMPORT_REQUEST_EXIT
         if command == "importar-archivo":
@@ -1419,6 +1833,8 @@ def main(argv: list[str] | None = None) -> int:
             return test_credentials()
         if command in {"probar-perfil", "test-perfil", "perfil-test"}:
             return test_profile_lookup(argv[1] if len(argv) > 1 else None)
+        if command in {"perfiles", "suscripciones", "subs"}:
+            return choose_profile_and_download()
         if command in {"actualizar", "update"}:
             return update_engine()
         if command in {"actualizar-app", "update-app"}:

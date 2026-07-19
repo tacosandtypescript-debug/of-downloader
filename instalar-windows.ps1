@@ -1,7 +1,3 @@
-param(
-    [switch]$InstallFFmpeg
-)
-
 $ErrorActionPreference = "Stop"
 
 function Run-Checked($FilePath, $Arguments, $FailureMessage) {
@@ -75,6 +71,27 @@ function Install-Python312 {
         "--accept-source-agreements"
     ) "No se pudo instalar Python 3.12 automaticamente con winget."
     return $true
+}
+
+function Install-FFmpeg {
+    if (Get-Command ffmpeg -ErrorAction SilentlyContinue) {
+        return $true
+    }
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Host "No encontre winget. No puedo instalar FFmpeg automaticamente." -ForegroundColor Yellow
+        Write-Host "Instala FFmpeg manualmente: https://www.gyan.dev/ffmpeg/builds/" -ForegroundColor Yellow
+        return $false
+    }
+    Write-Host "FFmpeg no esta instalado. Intentare instalarlo automaticamente con winget..." -ForegroundColor Yellow
+    Run-Checked "winget" @(
+        "install",
+        "--id", "Gyan.FFmpeg",
+        "-e",
+        "--accept-package-agreements",
+        "--accept-source-agreements"
+    ) "No se pudo instalar FFmpeg automaticamente con winget."
+    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+    return [bool](Get-Command ffmpeg -ErrorAction SilentlyContinue)
 }
 
 function Find-Python {
@@ -186,19 +203,10 @@ $shortcut.WorkingDirectory = $repo
 $shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,146"
 $shortcut.Save()
 
-if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+if (-not (Install-FFmpeg)) {
     Write-Host ""
-    Write-Host "AVISO: FFmpeg no esta instalado o no esta en PATH." -ForegroundColor Yellow
-    if ($InstallFFmpeg) {
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-Host "Instalando FFmpeg con winget..."
-            winget install --id Gyan.FFmpeg -e --accept-package-agreements --accept-source-agreements
-        } else {
-            Write-Host "No encontre winget. Instala FFmpeg manualmente: https://www.gyan.dev/ffmpeg/builds/" -ForegroundColor Yellow
-        }
-    } else {
-        Write-Host "Para videos, instala FFmpeg o ejecuta desde la carpeta del repo: .\instalar-windows.ps1 -InstallFFmpeg" -ForegroundColor Yellow
-    }
+    Write-Host "AVISO: FFmpeg no quedo disponible en PATH." -ForegroundColor Yellow
+    Write-Host "Los videos pueden fallar hasta que instales FFmpeg o abras una terminal nueva si winget lo agrego al PATH." -ForegroundColor Yellow
 }
 
 Write-Host ""

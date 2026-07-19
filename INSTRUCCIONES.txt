@@ -27,9 +27,9 @@ Para abrir el menú:
 
    of
 
-Para importar la cookie desde Descargas:
+Para importar la cookie con el selector:
 
-   of importar "$HOME/storage/downloads/OFBackup-auth.json"
+   of importar
 
 Para probarla:
 
@@ -39,10 +39,19 @@ Para probar si un perfil se detecta bien:
 
    of probar-perfil NOMBRE
 
+Para elegir desde tus perfiles suscritos activos:
+
+   of perfiles
+
+La opcion 10 del menu hace lo mismo: lista perfiles activos, incluye gratis
+cuando OnlyFans los devuelve, detecta posts/fotos/videos y pregunta antes de
+descargar.
+
 Logs visibles:
 
    /root/storage/downloads/OFBackup/ultima-descarga.log
    /root/storage/downloads/OFBackup/prueba-perfil.log
+   /root/storage/downloads/OFBackup/perfiles-suscritos.log
 
 
 LINUX
@@ -68,15 +77,17 @@ WINDOWS
 -------
 1. Si no tienes Python 3.11 o 3.12, el instalador intentara poner Python 3.12
    automaticamente con winget.
-2. Si winget no esta disponible, instala Python 3.12 desde python.org y marca
+2. Si no tienes FFmpeg, el instalador intentara ponerlo automaticamente con
+   winget.
+3. Si winget no esta disponible, instala Python 3.12 desde python.org y marca
    "Add Python to PATH".
-3. Clona el repositorio privado:
+4. Clona el repositorio privado:
 
    gh auth login
    gh repo clone tacosandtypescript-debug/of-downloader
    cd of-downloader
 
-4. Ejecuta:
+5. Ejecuta:
 
    powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
 
@@ -90,7 +101,7 @@ WINDOWS
 
 Para importar el archivo de la extension:
 
-   of importar "%USERPROFILE%\Downloads\OFBackup-auth.json"
+   of importar
    of probar
 
 Las descargas quedan en:
