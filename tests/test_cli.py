@@ -759,6 +759,13 @@ class DownloadTests(unittest.TestCase):
         self.assertIn("of importar", rendered)
         self.assertNotIn("sess=", rendered)
 
+    def test_receive_cookie_command_starts_local_receiver(self):
+        with mock.patch.object(
+            ofbackup_cli, "receive_credentials_locally", return_value=0
+        ) as receiver:
+            self.assertEqual(ofbackup_cli.main(["recibir-cookie", "9876"]), 0)
+        receiver.assert_called_once_with(port=9876)
+
     def test_download_user_does_not_force_normal_only(self):
         with (
             tempfile.TemporaryDirectory() as temporary,

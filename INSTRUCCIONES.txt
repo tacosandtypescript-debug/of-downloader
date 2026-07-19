@@ -160,6 +160,13 @@ Si el selector no abre:
 
    of importar RUTA/OFBackup-auth.json
 
+Envio directo sin mover archivo:
+
+   of recibir-cookie
+
+La app muestra una URL local y un codigo. En la extension usa Enviar a
+OF Downloader. Funciona en la misma Wi-Fi o hotspot y se apaga solo.
+
 La app conserva solo:
 
    sess

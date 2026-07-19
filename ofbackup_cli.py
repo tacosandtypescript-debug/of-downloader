@@ -5,10 +5,13 @@ from __future__ import annotations
 
 import getpass
 import hashlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import re
+import secrets
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -19,7 +22,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.12.0"
+APP_VERSION = "2.13.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -471,6 +474,122 @@ def import_credentials_file(path: Path) -> None:
             "si todavía aparece."
         )
     print("Comprueba ahora la sesión ejecutando: of probar")
+
+
+def local_network_ip() -> str:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            return sock.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+
+
+def receive_credentials_locally(port: int = 8765, timeout: int = 300) -> int:
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    received: dict[str, object] = {"done": False, "error": ""}
+
+    class ReceiverHandler(BaseHTTPRequestHandler):
+        server_version = "OFDownloaderCookieReceiver/1.0"
+
+        def log_message(self, _format: str, *_args: object) -> None:
+            return
+
+        def _send_json(self, status: int, payload: dict[str, object]) -> None:
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_OPTIONS(self) -> None:  # noqa: N802
+            self._send_json(200, {"ok": True})
+
+        def do_GET(self) -> None:  # noqa: N802
+            self._send_json(
+                200,
+                {
+                    "ok": True,
+                    "app": "OF Downloader",
+                    "version": APP_VERSION,
+                    "message": "Receptor activo. Envia POST /upload con code y auth.",
+                },
+            )
+
+        def do_POST(self) -> None:  # noqa: N802
+            if self.path.rstrip("/") != "/upload":
+                self._send_json(404, {"ok": False, "error": "ruta invalida"})
+                return
+            length_header = self.headers.get("Content-Length", "0")
+            try:
+                length = int(length_header)
+            except ValueError:
+                self._send_json(400, {"ok": False, "error": "tamano invalido"})
+                return
+            if length <= 0 or length > MAX_AUTH_EXPORT_SIZE:
+                self._send_json(413, {"ok": False, "error": "archivo demasiado grande"})
+                return
+            try:
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                self._send_json(400, {"ok": False, "error": "json invalido"})
+                return
+            if not isinstance(payload, dict) or str(payload.get("code", "")) != code:
+                self._send_json(403, {"ok": False, "error": "codigo incorrecto"})
+                return
+            try:
+                values = parse_auth_export(payload.get("auth"))
+                save_credentials(values)
+            except UserError as exc:
+                message = str(exc)
+                received["error"] = message
+                self._send_json(400, {"ok": False, "error": message})
+                return
+            received["done"] = True
+            self._send_json(
+                200,
+                {
+                    "ok": True,
+                    "message": "Datos guardados. Ejecuta of probar.",
+                },
+            )
+
+    host = "0.0.0.0"
+    try:
+        server = ThreadingHTTPServer((host, port), ReceiverHandler)
+    except OSError as exc:
+        raise UserError(f"No se pudo abrir el receptor local en puerto {port}: {exc}") from exc
+
+    server.timeout = 0.5
+    ip = local_network_ip()
+    expires_at = time.monotonic() + timeout
+    print("\nRECIBIR COOKIE LOCAL")
+    print("1. Abre OnlyFans en el navegador donde esta la extension.")
+    print("2. Pulsa la extension y usa Enviar a OF Downloader.")
+    print("3. Escribe esta URL y este codigo.")
+    print()
+    print(f"URL local: http://{ip}:{port}")
+    print(f"Codigo:    {code}")
+    print(f"Tiempo:    {timeout // 60} minutos")
+    print()
+    print("Seguridad: un solo uso, no imprime secretos y se apaga solo.")
+    print("Usalo en Wi-Fi de confianza o en hotspot propio.")
+    try:
+        while time.monotonic() < expires_at and not received["done"]:
+            server.handle_request()
+    finally:
+        server.server_close()
+    if received["done"]:
+        print("\n✓ Archivo recibido y datos de acceso guardados.")
+        print("Solo se conservaron sess, auth_id, x-bc y User-Agent.")
+        print("Comprueba ahora la sesion ejecutando: of probar")
+        return 0
+    print("\nNo se recibio ningun archivo antes de que venciera el tiempo.")
+    return 1
 
 
 def user_supplied_path(value: str) -> Path:
@@ -2244,6 +2363,7 @@ def print_help() -> None:
   of configurar                    Guardar o renovar credenciales
   of importar                      Importar OFBackup-auth.json
   of importar RUTA                 Importar el archivo directamente
+  of recibir-cookie                Recibir acceso desde la extension en red local
   of cookie ayuda                  Ver como exportar y mover OFBackup-auth.json
   of probar                        Comprobar la cookie sin descargar contenido
   of probar-perfil USUARIO          Comprobar si OnlyFans devuelve un perfil
@@ -2277,7 +2397,17 @@ extension OF Downloader Exporter.
 En el navegador donde ya abriste OnlyFans:
 1. Abre OnlyFans e inicia sesion.
 2. Pulsa la extension OF Downloader Exporter.
-3. Exporta OFBackup-auth.json.
+3. Puedes exportar OFBackup-auth.json o enviarlo directo con of recibir-cookie.
+
+Envio local directo:
+1. En este equipo ejecuta:
+  of recibir-cookie
+2. La app mostrara una URL local y un codigo temporal.
+3. En la extension usa Enviar a OF Downloader.
+4. Pega la URL y el codigo.
+
+Ese modo funciona solo en la misma Wi-Fi o hotspot, dura 5 minutos y es de un
+solo uso. No imprime secretos.
 
 Para pasarlo a otro equipo:
 - PC a movil: cable USB, Google Drive, Nearby Share, Telegram guardado como
@@ -2332,6 +2462,9 @@ def main(argv: list[str] | None = None) -> int:
                 raise UserError("Falta la ruta temporal del archivo seleccionado.")
             import_credentials_file(Path(argv[1]))
             return 0
+        if command in {"recibir-cookie", "recibir", "receive-cookie"}:
+            port = int(argv[1]) if len(argv) > 1 and argv[1].isdigit() else 8765
+            return receive_credentials_locally(port=port)
         if command in {"diagnostico", "diagnóstico", "status"}:
             diagnostics()
             return 0

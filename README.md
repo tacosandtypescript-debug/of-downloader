@@ -176,6 +176,16 @@ importarlo:
 of cookie ayuda
 ```
 
+Tambien puedes evitar mover archivos:
+
+```bash
+of recibir-cookie
+```
+
+Ese comando muestra una URL local y un codigo temporal. En la extension pulsa
+**Enviar a OF Downloader**, escribe esos dos datos y la app guarda el acceso.
+Usalo solo en una Wi-Fi de confianza o hotspot propio.
+
 La app solo conserva:
 
 - `sess`
@@ -235,6 +245,7 @@ of "https://onlyfans.com/..."
 of probar
 of diagnostico
 of actualizar-app
+of recibir-cookie
 of drive estado
 of drive pendientes
 of drive limpiar
