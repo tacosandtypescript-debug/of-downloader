@@ -169,6 +169,13 @@ archivos. Si el selector falla, tambien puedes pasar la ruta:
 of importar ~/Downloads/OFBackup-auth.json
 ```
 
+Para ver el flujo completo de exportar, pasar el archivo entre movil y PC e
+importarlo:
+
+```bash
+of cookie ayuda
+```
+
 La app solo conserva:
 
 - `sess`
@@ -177,6 +184,25 @@ La app solo conserva:
 - `User-Agent`
 
 Despues de importar, borra `OFBackup-auth.json` de Descargas.
+
+### Pasar la cookie entre movil y PC
+
+No pegues la cookie en chats ni la escribas a mano. La forma correcta es mover
+el archivo `OFBackup-auth.json` como archivo:
+
+- PC a movil: cable USB, Google Drive, Nearby Share, Telegram guardado como
+  archivo o copiarlo a Descargas del telefono.
+- Movil a PC: Google Drive, cable USB, Nearby Share, correo propio como archivo
+  adjunto o descargarlo en `Downloads`.
+
+Luego ejecuta:
+
+```bash
+of importar
+of probar
+```
+
+Si el selector no abre, usa `of importar RUTA/OFBackup-auth.json`.
 
 ## Menu actual
 
@@ -210,6 +236,8 @@ of probar
 of diagnostico
 of actualizar-app
 of drive estado
+of drive pendientes
+of drive limpiar
 ```
 
 ## Google Drive
@@ -223,6 +251,9 @@ Comandos:
 of drive configurar
 of drive activar
 of drive subir
+of drive pendientes
+of drive limpiar
+of drive limpiar todo
 of drive estado
 of drive desactivar
 ```
@@ -233,6 +264,9 @@ Por defecto:
 - Carpeta en Drive: `OFDownloader`
 - No borra archivos locales despues de subir.
 - Si falla una subida, queda en pendientes y se puede reintentar con `of drive subir`.
+- `of drive pendientes` muestra la cola.
+- `of drive limpiar` borra pendientes cuyo archivo local ya no existe.
+- `of drive limpiar todo` vacia toda la cola pendiente.
 
 Comando avanzado para revisar deteccion de un perfil:
 

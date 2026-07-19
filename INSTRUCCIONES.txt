@@ -144,6 +144,22 @@ CONECTAR LA CUENTA
 6. Cárgalo con of importar.
 7. Comprueba con of probar.
 
+Ayuda desde la app:
+
+   of cookie ayuda
+
+Para pasarlo entre móvil y PC, mueve OFBackup-auth.json como archivo:
+
+   - cable USB
+   - Google Drive
+   - Nearby Share
+   - correo propio como archivo adjunto
+   - Telegram/WhatsApp como archivo, no como texto pegado
+
+Si el selector no abre:
+
+   of importar RUTA/OFBackup-auth.json
+
 La app conserva solo:
 
    sess

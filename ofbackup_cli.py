@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.11.0"
+APP_VERSION = "2.12.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -566,6 +566,7 @@ def json_cookie_prompt(*, allow_object: bool = False) -> str:
 def configure_credentials() -> int:
     print("\nCONECTAR MI CUENTA")
     print("Usa el archivo OFBackup-auth.json creado por la extension del navegador.")
+    print("Si necesitas instrucciones para sacarlo y moverlo, ejecuta: of cookie ayuda")
     platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "TERMUX").upper()
     if platform_name in {"LINUX", "WINDOWS"}:
         print("Abriendo el explorador para elegir OFBackup-auth.json...")
@@ -573,68 +574,6 @@ def configure_credentials() -> int:
         return 0
     print("Abriendo el selector Android para elegir OFBackup-auth.json...")
     return IMPORT_REQUEST_EXIT
-
-    if platform_name in {"LINUX", "WINDOWS"}:
-        print("1. Importar OFBackup-auth.json desde el equipo (recomendado)")
-    else:
-        print("1. Importar OFBackup-auth.json con el selector Android (recomendado)")
-    print("2. Cookie normal en una sola línea")
-    print("3. Lista JSON exportada por el navegador o una extensión")
-    print("4. JSON completo de OnlyFans-Cookie-Helper")
-    cookie_format = input("Opción [1]: ").strip() or "1"
-    if cookie_format == "1":
-        if platform_name in {"LINUX", "WINDOWS"}:
-            import_default_auth_export()
-            return 0
-        return IMPORT_REQUEST_EXIT
-    if cookie_format == "3":
-        raw_cookie = json_cookie_prompt()
-    elif cookie_format == "4":
-        raw_cookie = json_cookie_prompt(allow_object=True)
-    elif cookie_format == "2":
-        print("La entrada queda oculta y no se guarda en el historial de la terminal.")
-        raw_cookie = hidden_prompt("Pega la Cookie completa: ")
-    else:
-        raise UserError("Elige 1, 2, 3 o 4.")
-    cookies = parse_cookie_header(raw_cookie)
-
-    sess = cookies.get("sess") or hidden_prompt("No encontré sess. Pega su valor: ")
-    auth_id = cookies.get("auth_id") or hidden_prompt(
-        "No encontré auth_id. Pega su valor: "
-    )
-    x_bc = cookies.get("x-bc") or hidden_prompt(
-        "Pega x-bc de la misma sesión del navegador: "
-    )
-    user_agent = cookies.get("user_agent") or input(
-        "Pega el User-Agent exacto de esa misma sesión: "
-    ).strip()
-    username = input("Usuario predeterminado, sin @ (opcional): ").strip().lstrip("@")
-
-    missing = [
-        key
-        for key, value in (
-            ("sess", sess),
-            ("auth_id", auth_id),
-            ("x-bc", x_bc),
-            ("User-Agent", user_agent),
-        )
-        if not value
-    ]
-    if missing:
-        raise UserError(f"Faltan credenciales: {', '.join(missing)}")
-
-    values = {
-        "sess": sess,
-        "auth_id": auth_id,
-        "user_agent": user_agent,
-        "x-bc": x_bc,
-    }
-    save_credentials(values, username)
-    print("\n✓ Datos de acceso guardados.")
-    print("OF-Scraper comprobará la cuenta al iniciar la próxima descarga.")
-    print("Solo se guardaron los cuatro campos necesarios; el resto se descartó.")
-    print(f"Archivo privado: {AUTH_PATH}")
-    return 0
 
 
 def write_ofscraper_config(state: dict | None = None) -> None:
@@ -1343,6 +1282,45 @@ def upload_drive_queue(*, quiet: bool = False) -> int:
     return 0 if failed == 0 else 1
 
 
+def show_drive_pending() -> int:
+    items = drive_queue()
+    if not items:
+        print("No hay archivos pendientes para Google Drive.")
+        return 0
+    print(f"Pendientes para Google Drive: {len(items)}")
+    for index, item in enumerate(items, start=1):
+        local = Path(str(item.get("local", ""))).expanduser()
+        remote = str(item.get("remote", ""))
+        status = "existe" if local.is_file() else "no existe local"
+        print(f"{index}. {status}")
+        print(f"   Local:  {local}")
+        print(f"   Drive:  {remote or 'sin destino'}")
+    return 0
+
+
+def clean_drive_queue(*, all_items: bool = False) -> int:
+    items = drive_queue()
+    if not items:
+        print("No hay pendientes para limpiar.")
+        return 0
+    if all_items:
+        save_drive_queue([])
+        print(f"Cola de Google Drive limpiada: {len(items)} pendientes borrados.")
+        return 0
+    remaining = [
+        item
+        for item in items
+        if Path(str(item.get("local", ""))).expanduser().is_file()
+    ]
+    removed = len(items) - len(remaining)
+    save_drive_queue(remaining)
+    print(f"Pendientes sin archivo local eliminados: {removed}.")
+    print(f"Pendientes restantes: {len(remaining)}.")
+    if remaining:
+        print("Para borrar toda la cola usa: of drive limpiar todo")
+    return 0
+
+
 def maybe_upload_to_drive(files: list[Path], destination: Path) -> None:
     if not files:
         return
@@ -1392,6 +1370,9 @@ def drive_menu() -> int:
         print("2. Activar/desactivar subida automatica")
         print("3. Subir pendientes ahora")
         print("4. Ver estado")
+        print("5. Ver pendientes")
+        print("6. Limpiar pendientes sin archivo local")
+        print("7. Limpiar toda la cola")
         print("0. Volver")
         choice = input("Elige una opcion: ").strip()
         if choice == "1":
@@ -1409,6 +1390,16 @@ def drive_menu() -> int:
             print(f"Remote: {state.get('drive_remote')}")
             print(f"Carpeta: {state.get('drive_folder')}")
             print(f"Pendientes: {len(drive_queue())}")
+        elif choice == "5":
+            show_drive_pending()
+        elif choice == "6":
+            clean_drive_queue()
+        elif choice == "7":
+            confirm = input("Borrar toda la cola pendiente? Escribe SI: ").strip()
+            if confirm == "SI":
+                clean_drive_queue(all_items=True)
+            else:
+                print("No se borro la cola.")
         elif choice == "0":
             return 0
         else:
@@ -1433,6 +1424,11 @@ def drive_command(args: list[str]) -> int:
         return 0
     if action in {"subir", "upload"}:
         return upload_drive_queue()
+    if action in {"pendientes", "pending"}:
+        return show_drive_pending()
+    if action in {"limpiar", "clean"}:
+        all_items = len(args) > 1 and args[1].lower() in {"todo", "all"}
+        return clean_drive_queue(all_items=all_items)
     if action in {"estado", "status"}:
         state = get_state()
         print(f"rclone: {find_rclone_binary() or 'NO ENCONTRADO'}")
@@ -1441,7 +1437,9 @@ def drive_command(args: list[str]) -> int:
         print(f"Destino: {drive_remote_target(state)}")
         print(f"Pendientes: {len(drive_queue())}")
         return 0
-    raise UserError("Uso: of drive configurar|activar|desactivar|subir|estado")
+    raise UserError(
+        "Uso: of drive configurar|activar|desactivar|subir|pendientes|limpiar|estado"
+    )
 
 
 def optional_int(value: object) -> int | None:
@@ -1535,21 +1533,50 @@ def parse_subscriptions_stdout(stdout: str) -> list[SubscriptionProfile]:
 def run_profile_lookup_process(
     username: str, destination: Path, timeout: int
 ) -> tuple[int, str, str, Path | None]:
+    code = 1
+    stdout = ""
+    stderr = ""
     try:
-        process = subprocess.run(
+        process = subprocess.Popen(
             [sys.executable, "-c", PROFILE_TEST_SCRIPT, username],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=timeout,
-            check=False,
             env=ofscraper_environment(),
         )
-        code, stdout, stderr = process.returncode, process.stdout, process.stderr
-    except subprocess.TimeoutExpired:
-        code, stdout, stderr = 124, "", f"La prueba supero {timeout} segundos.\n"
+        started = time.monotonic()
+        if sys.stdout.isatty():
+            show_download_progress(5, "Detectando fotos y videos")
+        else:
+            print("Detectando fotos y videos antes de descargar...")
+            print("Puede tardar hasta 2 minutos en perfiles grandes.")
+        while process.poll() is None:
+            elapsed = time.monotonic() - started
+            if elapsed >= timeout:
+                process.terminate()
+                try:
+                    stdout, stderr = process.communicate(timeout=3)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    stdout, stderr = process.communicate()
+                code = 124
+                stderr = (stderr or "") + f"\nLa prueba supero {timeout} segundos.\n"
+                break
+            if sys.stdout.isatty():
+                progress = min(95, 5 + int((elapsed / max(timeout, 1)) * 90))
+                show_download_progress(progress, "Detectando fotos y videos")
+            time.sleep(0.5)
+        else:
+            stdout, stderr = process.communicate()
+            code = process.returncode
+        if sys.stdout.isatty():
+            label = "Deteccion finalizada" if code == 0 else "Deteccion detenida"
+            show_download_progress(100 if code == 0 else 95, label, failed=code != 0)
+            print()
+    except OSError as exc:
+        code, stdout, stderr = 1, "", str(exc)
     log_content = (
         f"OF Downloader {APP_VERSION}\n"
         f"Prueba de perfil: {username}\n"
@@ -1596,6 +1623,11 @@ def detect_profile_counts(username: str, timeout: int = 120) -> ProfileDetection
     )
     detection = parse_profile_detection(stdout)
     if code == 0 and detection is not None:
+        if detection.counted is not None:
+            total = f"{detection.counted} medios"
+        else:
+            total = "conteo no informado"
+        print(f"Deteccion lista: {total}.")
         return detection
     print("No se pudo detectar el contenido antes de descargar.")
     if code == 124:
@@ -2212,6 +2244,7 @@ def print_help() -> None:
   of configurar                    Guardar o renovar credenciales
   of importar                      Importar OFBackup-auth.json
   of importar RUTA                 Importar el archivo directamente
+  of cookie ayuda                  Ver como exportar y mover OFBackup-auth.json
   of probar                        Comprobar la cookie sin descargar contenido
   of probar-perfil USUARIO          Comprobar si OnlyFans devuelve un perfil
   of diagnostico                   Comprobar la instalación
@@ -2222,11 +2255,45 @@ def print_help() -> None:
   of drive activar                 Activar subida automatica
   of drive desactivar              Desactivar subida automatica
   of drive subir                   Subir pendientes ahora
+  of drive pendientes              Ver cola pendiente de Google Drive
+  of drive limpiar                 Quitar pendientes sin archivo local
+  of drive limpiar todo            Borrar toda la cola pendiente
 
 Las credenciales se solicitan de forma oculta para que no queden en el
 historial del terminal. Usa únicamente contenido al que tu cuenta tenga acceso.
 
 El comando anterior `ofbackup` continúa disponible como alias.
+"""
+    )
+
+
+def print_cookie_help() -> None:
+    print(
+        """FLUJO RECOMENDADO PARA LA COOKIE
+
+No pegues cookies manualmente. Usa siempre el archivo OFBackup-auth.json de la
+extension OF Downloader Exporter.
+
+En el navegador donde ya abriste OnlyFans:
+1. Abre OnlyFans e inicia sesion.
+2. Pulsa la extension OF Downloader Exporter.
+3. Exporta OFBackup-auth.json.
+
+Para pasarlo a otro equipo:
+- PC a movil: cable USB, Google Drive, Nearby Share, Telegram guardado como
+  archivo, o copiarlo a Descargas del telefono.
+- Movil a PC: Google Drive, cable USB, Nearby Share, correo propio como archivo
+  adjunto, o descargarlo en la carpeta Downloads.
+
+Luego importa y prueba:
+  of importar
+  of probar
+
+Si el selector no abre, usa ruta directa:
+  of importar RUTA/OFBackup-auth.json
+
+Despues de importar, borra OFBackup-auth.json de Descargas. La app guarda solo
+sess, auth_id, x-bc y User-Agent en su carpeta privada.
 """
     )
 
@@ -2239,6 +2306,15 @@ def main(argv: list[str] | None = None) -> int:
         command = argv[0].lower()
         if command in {"-h", "--help", "ayuda"}:
             print_help()
+            return 0
+        if command in {"cookie", "cookies", "acceso"}:
+            subcommand = argv[1].lower() if len(argv) > 1 else "ayuda"
+            if subcommand in {"ayuda", "help", "flujo"}:
+                print_cookie_help()
+                return 0
+            raise UserError("Uso: of cookie ayuda")
+        if command in {"ayuda-cookie", "cookie-ayuda"}:
+            print_cookie_help()
             return 0
         if command in {"configurar", "config"}:
             return configure_credentials()

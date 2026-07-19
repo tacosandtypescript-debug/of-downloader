@@ -357,11 +357,18 @@ class AuthImportTests(unittest.TestCase):
             self.assertTrue(original.exists())
 
     def test_configure_requests_android_picker(self):
-        with mock.patch("builtins.input", return_value="1"):
+        output = io.StringIO()
+        with (
+            mock.patch("builtins.input", return_value="1"),
+            mock.patch.object(ofbackup_cli.sys, "stdout", output),
+        ):
             self.assertEqual(
                 ofbackup_cli.configure_credentials(),
                 ofbackup_cli.IMPORT_REQUEST_EXIT,
             )
+        rendered = output.getvalue()
+        self.assertNotIn("Cookie normal", rendered)
+        self.assertNotIn("OnlyFans-Cookie-Helper", rendered)
 
     def test_default_auth_export_path_uses_windows_downloads(self):
         with (
@@ -687,6 +694,70 @@ class DownloadTests(unittest.TestCase):
                 ofbackup_cli.maybe_upload_to_drive([file], destination)
         enqueue.assert_called_once()
         upload.assert_called_once_with(quiet=False)
+
+    def test_show_drive_pending_lists_queue_items(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            queue = root / "queue.json"
+            local = root / "downloads" / "creator" / "pic.jpg"
+            local.parent.mkdir(parents=True)
+            local.write_bytes(b"image")
+            with (
+                mock.patch.object(ofbackup_cli, "DRIVE_QUEUE_PATH", queue),
+                mock.patch.object(ofbackup_cli.sys, "stdout", io.StringIO()) as output,
+            ):
+                ofbackup_cli.save_drive_queue(
+                    [{"local": str(local), "remote": "gdrive:OFDownloader/creator/pic.jpg"}]
+                )
+                self.assertEqual(ofbackup_cli.show_drive_pending(), 0)
+                rendered = output.getvalue()
+        self.assertIn("Pendientes para Google Drive: 1", rendered)
+        self.assertIn("existe", rendered)
+
+    def test_clean_drive_queue_removes_missing_local_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            queue = root / "queue.json"
+            local = root / "downloads" / "creator" / "pic.jpg"
+            local.parent.mkdir(parents=True)
+            local.write_bytes(b"image")
+            missing = root / "downloads" / "creator" / "missing.jpg"
+            with (
+                mock.patch.object(ofbackup_cli, "DRIVE_QUEUE_PATH", queue),
+                mock.patch("builtins.print"),
+            ):
+                ofbackup_cli.save_drive_queue(
+                    [
+                        {"local": str(local), "remote": "gdrive:OFDownloader/creator/pic.jpg"},
+                        {"local": str(missing), "remote": "gdrive:OFDownloader/creator/missing.jpg"},
+                    ]
+                )
+                self.assertEqual(ofbackup_cli.clean_drive_queue(), 0)
+                items = ofbackup_cli.drive_queue()
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["local"], str(local))
+
+    def test_clean_drive_queue_all_clears_queue(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            queue = Path(temporary) / "queue.json"
+            with (
+                mock.patch.object(ofbackup_cli, "DRIVE_QUEUE_PATH", queue),
+                mock.patch("builtins.print"),
+            ):
+                ofbackup_cli.save_drive_queue(
+                    [{"local": str(Path(temporary) / "missing.jpg"), "remote": "gdrive:file.jpg"}]
+                )
+                self.assertEqual(ofbackup_cli.clean_drive_queue(all_items=True), 0)
+                self.assertEqual(ofbackup_cli.drive_queue(), [])
+
+    def test_cookie_help_command_explains_export_file(self):
+        output = io.StringIO()
+        with mock.patch.object(ofbackup_cli.sys, "stdout", output):
+            self.assertEqual(ofbackup_cli.main(["cookie", "ayuda"]), 0)
+        rendered = output.getvalue()
+        self.assertIn("OFBackup-auth.json", rendered)
+        self.assertIn("of importar", rendered)
+        self.assertNotIn("sess=", rendered)
 
     def test_download_user_does_not_force_normal_only(self):
         with (
