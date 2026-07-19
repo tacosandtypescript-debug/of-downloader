@@ -79,7 +79,7 @@ username = sys.argv[1]
 try:
     from ofscraper.main.open import load
     import ofscraper.managers.manager as manager
-    from ofscraper.data.api import profile
+    from ofscraper.data.api import archive, highlights, pinned, profile, streams, timeline
 
     load.systemSet()
     load.settings_loader()
@@ -94,14 +94,74 @@ try:
     if data.get("username") == "deleted":
         print("OFDOWNLOADER_PROFILE_DELETED")
         raise SystemExit(4)
+
+    seen = set()
+    counts = {"photos": 0, "videos": 0}
+    counted_posts = set()
+    partial_errors = []
+
+    def walk_media(value):
+        if isinstance(value, dict):
+            media = value.get("media")
+            if isinstance(media, list):
+                for item in media:
+                    yield item
+            for key in ("preview", "linkedPost", "post"):
+                nested = value.get(key)
+                if isinstance(nested, (dict, list)):
+                    yield from walk_media(nested)
+        elif isinstance(value, list):
+            for item in value:
+                yield from walk_media(item)
+
+    def count_posts(area, posts):
+        if not isinstance(posts, list):
+            return
+        for post in posts:
+            if isinstance(post, dict) and post.get("id") is not None:
+                counted_posts.add(str(post.get("id")))
+            for media in walk_media(post):
+                if not isinstance(media, dict):
+                    continue
+                media_id = media.get("id") or media.get("media_id") or media.get("source", {}).get("source")
+                media_type = str(media.get("type") or media.get("media_type") or media.get("mediatype") or "").lower()
+                key = str(media_id or f"{area}:{media_type}:{len(seen)}")
+                if key in seen:
+                    continue
+                seen.add(key)
+                if media_type in {"photo", "image", "images"}:
+                    counts["photos"] += 1
+                elif media_type in {"video", "videos"}:
+                    counts["videos"] += 1
+
+    def try_area(area, func, *args, **kwargs):
+        try:
+            count_posts(area, func(*args, **kwargs))
+        except Exception as exc:
+            partial_errors.append(f"{area}:{type(exc).__name__}")
+
+    model_id = data.get("id")
+    model_username = data.get("username") or username
+    with manager.Manager.session.get_ofsession() as c:
+        try_area("timeline", timeline.get_timeline_posts, model_id, model_username, c=c)
+        try_area("archived", archive.get_archived_posts, model_id, model_username, c=c)
+        try_area("pinned", pinned.get_pinned_posts, model_id, c=c)
+        try_area("stories", highlights.get_stories_post, model_id, c=c)
+        try_area("streams", streams.get_streams_posts, model_id, model_username, c=c)
+
+    photos = counts["photos"] if seen else data.get("photosCount", 0)
+    videos = counts["videos"] if seen else data.get("videosCount", 0)
+    posts = len(counted_posts) if counted_posts else data.get("postsCount", 0)
     print(
         "OFDOWNLOADER_PROFILE_OK "
         f"username={data.get('username', '')} "
         f"id={data.get('id', '')} "
-        f"posts={data.get('postsCount', 0)} "
-        f"photos={data.get('photosCount', 0)} "
-        f"videos={data.get('videosCount', 0)} "
-        f"archived={data.get('archivedPostsCount', 0)}"
+        f"posts={posts} "
+        f"photos={photos} "
+        f"videos={videos} "
+        f"archived={data.get('archivedPostsCount', 0)} "
+        f"counted={len(seen)} "
+        f"partial={1 if partial_errors else 0}"
     )
     raise SystemExit(0)
 except SystemExit:
@@ -931,6 +991,8 @@ class ProfileDetection:
     photos: int | None = None
     videos: int | None = None
     archived: int | None = None
+    counted: int | None = None
+    partial: bool = False
 
 
 @dataclass
@@ -1247,10 +1309,12 @@ def parse_profile_detection(stdout: str) -> ProfileDetection | None:
         photos=optional_int(values.get("photos")),
         videos=optional_int(values.get("videos")),
         archived=optional_int(values.get("archived")),
+        counted=optional_int(values.get("counted")),
+        partial=values.get("partial") == "1",
     )
 
 
-def detect_profile_counts(username: str, timeout: int = 60) -> ProfileDetection | None:
+def detect_profile_counts(username: str, timeout: int = 120) -> ProfileDetection | None:
     require_credentials()
     write_ofscraper_config()
     ofscraper_binary()
@@ -1383,6 +1447,9 @@ def print_detection_summary(profile: SubscriptionProfile, detection: ProfileDete
     print(f"Fotos:      {compact_count(detection.photos)}")
     print(f"Videos:     {compact_count(detection.videos)}")
     print(f"Archivados: {compact_count(detection.archived)}")
+    if detection.counted:
+        status = "parcial" if detection.partial else "completo"
+        print(f"Conteo real de medios: {detection.counted} ({status})")
 
 
 def choose_profile_and_download() -> int:
@@ -1646,7 +1713,7 @@ def download_user(username: str | None = None, *, source: str = "menu") -> int:
     )
 
 
-def test_profile_lookup(username: str | None = None, timeout: int = 60) -> int:
+def test_profile_lookup(username: str | None = None, timeout: int = 120) -> int:
     require_credentials()
     write_ofscraper_config()
     ofscraper_binary()
