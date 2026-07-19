@@ -30,12 +30,12 @@ condiciones del servicio, los derechos de los creadores y la ley aplicable.
 
 - Abre un menú claro en Termux o en una terminal Linux.
 - En Windows abre interfaz gráfica y también comando `of` en terminal.
-- Descarga una publicación con un enlace.
-- Descarga un perfil con la opción **2. Descargar todo un usuario**.
-- Lista tus perfiles suscritos activos con **10. Elegir perfil de mis suscripciones**,
+- Lista tus perfiles suscritos activos con **1. Elegir perfil de mis suscripciones**,
   incluidos perfiles gratis cuando OnlyFans los devuelve como activos.
 - Antes de descargar un perfil elegido, detecta posts/fotos/videos y pide
   confirmación.
+- Descarga un perfil directo con usuario/enlace.
+- Descarga una publicación con un enlace.
 - Importa un archivo `OFBackup-auth.json` creado por la extensión del navegador.
 - Prueba si la cookie funciona antes de descargar.
 - Muestra barra de progreso, resumen y errores en pantalla.
@@ -285,13 +285,15 @@ of
 
 Opciones principales:
 
-- **1. Descargar una publicación con un enlace**
-- **2. Descargar todo un usuario**
-- **3. Conectar mi cuenta o renovar el acceso**
-- **5. Ver diagnóstico**
-- **7. Probar si la cookie funciona**
+- **1. Elegir perfil de mis suscripciones**
+- **2. Descargar perfil por usuario o enlace**
+- **3. Descargar publicación por enlace**
+- **4. Conectar o renovar acceso**
+- **5. Probar acceso**
+- **6. Cambiar carpeta de descargas**
+- **7. Ver diagnóstico**
 - **8. Actualizar OF Downloader y reiniciar**
-- **10. Elegir perfil de mis suscripciones**
+- **9. Actualizar motor de descarga**
 
 Comandos directos:
 

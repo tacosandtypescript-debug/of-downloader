@@ -199,6 +199,47 @@ class ThemeTests(unittest.TestCase):
             ofbackup_cli.APP_UPDATE_REQUEST_EXIT,
         )
 
+    def test_menu_is_ordered_around_main_flow(self):
+        output = io.StringIO()
+        with (
+            mock.patch.object(ofbackup_cli.sys, "stdout", output),
+            mock.patch.object(ofbackup_cli.sys.stdout, "isatty", return_value=False),
+            mock.patch.object(ofbackup_cli, "credentials_ready", return_value=True),
+            mock.patch.object(
+                ofbackup_cli,
+                "get_state",
+                return_value={"download_dir": "downloads", "username": ""},
+            ),
+            mock.patch("builtins.input", return_value="0"),
+        ):
+            self.assertEqual(ofbackup_cli.menu(), 0)
+        rendered = output.getvalue()
+        self.assertLess(
+            rendered.index("[1] Elegir perfil"),
+            rendered.index("[2] Descargar perfil"),
+        )
+        self.assertLess(
+            rendered.index("[2] Descargar perfil"),
+            rendered.index("[3] Descargar publicacion"),
+        )
+        self.assertNotIn("Probar búsqueda de perfil", rendered)
+
+    def test_menu_option_one_uses_subscription_picker(self):
+        with (
+            mock.patch.object(ofbackup_cli, "credentials_ready", return_value=True),
+            mock.patch.object(
+                ofbackup_cli,
+                "get_state",
+                return_value={"download_dir": "downloads", "username": ""},
+            ),
+            mock.patch.object(ofbackup_cli, "choose_profile_and_download", return_value=0) as picker,
+            mock.patch("builtins.input", side_effect=["1", "0"]),
+            mock.patch.object(ofbackup_cli, "pause"),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(ofbackup_cli.menu(), 0)
+        picker.assert_called_once_with()
+
 
 class AuthImportTests(unittest.TestCase):
     def export_data(self):

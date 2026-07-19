@@ -43,7 +43,7 @@ Para elegir desde tus perfiles suscritos activos:
 
    of perfiles
 
-La opcion 10 del menu hace lo mismo: lista perfiles activos, incluye gratis
+La opcion 1 del menu hace lo mismo: lista perfiles activos, incluye gratis
 cuando OnlyFans los devuelve, detecta posts/fotos/videos y pregunta antes de
 descargar.
 

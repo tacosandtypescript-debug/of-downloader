@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.10.0"
+APP_VERSION = "2.10.1"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -1858,24 +1858,23 @@ def menu() -> int:
         print(styled("  " + "─" * 42, "navy"))
 
         print(styled("\n  DESCARGAS", "blue", bold=True))
-        menu_option("1", "Descargar una publicación con un enlace")
-        menu_option("2", "Descargar todo un usuario")
-        menu_option("10", "Elegir perfil de mis suscripciones")
+        menu_option("1", "Elegir perfil de mis suscripciones")
+        menu_option("2", "Descargar perfil por usuario o enlace")
+        menu_option("3", "Descargar publicacion por enlace")
 
         print(styled("\n  MI CUENTA", "blue", bold=True))
-        menu_option("3", "Conectar o renovar el acceso")
-        menu_option("7", "Probar si la cookie funciona")
-        menu_option("9", "Probar búsqueda de perfil")
+        menu_option("4", "Conectar o renovar acceso")
+        menu_option("5", "Probar acceso")
 
         print(styled("\n  HERRAMIENTAS", "blue", bold=True))
-        menu_option("4", "Cambiar carpeta de descargas")
-        menu_option("5", "Ver diagnóstico")
-        menu_option("6", "Actualizar motor de descarga")
+        menu_option("6", "Cambiar carpeta de descargas")
+        menu_option("7", "Ver diagnostico")
         update_status = os.getenv("OFDOWNLOADER_UPDATE_STATUS", "unknown")
         update_label = "Actualizar OF Downloader y reiniciar"
         if update_status == "available":
             update_label += "  ← NUEVA"
         menu_option("8", update_label)
+        menu_option("9", "Actualizar motor de descarga")
         menu_option("0", "Salir")
 
         status = styled("● CONECTADA", "green", bold=True) if connected else styled(
@@ -1890,30 +1889,28 @@ def menu() -> int:
         print(f"  {styled('Destino:', 'muted')} {styled(state['download_dir'], 'white')}")
         choice = input(styled("\n  Elige una opción › ", "cyan", bold=True)).strip()
         try:
-            if choice == "1":
-                download_link()
+            if choice in {"1", "10"}:
+                choose_profile_and_download()
             elif choice == "2":
                 download_user()
-            elif choice == "10":
-                choose_profile_and_download()
             elif choice == "3":
+                download_link()
+            elif choice == "4":
                 result = configure_credentials()
                 if result == IMPORT_REQUEST_EXIT:
                     return IMPORT_REQUEST_EXIT
-            elif choice == "4":
-                change_destination()
             elif choice == "5":
-                diagnostics()
-            elif choice == "6":
-                update_engine()
-            elif choice == "7":
                 result = test_credentials()
                 if result == IMPORT_REQUEST_EXIT:
                     return IMPORT_REQUEST_EXIT
-            elif choice == "9":
-                test_profile_lookup()
+            elif choice == "6":
+                change_destination()
+            elif choice == "7":
+                diagnostics()
             elif choice == "8":
                 return APP_UPDATE_REQUEST_EXIT
+            elif choice == "9":
+                update_engine()
             elif choice == "0":
                 print(styled("\nHasta luego.", "cyan", bold=True))
                 return 0
