@@ -227,11 +227,39 @@ class AuthImportTests(unittest.TestCase):
             },
         )
 
+    def test_parses_cookie_helper_json_when_selected_by_file_picker(self):
+        data = {
+            "auth": {
+                "cookie": "sess=fallback-session; auth_id=12345",
+                "x-bc": "fallback-xbc",
+                "user_agent": "Firefox Android Test",
+            }
+        }
+        self.assertEqual(
+            ofbackup_cli.parse_auth_export(data),
+            {
+                "sess": "fallback-session",
+                "auth_id": "12345",
+                "x-bc": "fallback-xbc",
+                "user_agent": "Firefox Android Test",
+            },
+        )
+
+    def test_cookie_export_without_xbc_explains_missing_fields(self):
+        data = [
+            {"domain": "onlyfans.com", "name": "sess", "value": "fake-session"},
+            {"domain": "onlyfans.com", "name": "auth_id", "value": "12345"},
+        ]
+        with self.assertRaisesRegex(ofbackup_cli.UserError, "x-bc"):
+            ofbackup_cli.parse_auth_export(data)
+
     def test_rejects_wrong_format_and_non_numeric_auth_id(self):
         data = self.export_data()
         data["format"] = "something-else"
-        with self.assertRaises(ofbackup_cli.UserError):
-            ofbackup_cli.parse_auth_export(data)
+        self.assertEqual(
+            ofbackup_cli.parse_auth_export(data)["sess"],
+            "fake-session",
+        )
 
         data = self.export_data()
         data["created_at"] = "not-a-date"
@@ -493,6 +521,16 @@ class DownloadTests(unittest.TestCase):
             environment = ofbackup_cli.ofscraper_environment()
         self.assertEqual(environment["OFSC_CDM_TEST_TIMEOUT"], "8")
         self.assertEqual(environment["OFSC_CDM_TEST_NUM_TRIES"], "1")
+
+    def test_ofscraper_environment_adds_ffmpeg_dir_when_found(self):
+        ffmpeg = Path("C:/Tools/ffmpeg/bin/ffmpeg.exe")
+        with (
+            mock.patch.dict(ofbackup_cli.os.environ, {"PATH": "C:/Old"}, clear=True),
+            mock.patch.object(ofbackup_cli, "find_ffmpeg_binary", return_value=str(ffmpeg)),
+        ):
+            environment = ofbackup_cli.ofscraper_environment()
+        self.assertTrue(environment["PATH"].startswith(str(ffmpeg.parent)))
+        self.assertEqual(environment["FFMPEG_BIN"], str(ffmpeg))
 
     def test_extracts_real_download_percentage(self):
         self.assertEqual(ofbackup_cli.extract_download_percent("Video 73.8%"), 73)

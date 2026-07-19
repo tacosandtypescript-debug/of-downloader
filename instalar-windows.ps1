@@ -73,8 +73,44 @@ function Install-Python312 {
     return $true
 }
 
+function Find-FFmpegPath {
+    $command = Get-Command ffmpeg -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+    $roots = @(
+        $env:ProgramFiles,
+        ${env:ProgramFiles(x86)},
+        $env:LOCALAPPDATA
+    ) | Where-Object { $_ }
+    foreach ($root in $roots) {
+        $direct = @(
+            (Join-Path $root "ffmpeg\bin\ffmpeg.exe"),
+            (Join-Path $root "Gyan\FFmpeg\bin\ffmpeg.exe"),
+            (Join-Path $root "Programs\FFmpeg\bin\ffmpeg.exe")
+        )
+        foreach ($candidate in $direct) {
+            if (Test-Path $candidate) {
+                return $candidate
+            }
+        }
+        $wingetPackages = Join-Path $root "Microsoft\WinGet\Packages"
+        if (Test-Path $wingetPackages) {
+            $found = Get-ChildItem -Path $wingetPackages -Filter ffmpeg.exe -Recurse -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+            if ($found) {
+                return $found.FullName
+            }
+        }
+    }
+    return $null
+}
+
 function Install-FFmpeg {
-    if (Get-Command ffmpeg -ErrorAction SilentlyContinue) {
+    $existing = Find-FFmpegPath
+    if ($existing) {
+        Add-UserPath (Split-Path -Parent $existing)
         return $true
     }
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
@@ -91,7 +127,12 @@ function Install-FFmpeg {
         "--accept-source-agreements"
     ) "No se pudo instalar FFmpeg automaticamente con winget."
     $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-    return [bool](Get-Command ffmpeg -ErrorAction SilentlyContinue)
+    $installed = Find-FFmpegPath
+    if ($installed) {
+        Add-UserPath (Split-Path -Parent $installed)
+        return $true
+    }
+    return $false
 }
 
 function Find-Python {

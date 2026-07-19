@@ -278,10 +278,35 @@ def _clean_auth_value(name: str, value: object, max_length: int) -> str:
     return value
 
 
+def validate_auth_values(values: dict[str, str]) -> dict[str, str]:
+    required = ("sess", "auth_id", "x-bc", "user_agent")
+    missing = [key for key in required if not values.get(key)]
+    if missing:
+        readable = ["User-Agent" if key == "user_agent" else key for key in missing]
+        raise UserError(
+            "El archivo no trae todos los datos necesarios. "
+            f"Falta: {', '.join(readable)}. "
+            "Exporta de nuevo con OF Downloader Exporter desde la misma sesion."
+        )
+    cleaned = {
+        "sess": _clean_auth_value("sess", values.get("sess"), 4096),
+        "auth_id": _clean_auth_value("auth_id", values.get("auth_id"), 32),
+        "x-bc": _clean_auth_value("x-bc", values.get("x-bc"), 512),
+        "user_agent": _clean_auth_value("user_agent", values.get("user_agent"), 1024),
+    }
+    if not cleaned["auth_id"].isdigit():
+        raise UserError("auth_id debe contener Ãºnicamente nÃºmeros.")
+    return cleaned
+
+
 def parse_auth_export(data: object) -> dict[str, str]:
     if not isinstance(data, dict):
-        raise UserError("El archivo de acceso no contiene un objeto JSON.")
+        cookies = parse_cookie_header(json.dumps(data, ensure_ascii=False))
+        return validate_auth_values(cookies)
     if data.get("format") != AUTH_EXPORT_FORMAT:
+        cookies = parse_cookie_header(json.dumps(data, ensure_ascii=False))
+        if cookies:
+            return validate_auth_values(cookies)
         raise UserError("El archivo no fue creado por OF Downloader Exporter.")
     if data.get("version") != AUTH_EXPORT_VERSION:
         raise UserError("La versión del archivo de acceso no es compatible.")
@@ -776,6 +801,54 @@ def ofscraper_binary() -> str:
     return executable
 
 
+def find_ffmpeg_binary() -> str | None:
+    configured = os.getenv("FFMPEG_BIN") or os.getenv("IMAGEIO_FFMPEG_EXE")
+    if configured:
+        resolved = shutil.which(configured) or configured
+        if Path(resolved).is_file():
+            return str(Path(resolved))
+
+    on_path = shutil.which("ffmpeg")
+    if on_path:
+        return on_path
+
+    if os.name == "nt":
+        candidates: list[Path] = []
+        roots = [
+            os.getenv("ProgramFiles"),
+            os.getenv("ProgramFiles(x86)"),
+            os.getenv("LOCALAPPDATA"),
+        ]
+        for root in roots:
+            if not root:
+                continue
+            base = Path(root)
+            candidates.extend(
+                [
+                    base / "ffmpeg" / "bin" / "ffmpeg.exe",
+                    base / "Gyan" / "FFmpeg" / "bin" / "ffmpeg.exe",
+                    base / "Programs" / "FFmpeg" / "bin" / "ffmpeg.exe",
+                    base / "Microsoft" / "WinGet" / "Packages",
+                ]
+            )
+        for candidate in candidates:
+            if candidate.is_file():
+                return str(candidate)
+            if candidate.is_dir():
+                try:
+                    matches = sorted(
+                        candidate.rglob("ffmpeg.exe"),
+                        key=lambda path: path.stat().st_mtime,
+                        reverse=True,
+                    )
+                except OSError:
+                    matches = []
+                for match in matches:
+                    if match.is_file():
+                        return str(match)
+    return None
+
+
 def build_ofscraper_command(executable: str, arguments: list[str]) -> list[str]:
     if arguments and arguments[0] == "manual":
         return [executable, "manual", "--auth-fail", *arguments[1:]]
@@ -792,6 +865,12 @@ def ofscraper_environment() -> dict[str, str]:
     environment = os.environ.copy()
     environment["OFSC_CDM_TEST_TIMEOUT"] = "8"
     environment["OFSC_CDM_TEST_NUM_TRIES"] = "1"
+    ffmpeg = find_ffmpeg_binary()
+    if ffmpeg:
+        ffmpeg_dir = str(Path(ffmpeg).parent)
+        environment["PATH"] = ffmpeg_dir + os.pathsep + environment.get("PATH", "")
+        environment.setdefault("FFMPEG_BIN", ffmpeg)
+        environment.setdefault("IMAGEIO_FFMPEG_EXE", ffmpeg)
     return environment
 
 
@@ -1651,7 +1730,7 @@ def diagnostics() -> None:
     print(f"OF Downloader:   {APP_VERSION}")
     print(f"Python:          {sys.version.split()[0]}")
     print(f"OF-Scraper:      {executable or 'NO ENCONTRADO'}")
-    print(f"FFmpeg:          {shutil.which('ffmpeg') or 'NO ENCONTRADO'}")
+    print(f"FFmpeg:          {find_ffmpeg_binary() or 'NO ENCONTRADO'}")
     print(f"Credenciales:    {'configuradas' if credentials_ready() else 'pendientes'}")
     print(f"Descargas:       {state['download_dir']}")
     print(f"Config privada:  {APP_DIR}")
