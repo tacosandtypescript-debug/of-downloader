@@ -6,7 +6,8 @@ set "OFDOWNLOADER_REPO=%SCRIPT_DIR:~0,-1%"
 
 if not exist "%SCRIPT_DIR%.venv\Scripts\python.exe" (
     echo No se encontro el entorno de Python.
-    echo Ejecuta primero: instalar-windows.bat
+    echo Ejecuta primero en PowerShell:
+    echo powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%instalar-windows.ps1"
     exit /b 1
 )
 

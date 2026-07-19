@@ -113,13 +113,22 @@ Requisitos:
 - Durante la instalación de Python marca **Add Python to PATH**.
 - GitHub CLI si vas a clonar el repo privado desde Windows.
 
-Instalación desde PowerShell o CMD:
+Instalación desde PowerShell:
 
-```bat
+Instalador:
+https://github.com/tacosandtypescript-debug/of-downloader/blob/main/instalar-windows.ps1
+
+```powershell
 gh auth login
 gh repo clone tacosandtypescript-debug/of-downloader
 cd of-downloader
-instalar-windows.bat
+powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
+```
+
+Si ya tienes `gh` conectado y quieres hacerlo en un solo bloque:
+
+```powershell
+gh repo clone tacosandtypescript-debug/of-downloader "$env:USERPROFILE\of-downloader"; cd "$env:USERPROFILE\of-downloader"; powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
 ```
 
 El instalador no necesita permisos de administrador. Crea:
@@ -360,7 +369,7 @@ En Windows:
 ```bat
 cd ruta\al\of-downloader
 git pull
-instalar-windows.bat
+powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
 ```
 
 ## Seguridad

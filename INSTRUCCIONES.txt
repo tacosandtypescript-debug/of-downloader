@@ -76,7 +76,7 @@ WINDOWS
 
 4. Ejecuta:
 
-   instalar-windows.bat
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
 
 5. Abre una terminal nueva y usa:
 

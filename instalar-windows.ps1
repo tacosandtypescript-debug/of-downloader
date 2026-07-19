@@ -4,6 +4,30 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-RepoRoot {
+    if ($env:OFDOWNLOADER_REPO -and (Test-Path (Join-Path $env:OFDOWNLOADER_REPO "ofbackup_cli.py"))) {
+        return (Resolve-Path $env:OFDOWNLOADER_REPO).Path
+    }
+    if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "ofbackup_cli.py"))) {
+        return $PSScriptRoot
+    }
+    $defaultRepo = Join-Path $env:USERPROFILE "of-downloader"
+    if (-not (Test-Path (Join-Path $defaultRepo "ofbackup_cli.py"))) {
+        if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+            throw "No encontre GitHub CLI. Instala gh desde https://cli.github.com/ y ejecuta: gh auth login"
+        }
+        if (Test-Path $defaultRepo) {
+            throw "Existe $defaultRepo pero no parece ser OF Downloader. Borra esa carpeta o define OFDOWNLOADER_REPO."
+        }
+        Write-Host "Clonando repositorio privado en $defaultRepo..." -ForegroundColor Cyan
+        gh repo clone tacosandtypescript-debug/of-downloader $defaultRepo
+    }
+    if (Test-Path (Join-Path $defaultRepo ".git")) {
+        git -C $defaultRepo pull --ff-only origin main
+    }
+    return $defaultRepo
+}
+
 function Step-Info($Text) {
     Write-Host ""
     Write-Host $Text -ForegroundColor Cyan
@@ -58,7 +82,7 @@ if ($env:OS -ne "Windows_NT") {
     throw "Este instalador es solo para Windows."
 }
 
-$repo = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repo = Get-RepoRoot
 $venv = Join-Path $repo ".venv"
 $python = Find-Python
 $downloads = Join-Path $env:USERPROFILE "Downloads\OFDownloader"
@@ -108,7 +132,7 @@ if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
             Write-Host "No encontre winget. Instala FFmpeg manualmente: https://www.gyan.dev/ffmpeg/builds/" -ForegroundColor Yellow
         }
     } else {
-        Write-Host "Para videos, instala FFmpeg o ejecuta: .\instalar-windows.ps1 -InstallFFmpeg" -ForegroundColor Yellow
+        Write-Host "Para videos, instala FFmpeg o ejecuta desde la carpeta del repo: .\instalar-windows.ps1 -InstallFFmpeg" -ForegroundColor Yellow
     }
 }
 
