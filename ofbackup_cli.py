@@ -129,7 +129,9 @@ try:
     data = subscriptions.get_all_subscriptions(0, account="active")
     if not isinstance(data, list):
         data = []
-    print("OFDOWNLOADER_SUBSCRIPTIONS_JSON:" + json.dumps(data, ensure_ascii=False))
+    payload = "OFDOWNLOADER_SUBSCRIPTIONS_JSON:" + json.dumps(data, ensure_ascii=False) + "\n"
+    sys.stdout.buffer.write(payload.encode("utf-8", errors="replace"))
+    sys.stdout.flush()
     raise SystemExit(0)
 except SystemExit:
     raise
@@ -863,6 +865,7 @@ def format_command_for_log(command: list[str]) -> str:
 def ofscraper_environment() -> dict[str, str]:
     """Evita que la comprobación externa de CDM bloquee mucho el inicio."""
     environment = os.environ.copy()
+    environment["PYTHONIOENCODING"] = "utf-8"
     environment["OFSC_CDM_TEST_TIMEOUT"] = "8"
     environment["OFSC_CDM_TEST_NUM_TRIES"] = "1"
     ffmpeg = find_ffmpeg_binary()

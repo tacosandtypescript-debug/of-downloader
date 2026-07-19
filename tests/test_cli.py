@@ -521,6 +521,7 @@ class DownloadTests(unittest.TestCase):
             environment = ofbackup_cli.ofscraper_environment()
         self.assertEqual(environment["OFSC_CDM_TEST_TIMEOUT"], "8")
         self.assertEqual(environment["OFSC_CDM_TEST_NUM_TRIES"], "1")
+        self.assertEqual(environment["PYTHONIOENCODING"], "utf-8")
 
     def test_ofscraper_environment_adds_ffmpeg_dir_when_found(self):
         ffmpeg = Path("C:/Tools/ffmpeg/bin/ffmpeg.exe")
@@ -621,6 +622,24 @@ class SubscriptionProfileTests(unittest.TestCase):
         self.assertEqual(profiles[0].status, "gratis")
         self.assertEqual(profiles[0].photos, 5)
         self.assertEqual(profiles[1].status, "pagado")
+
+    def test_parses_subscription_profiles_with_unicode_display_names(self):
+        payload = json.dumps(
+            [
+                {
+                    "id": 777,
+                    "username": "creator.unicode",
+                    "displayName": "Creadora 💙 ñ",
+                    "isFree": True,
+                }
+            ],
+            ensure_ascii=False,
+        )
+        profiles = ofbackup_cli.parse_subscriptions_stdout(
+            f"{ofbackup_cli.SUBSCRIPTIONS_SENTINEL}{payload}\n"
+        )
+        self.assertEqual(profiles[0].username, "creator.unicode")
+        self.assertEqual(profiles[0].display_name, "Creadora 💙 ñ")
 
     def test_choose_profile_can_cancel_after_detection(self):
         profile = ofbackup_cli.SubscriptionProfile(username="creator.free")
