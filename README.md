@@ -3,55 +3,64 @@
 </p>
 
 <p align="center">
-  <strong>Menú sencillo para Linux y Termux que ayuda a respaldar contenido al que tu cuenta ya tiene acceso.</strong>
+  <strong>OF Downloader · menu de terminal para Termux, Linux y Windows.</strong>
 </p>
 
 <p align="center">
-  <a href="#instalación-rápida-en-termux"><strong>Instalar en Termux</strong></a>
+  <a href="https://github.com/tacosandtypescript-debug/of-downloader/archive/refs/heads/main.zip"><strong>Descargar ZIP</strong></a>
   ·
-  <a href="#instalación-rápida-en-linux">Instalar en Linux</a>
+  <a href="#instalacion-rapida">Instalacion rapida</a>
   ·
-  <a href="#instalación-rápida-en-windows">Instalar en Windows</a>
+  <a href="#extension-del-navegador">Extension</a>
   ·
-  <a href="#extensiones-para-chrome-y-firefox">Extensiones</a>
+  <a href="#menu-actual">Menu</a>
   ·
-  <a href="#conectar-la-cuenta">Conectar cuenta</a>
+  <a href="#reinstalar-limpio">Reinstalar limpio</a>
 </p>
 
 > [!IMPORTANT]
-> Este repositorio y las descargas de extensiones son privados. Para instalarlos
-> debes iniciar sesión en GitHub con una cuenta autorizada.
+> Este repositorio es privado. Para clonar o descargar el ZIP debes iniciar
+> sesion en GitHub con una cuenta autorizada.
 
 OF Downloader no evita suscripciones, pagos ni restricciones. Solo organiza la
-descarga de contenido disponible para tu propia cuenta. Úsalo respetando las
-condiciones del servicio, los derechos de los creadores y la ley aplicable.
+descarga de contenido disponible para tu propia cuenta. Usa la herramienta
+respetando los derechos de los creadores, las condiciones del servicio y la ley
+aplicable.
 
-## Qué hace
+## Que hace
 
-- Abre un menú claro en Termux o en una terminal Linux.
-- En Windows abre interfaz gráfica y también comando `of` en terminal.
-- Lista tus perfiles suscritos activos con **1. Elegir perfil de mis suscripciones**,
-  incluidos perfiles gratis cuando OnlyFans los devuelve como activos.
-- Antes de descargar un perfil elegido, detecta posts/fotos/videos y pide
-  confirmación.
-- Descarga un perfil directo con usuario/enlace.
-- Descarga una publicación con un enlace.
-- Importa un archivo `OFBackup-auth.json` creado por la extensión del navegador.
-- Prueba si la cookie funciona antes de descargar.
-- Muestra barra de progreso, resumen y errores en pantalla.
-- Guarda logs visibles en la carpeta de descargas para que no tengas que entrar
-  a carpetas privadas de Termux.
-- Avisa cuando hay actualización del repositorio y permite actualizar desde el menú.
+- Abre un menu simple en terminal con el comando `of`.
+- Importa el archivo `OFBackup-auth.json` creado por la extension del navegador.
+- Lista perfiles suscritos activos, incluidos perfiles gratis cuando OnlyFans los devuelve.
+- Permite escoger un perfil y detecta posts/fotos/videos antes de descargar.
+- Pregunta antes de descargar un perfil.
+- Descarga perfiles por usuario/enlace y publicaciones por enlace.
+- Muestra barra de progreso, resumen y logs visibles.
+- Permite actualizar la app desde el menu.
 
-## Instalación rápida en Termux
+Version actual de la app: `2.10.1`.
 
-Instala Termux desde F-Droid o desde las publicaciones oficiales de GitHub. No
-uses la versión vieja de Google Play.
+## Links rapidos
 
-También instala **Termux:API** desde la misma fuente que Termux. Sirve para abrir
-el selector de archivos de Android.
+- Repo privado:
+  https://github.com/tacosandtypescript-debug/of-downloader
+- Descargar todo el repo en ZIP:
+  https://github.com/tacosandtypescript-debug/of-downloader/archive/refs/heads/main.zip
+- Instalador Windows:
+  https://github.com/tacosandtypescript-debug/of-downloader/blob/main/instalar-windows.ps1
+- Instalador Termux:
+  https://github.com/tacosandtypescript-debug/of-downloader/blob/main/instalar-termux.sh
+- Instalador Linux:
+  https://github.com/tacosandtypescript-debug/of-downloader/blob/main/instalar-linux.sh
+- Repo de extensiones Chrome/Firefox:
+  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions
 
-Copia esto en Termux:
+## Instalacion rapida
+
+### Termux / Android
+
+Instala Termux desde F-Droid o GitHub, no desde Google Play. Instala tambien
+Termux:API desde la misma fuente para abrir el selector de archivos Android.
 
 ```bash
 pkg update -y && pkg install -y git gh
@@ -61,27 +70,13 @@ cd of-downloader
 bash instalar-termux.sh
 ```
 
-La primera instalación puede tardar varios minutos porque prepara Debian,
-Python, FFmpeg y OF-Scraper. Si algo falla, el instalador se detiene y muestra el
-error.
-
-Cuando termine, abre la app con:
+Abrir:
 
 ```bash
 of
 ```
 
-Carpetas principales en Termux:
-
-- Descargas: `/root/storage/downloads/OFBackup`
-- Configuración privada: `/root/.config/ofbackup`
-- Log de última descarga: `/root/storage/downloads/OFBackup/ultima-descarga.log`
-- Log de prueba de perfil: `/root/storage/downloads/OFBackup/prueba-perfil.log`
-- Log de perfiles suscritos: `/root/storage/downloads/OFBackup/perfiles-suscritos.log`
-
-## Instalación rápida en Linux
-
-Copia esto en la terminal:
+### Linux
 
 ```bash
 sudo apt update && sudo apt install -y git gh
@@ -91,339 +86,247 @@ cd of-downloader
 bash instalar-linux.sh
 ```
 
-Al terminar puedes abrirlo con:
+Abrir:
 
 ```bash
 of
 ```
 
-También queda disponible:
+### Windows
 
-```bash
-of-downloader
-```
-
-Carpetas principales en Linux:
-
-- Descargas: `~/Downloads/OFDownloader`
-- Configuración privada: `~/.config/ofbackup`
-- Configuración interna de OF-Scraper: `~/.config/ofscraper`
-
-## Instalación rápida en Windows
-
-Requisitos:
-
-- Windows 10 u 11.
-- Python 3.11 o 3.12. Si no está instalado, el instalador intentará poner
-  Python 3.12 automáticamente con `winget`.
-- FFmpeg para videos. Si no esta instalado, el instalador intentara ponerlo
-  automaticamente con `winget`.
-- GitHub CLI si vas a clonar el repo privado desde Windows.
-
-No uses Python 3.13 en Windows para esta app: algunas dependencias de OF-Scraper
-pueden intentar compilarse y pedir Microsoft Visual C++ Build Tools. Python 3.12
-evita ese problema en instalaciones normales.
-
-Instalación desde PowerShell:
-
-Instalador:
-https://github.com/tacosandtypescript-debug/of-downloader/blob/main/instalar-windows.ps1
+Desde PowerShell:
 
 ```powershell
 gh auth login
-gh repo clone tacosandtypescript-debug/of-downloader
-cd of-downloader
+gh repo clone tacosandtypescript-debug/of-downloader "$env:USERPROFILE\of-downloader"
+cd "$env:USERPROFILE\of-downloader"
 powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
 ```
 
-Si ya tienes `gh` conectado y quieres hacerlo en un solo bloque:
+Abrir una terminal nueva y ejecutar:
 
 ```powershell
-gh repo clone tacosandtypescript-debug/of-downloader "$env:USERPROFILE\of-downloader"; cd "$env:USERPROFILE\of-downloader"; powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
-```
-
-El instalador no necesita permisos de administrador. Crea:
-
-- Entorno privado de Python en `.venv`.
-- Comando `of` para terminal.
-- Comando `of-downloader` para abrir la interfaz gráfica.
-- Acceso **OF Downloader** en el menú Inicio.
-- Carpeta de descargas en `%USERPROFILE%\Downloads\OFDownloader`.
-
-Abre una terminal nueva y ejecuta:
-
-```bat
 of
 ```
 
-Para abrir la ventana gráfica:
+El instalador intenta preparar Python 3.12 y FFmpeg con `winget` si no estan
+instalados. No uses Python 3.13 para esta app en Windows.
 
-```bat
-of-downloader
-```
+## Extension del navegador
 
-Para cargar la cookie exportada desde la extensión:
+La extension exporta el archivo `OFBackup-auth.json`. Ese archivo es lo que
+debes cargar en OF Downloader.
 
-```bat
-of importar
-of probar
-```
-
-Si necesitas indicar una ruta manualmente, tambien funciona:
-
-```bat
-of importar "%USERPROFILE%\Downloads\OFBackup-auth.json"
-```
-
-FFmpeg se intenta instalar automaticamente. Si `winget` no esta disponible,
-instalalo manualmente desde https://www.gyan.dev/ffmpeg/builds/.
-
-## Extensiones para Chrome y Firefox
-
-Las extensiones viven en un repositorio separado:
-
-https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions
-
-Descargas rápidas:
+Descargas:
 
 - Chrome / Chromium:
   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.3.zip
 - Firefox:
   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.4.zip
 
-### Instalar la extensión en Chrome
+### Chrome
 
-Chrome no permite instalar extensiones locales con un solo clic si no están en la
-Chrome Web Store. Por eso se carga descomprimida:
+Chrome no permite instalar extensiones locales con un solo clic si no estan en
+Chrome Web Store.
 
 1. Descarga el ZIP de Chrome.
-2. Descomprímelo.
+2. Descomprimelo.
 3. Abre `chrome://extensions`.
 4. Activa **Modo de desarrollador**.
 5. Pulsa **Cargar descomprimida**.
-6. Selecciona la carpeta donde está `manifest.json`.
-7. Fija **OF Downloader Exporter** desde el icono de extensiones.
+6. Selecciona la carpeta que contiene `manifest.json`.
 
-Si ves “Falta el archivo de manifiesto”, seleccionaste la carpeta equivocada.
-Entra una carpeta más adentro hasta ver `manifest.json`.
+Si aparece “Falta el archivo de manifiesto”, seleccionaste la carpeta equivocada:
+entra una carpeta mas adentro hasta ver `manifest.json`.
 
-### Instalar la extensión en Firefox
+### Firefox
 
-Descarga el ZIP de Firefox desde las releases del repositorio de extensiones.
-Si se usa como instalación local temporal, Firefox puede pedir cargarla de nuevo
-después de reiniciar. Para uso diario conviene usar el paquete firmado desde
-Mozilla Add-ons si ya fue generado para tu cuenta.
+Usa el ZIP de Firefox desde las releases. Si tienes el complemento firmado desde
+Mozilla Add-ons, puedes usar ese en lugar del ZIP local.
 
 ## Conectar la cuenta
 
-El método recomendado es exportar `OFBackup-auth.json` desde el navegador y
-cargarlo en Termux o Linux.
-
-### 1. Exportar desde el navegador
-
-1. Abre `https://onlyfans.com` en Chrome o Firefox.
-2. Inicia sesión.
-3. Recarga la página.
-4. Pulsa el icono **OF Downloader Exporter**.
-5. Pulsa **Exportar para OF Downloader**.
-6. Guarda `OFBackup-auth.json`.
-
-La extensión procesa todo localmente. No usa servidores propios, telemetría ni
-portapapeles.
-
-### 2. Cargar el archivo
-
-En Termux abre el selector Android:
+1. Abre OnlyFans en Chrome o Firefox.
+2. Inicia sesion.
+3. Pulsa la extension **OF Downloader Exporter**.
+4. Exporta `OFBackup-auth.json`.
+5. En OF Downloader usa:
 
 ```bash
 of importar
+of probar
 ```
 
-En Windows o Linux abre el explorador de archivos:
-
-```bash
-of importar
-```
-
-Si el selector no esta disponible, puedes pasar la ruta manualmente:
+En Termux se abre el selector Android. En Windows/Linux se abre el explorador de
+archivos. Si el selector falla, tambien puedes pasar la ruta:
 
 ```bash
 of importar ~/Downloads/OFBackup-auth.json
 ```
 
-La app solo conserva estos 4 datos:
+La app solo conserva:
 
 - `sess`
 - `auth_id`
 - `x-bc`
 - `User-Agent`
 
-El resto del JSON se descarta.
+Despues de importar, borra `OFBackup-auth.json` de Descargas.
 
-### 3. Probar que funciona
-
-```bash
-of probar
-```
-
-Resultado esperado:
+## Menu actual
 
 ```text
-✓ COOKIE VÁLIDA
-OnlyFans aceptó la sesión. OF Downloader está listo para descargar.
+DESCARGAS
+[1] Elegir perfil de mis suscripciones
+[2] Descargar perfil por usuario o enlace
+[3] Descargar publicacion por enlace
+
+MI CUENTA
+[4] Conectar o renovar acceso
+[5] Probar acceso
+
+HERRAMIENTAS
+[6] Cambiar carpeta de descargas
+[7] Ver diagnostico
+[8] Actualizar OF Downloader y reiniciar
+[9] Actualizar motor de descarga
+[0] Salir
 ```
-
-Después borra `OFBackup-auth.json` de Descargas.
-
-## Descargar contenido
-
-Abre el menú:
-
-```bash
-of
-```
-
-Opciones principales:
-
-- **1. Elegir perfil de mis suscripciones**
-- **2. Descargar perfil por usuario o enlace**
-- **3. Descargar publicación por enlace**
-- **4. Conectar o renovar acceso**
-- **5. Probar acceso**
-- **6. Cambiar carpeta de descargas**
-- **7. Ver diagnóstico**
-- **8. Actualizar OF Downloader y reiniciar**
-- **9. Actualizar motor de descarga**
 
 Comandos directos:
 
 ```bash
-of "https://onlyfans.com/ID/usuario"
+of
+of perfiles
 of usuario NOMBRE
-of perfiles
-```
-
-Para probar si el perfil se detecta bien antes de descargar:
-
-```bash
-of probar-perfil NOMBRE
-```
-
-Ese comando deja el detalle en:
-
-```text
-/root/storage/downloads/OFBackup/prueba-perfil.log
-```
-
-Para escoger desde tus perfiles suscritos activos:
-
-```bash
-of perfiles
-```
-
-La app muestra los perfiles, intenta indicar si son gratis/pagados cuando el
-dato existe, hace una detección previa de posts/fotos/videos y pregunta antes de
-descargar.
-
-## Si la opción 2 no detecta contenido en Termux
-
-Prueba esto en orden:
-
-```bash
+of "https://onlyfans.com/..."
 of probar
+of diagnostico
+of actualizar-app
+```
+
+Comando avanzado para revisar deteccion de un perfil:
+
+```bash
 of probar-perfil NOMBRE
 ```
 
-Si `of probar` dice que la cookie es inválida, vuelve a exportar el JSON desde
-el navegador. `sess`, `auth_id`, `x-bc` y `User-Agent` deben salir de la misma
-sesión.
+## Rutas importantes
 
-Si `of probar` funciona pero `of probar-perfil` no encuentra contenido, revisa:
+### Termux
 
-```bash
-tail -n 80 /root/storage/downloads/OFBackup/prueba-perfil.log
-tail -n 80 /root/storage/downloads/OFBackup/ultima-descarga.log
-```
+- Repo: `~/of-downloader`
+- Descargas: `/root/storage/downloads/OFBackup`
+- Config privada: `/root/.config/ofbackup`
+- Config OF-Scraper: `/root/.config/ofscraper`
+- Log descarga: `/root/storage/downloads/OFBackup/ultima-descarga.log`
+- Log perfiles: `/root/storage/downloads/OFBackup/perfiles-suscritos.log`
+- Log prueba perfil: `/root/storage/downloads/OFBackup/prueba-perfil.log`
 
-La descarga de perfil en Termux fuerza un reescaneo completo para evitar caché
-vacía o antigua.
+### Linux
+
+- Repo: `~/of-downloader`
+- Descargas: `~/Downloads/OFDownloader`
+- Config privada: `~/.config/ofbackup`
+- Config OF-Scraper: `~/.config/ofscraper`
+
+### Windows
+
+- Repo: `%USERPROFILE%\of-downloader`
+- Descargas: `%USERPROFILE%\Downloads\OFDownloader`
+- Config privada: `%USERPROFILE%\.config\ofbackup`
+- Config OF-Scraper: `%USERPROFILE%\.config\ofscraper`
+- Comandos: `%LOCALAPPDATA%\Programs\OFDownloader\bin`
 
 ## Actualizar
 
-Desde el menú:
-
-```bash
-of
-```
-
-Elige:
+Desde el menu:
 
 ```text
 8. Actualizar OF Downloader y reiniciar
 ```
 
-O usa el comando directo:
-
-```bash
-of actualizar-app
-```
-
-Actualización manual:
+Manual en Termux:
 
 ```bash
 cd ~/of-downloader
-git pull
+git pull --ff-only origin main
 bash instalar-termux.sh
 ```
 
-En Linux:
+Manual en Linux:
 
 ```bash
 cd ~/of-downloader
-git pull
+git pull --ff-only origin main
 bash instalar-linux.sh
 ```
 
-En Windows:
+Manual en Windows:
 
-```bat
-cd ruta\al\of-downloader
-git pull
+```powershell
+cd "$env:USERPROFILE\of-downloader"
+git pull --ff-only origin main
 powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
+```
+
+## Reinstalar limpio
+
+### Termux
+
+```bash
+rm -rf ~/of-downloader
+gh repo clone tacosandtypescript-debug/of-downloader
+cd of-downloader
+bash instalar-termux.sh
+```
+
+Para borrar tambien configuracion/cookies:
+
+```bash
+rm -rf /root/.config/ofbackup /root/.config/ofscraper
+```
+
+### Windows
+
+```powershell
+Remove-Item -Recurse -Force "$env:USERPROFILE\of-downloader"
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Programs\OFDownloader"
+gh repo clone tacosandtypescript-debug/of-downloader "$env:USERPROFILE\of-downloader"
+cd "$env:USERPROFILE\of-downloader"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
+```
+
+Para borrar tambien configuracion/cookies:
+
+```powershell
+Remove-Item -Recurse -Force "$env:USERPROFILE\.config\ofbackup"
+Remove-Item -Recurse -Force "$env:USERPROFILE\.config\ofscraper"
 ```
 
 ## Seguridad
 
-- No pegues cookies en chats, issues, capturas ni comandos públicos.
-- No publiques `OFBackup-auth.json`, `config.json` ni `auth.json`.
-- Borra `OFBackup-auth.json` después de importarlo.
-- Si compartiste una cookie por accidente, cierra esa sesión en el navegador y
-  genera un JSON nuevo.
-- Usa solo contenido al que tu cuenta tenga acceso legítimo.
+- No pegues cookies en chats, issues ni capturas.
+- No publiques `OFBackup-auth.json`, `auth.json` ni `config.json`.
+- Si una cookie se filtro, cierra esa sesion en el navegador y exporta otra.
+- Usa solo contenido al que tu cuenta tenga acceso legitimo.
 
 ## Desarrollo
-
-Estructura principal del repo:
-
-```text
-ofbackup_cli.py              Menú de terminal para Termux, Linux y Windows
-app.py                       Interfaz gráfica de escritorio
-instalar-termux.sh           Instalador Android/Termux
-instalar-linux.sh            Instalador Linux de escritorio
-instalar-windows.ps1         Instalador Windows por PowerShell
-ofbackup                     Launcher Termux
-of-downloader-linux          Launcher Linux
-of-windows.cmd               Launcher terminal Windows
-of-downloader-windows.cmd    Launcher gráfico Windows
-tests/                       Pruebas automáticas
-docs/                        Recursos visuales del README
-```
-
-Ejecutar pruebas:
 
 ```bash
 python -m unittest discover -s tests
 ```
 
-OF-Scraper se instala en un entorno privado de la app. La versión fijada vive en
-`ofbackup_cli.py`.
+Archivos principales:
+
+```text
+ofbackup_cli.py              Menu terminal
+instalar-termux.sh           Instalador Termux
+instalar-linux.sh            Instalador Linux
+instalar-windows.ps1         Instalador Windows
+ofbackup                     Launcher Termux
+of-downloader-linux          Launcher Linux
+of-windows.cmd               Launcher Windows terminal
+tests/                       Pruebas automaticas
+docs/                        Recursos visuales
+```
