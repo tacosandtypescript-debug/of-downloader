@@ -17,7 +17,7 @@ set "EXITCODE=%ERRORLEVEL%"
 if "%EXITCODE%"=="43" (
     echo.
     echo Actualizando OF Downloader desde GitHub...
-    git -C "%SCRIPT_DIR%" pull --ff-only origin main
+    git -C "%OFDOWNLOADER_REPO%" pull --ff-only origin main
     if errorlevel 1 exit /b 1
     powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%instalar-windows.ps1"
     if errorlevel 1 exit /b 1
