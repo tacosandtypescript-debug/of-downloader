@@ -22,7 +22,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.13.0"
+APP_VERSION = "2.13.1"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -1477,6 +1477,55 @@ def configure_drive() -> int:
     return 0 if state["drive_enabled"] else 1
 
 
+def install_rclone() -> int:
+    if find_rclone_binary():
+        print(f"rclone ya esta instalado: {find_rclone_binary()}")
+        return 0
+    platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "").upper()
+    commands: list[list[str]] = []
+    if platform_name == "TERMUX":
+        commands = [
+            ["apt-get", "update"],
+            ["apt-get", "install", "-y", "rclone"],
+        ]
+    elif platform_name == "WINDOWS" or os.name == "nt":
+        commands = [
+            [
+                "winget",
+                "install",
+                "-e",
+                "--id",
+                "Rclone.Rclone",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+            ]
+        ]
+    elif shutil.which("apt-get"):
+        commands = [["sudo", "apt-get", "update"], ["sudo", "apt-get", "install", "-y", "rclone"]]
+    elif shutil.which("dnf"):
+        commands = [["sudo", "dnf", "install", "-y", "rclone"]]
+    elif shutil.which("pacman"):
+        commands = [["sudo", "pacman", "-Sy", "--needed", "--noconfirm", "rclone"]]
+    else:
+        print("No reconozco como instalar rclone automaticamente en este sistema.")
+        print("Instalacion manual: https://rclone.org/install/")
+        return 2
+
+    print("Instalando rclone...")
+    for command in commands:
+        completed = subprocess.run(command, check=False)
+        if completed.returncode != 0:
+            print("No se pudo instalar rclone automaticamente.")
+            print("Comando fallido: " + " ".join(command))
+            return completed.returncode or 1
+    if find_rclone_binary():
+        print(f"rclone instalado: {find_rclone_binary()}")
+        return 0
+    print("La instalacion termino, pero rclone aun no aparece en PATH.")
+    print("Cierra y abre la terminal; si sigue igual, instala manualmente desde https://rclone.org/install/")
+    return 1
+
+
 def drive_menu() -> int:
     while True:
         state = get_state()
@@ -1486,34 +1535,37 @@ def drive_menu() -> int:
         print(f"Destino: {drive_remote_target(state)}")
         print(f"Pendientes: {len(drive_queue())}")
         print("1. Configurar Google Drive")
-        print("2. Activar/desactivar subida automatica")
-        print("3. Subir pendientes ahora")
-        print("4. Ver estado")
-        print("5. Ver pendientes")
-        print("6. Limpiar pendientes sin archivo local")
-        print("7. Limpiar toda la cola")
+        print("2. Instalar rclone")
+        print("3. Activar/desactivar subida automatica")
+        print("4. Subir pendientes ahora")
+        print("5. Ver estado")
+        print("6. Ver pendientes")
+        print("7. Limpiar pendientes sin archivo local")
+        print("8. Limpiar toda la cola")
         print("0. Volver")
         choice = input("Elige una opcion: ").strip()
         if choice == "1":
             configure_drive()
         elif choice == "2":
+            install_rclone()
+        elif choice == "3":
             state = get_state()
             state["drive_enabled"] = not bool(state.get("drive_enabled"))
             save_state(state)
             print(f"Subida automatica: {'activada' if state['drive_enabled'] else 'desactivada'}")
-        elif choice == "3":
-            upload_drive_queue()
         elif choice == "4":
+            upload_drive_queue()
+        elif choice == "5":
             print(f"rclone: {find_rclone_binary() or 'NO ENCONTRADO'}")
             print(f"Google Drive: {drive_status_text()}")
             print(f"Remote: {state.get('drive_remote')}")
             print(f"Carpeta: {state.get('drive_folder')}")
             print(f"Pendientes: {len(drive_queue())}")
-        elif choice == "5":
-            show_drive_pending()
         elif choice == "6":
-            clean_drive_queue()
+            show_drive_pending()
         elif choice == "7":
+            clean_drive_queue()
+        elif choice == "8":
             confirm = input("Borrar toda la cola pendiente? Escribe SI: ").strip()
             if confirm == "SI":
                 clean_drive_queue(all_items=True)
@@ -1529,6 +1581,8 @@ def drive_command(args: list[str]) -> int:
     action = (args[0].lower() if args else "estado")
     if action in {"configurar", "config"}:
         return configure_drive()
+    if action in {"instalar", "install"}:
+        return install_rclone()
     if action in {"activar", "on"}:
         state = get_state()
         state["drive_enabled"] = True
@@ -1557,7 +1611,7 @@ def drive_command(args: list[str]) -> int:
         print(f"Pendientes: {len(drive_queue())}")
         return 0
     raise UserError(
-        "Uso: of drive configurar|activar|desactivar|subir|pendientes|limpiar|estado"
+        "Uso: of drive instalar|configurar|activar|desactivar|subir|pendientes|limpiar|estado"
     )
 
 
@@ -2371,6 +2425,7 @@ def print_help() -> None:
   of actualizar                    Actualizar el motor de descarga
   of actualizar-app                Actualizar la aplicación y reiniciarla
   of drive estado                  Ver estado de Google Drive
+  of drive instalar                Instalar rclone si falta
   of drive configurar              Configurar Google Drive con rclone
   of drive activar                 Activar subida automatica
   of drive desactivar              Desactivar subida automatica

@@ -193,6 +193,11 @@ Manual en Termux:
    git pull
    bash instalar-termux.sh
 
+Si Google Drive dice que falta rclone en Termux:
+
+   proot-distro login --shared-home ofbackup-debian -- apt-get update
+   proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone
+
 
 SEGURIDAD
 ---------

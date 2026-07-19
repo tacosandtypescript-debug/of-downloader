@@ -212,7 +212,7 @@ run_task 48 77 "Preparando Python 3.13, FFmpeg y librerías" \
     apt-get update
     apt-get upgrade -y
     apt-get install -y --no-install-recommends \
-        python3 python3-dev python3-venv python3-pip ffmpeg ca-certificates git \
+        python3 python3-dev python3-venv python3-pip ffmpeg rclone ca-certificates git \
         build-essential pkg-config rustc cargo \
         libffi-dev libssl-dev libxml2-dev libxslt1-dev \
         libjpeg62-turbo-dev liblz4-dev libyaml-dev zlib1g-dev

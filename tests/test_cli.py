@@ -714,6 +714,11 @@ class DownloadTests(unittest.TestCase):
         self.assertIn("Pendientes para Google Drive: 1", rendered)
         self.assertIn("existe", rendered)
 
+    def test_drive_install_command_runs_rclone_installer(self):
+        with mock.patch.object(ofbackup_cli, "install_rclone", return_value=0) as installer:
+            self.assertEqual(ofbackup_cli.main(["drive", "instalar"]), 0)
+        installer.assert_called_once_with()
+
     def test_clean_drive_queue_removes_missing_local_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

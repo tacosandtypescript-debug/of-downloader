@@ -256,10 +256,20 @@ of drive limpiar
 OF Downloader usa `rclone` para subir a Google Drive. La primera configuracion
 requiere iniciar sesion en Google desde el flujo de `rclone config`.
 
+En Termux, `rclone` debe existir dentro del Debian interno que usa OF Downloader.
+Si `of diagnostico` muestra `rclone no instalado`, ejecuta:
+
+```bash
+pkg install -y proot-distro
+proot-distro login --shared-home ofbackup-debian -- apt-get update
+proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone
+```
+
 Comandos:
 
 ```bash
 of drive configurar
+of drive instalar
 of drive activar
 of drive subir
 of drive pendientes
@@ -278,6 +288,7 @@ Por defecto:
 - `of drive pendientes` muestra la cola.
 - `of drive limpiar` borra pendientes cuyo archivo local ya no existe.
 - `of drive limpiar todo` vacia toda la cola pendiente.
+- `of drive instalar` intenta instalar `rclone` si no quedo instalado.
 
 Comando avanzado para revisar deteccion de un perfil:
 
