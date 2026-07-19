@@ -510,8 +510,23 @@ MENU_LOGO_LINES = (
 )
 
 
+def ansi_supported() -> bool:
+    if os.getenv("NO_COLOR"):
+        return False
+    if not sys.stdout.isatty():
+        return False
+    if os.name != "nt":
+        return True
+    return bool(
+        os.getenv("WT_SESSION")
+        or os.getenv("ANSICON")
+        or os.getenv("ConEmuANSI", "").upper() == "ON"
+        or os.getenv("TERM_PROGRAM")
+    )
+
+
 def colors_enabled() -> bool:
-    return sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    return ansi_supported()
 
 
 def styled(message: str, color: str = "white", *, bold: bool = False) -> str:
@@ -1270,7 +1285,7 @@ def menu() -> int:
     while True:
         state = get_state()
         connected = credentials_ready()
-        if sys.stdout.isatty():
+        if ansi_supported():
             print("\033[2J\033[H", end="")
         print()
         brand_labels = (
