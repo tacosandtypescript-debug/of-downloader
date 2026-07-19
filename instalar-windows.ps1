@@ -4,6 +4,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Run-Checked($FilePath, $Arguments, $FailureMessage) {
+    & $FilePath @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw $FailureMessage
+    }
+}
+
 function Get-RepoRoot {
     if ($env:OFDOWNLOADER_REPO -and (Test-Path (Join-Path $env:OFDOWNLOADER_REPO "ofbackup_cli.py"))) {
         return (Resolve-Path $env:OFDOWNLOADER_REPO).Path
@@ -20,10 +27,10 @@ function Get-RepoRoot {
             throw "Existe $defaultRepo pero no parece ser OF Downloader. Borra esa carpeta o define OFDOWNLOADER_REPO."
         }
         Write-Host "Clonando repositorio privado en $defaultRepo..." -ForegroundColor Cyan
-        gh repo clone tacosandtypescript-debug/of-downloader $defaultRepo
+        Run-Checked "gh" @("repo", "clone", "tacosandtypescript-debug/of-downloader", $defaultRepo) "No se pudo clonar el repositorio privado."
     }
     if (Test-Path (Join-Path $defaultRepo ".git")) {
-        git -C $defaultRepo pull --ff-only origin main
+        Run-Checked "git" @("-C", $defaultRepo, "pull", "--ff-only", "origin", "main") "No se pudo actualizar el repositorio."
     }
     return $defaultRepo
 }
@@ -35,7 +42,6 @@ function Step-Info($Text) {
 
 function Find-Python {
     $candidates = @(
-        @("py", "-3.13"),
         @("py", "-3.12"),
         @("py", "-3.11"),
         @("python", "")
@@ -48,7 +54,7 @@ function Find-Python {
         }
         $args = @()
         if ($arg) { $args += $arg }
-        $args += @("-c", "import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,14) else 1)")
+        $args += @("-c", "import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,13) else 1)")
         try {
             & $command @args > $null 2> $null
         } catch {
@@ -61,7 +67,15 @@ function Find-Python {
             return @{ Command = $command; Args = @() }
         }
     }
-    throw "No encontre Python 3.11, 3.12 o 3.13. Instalalo desde https://www.python.org/downloads/windows/ y marca 'Add Python to PATH'."
+    throw "No encontre Python 3.11 o 3.12. En Windows no uses Python 3.13 para esta app porque varias dependencias pueden intentar compilarse. Instala Python 3.12 desde https://www.python.org/downloads/windows/ y marca 'Add Python to PATH'."
+}
+
+function Test-CompatibleVenv($PythonPath) {
+    if (-not (Test-Path $PythonPath)) {
+        return $false
+    }
+    & $PythonPath -c "import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,13) else 1)" > $null 2> $null
+    return ($LASTEXITCODE -eq 0)
 }
 
 function Add-UserPath($PathToAdd) {
@@ -96,14 +110,18 @@ Step-Info "[1/5] Preparando carpetas..."
 New-Item -ItemType Directory -Force -Path $downloads, $binDir | Out-Null
 
 Step-Info "[2/5] Creando entorno privado de Python..."
-if (-not (Test-Path (Join-Path $venv "Scripts\python.exe"))) {
-    & $python.Command @($python.Args + @("-m", "venv", $venv))
-}
 $venvPython = Join-Path $venv "Scripts\python.exe"
+if ((Test-Path $venv) -and -not (Test-CompatibleVenv $venvPython)) {
+    Write-Host "La .venv existente usa una version de Python no compatible. Se recreara." -ForegroundColor Yellow
+    Remove-Item -LiteralPath $venv -Recurse -Force
+}
+if (-not (Test-Path $venvPython)) {
+    Run-Checked $python.Command @($python.Args + @("-m", "venv", $venv)) "No se pudo crear el entorno privado de Python."
+}
 
 Step-Info "[3/5] Instalando dependencias..."
-& $venvPython -m pip install --upgrade pip
-& $venvPython -m pip install -r (Join-Path $repo "requirements.txt")
+Run-Checked $venvPython @("-m", "pip", "install", "--upgrade", "pip") "No se pudo actualizar pip."
+Run-Checked $venvPython @("-m", "pip", "install", "-r", (Join-Path $repo "requirements.txt")) "No se pudieron instalar las dependencias. Si ves errores de Microsoft Visual C++, borra .venv e instala Python 3.12 o 3.11."
 
 Step-Info "[4/5] Creando comandos..."
 $ofTarget = Join-Path $binDir "of.cmd"

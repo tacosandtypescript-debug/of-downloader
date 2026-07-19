@@ -66,7 +66,7 @@ Las descargas quedan en:
 
 WINDOWS
 -------
-1. Instala Python 3.11, 3.12 o 3.13 desde python.org.
+1. Instala Python 3.11 o 3.12 desde python.org.
 2. Marca "Add Python to PATH".
 3. Clona el repositorio privado:
 

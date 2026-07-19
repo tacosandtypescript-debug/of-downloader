@@ -109,9 +109,13 @@ Carpetas principales en Linux:
 Requisitos:
 
 - Windows 10 u 11.
-- Python 3.11, 3.12 o 3.13 desde https://www.python.org/downloads/windows/.
+- Python 3.11 o 3.12 desde https://www.python.org/downloads/windows/.
 - Durante la instalación de Python marca **Add Python to PATH**.
 - GitHub CLI si vas a clonar el repo privado desde Windows.
+
+No uses Python 3.13 en Windows para esta app: algunas dependencias de OF-Scraper
+pueden intentar compilarse y pedir Microsoft Visual C++ Build Tools. Python 3.12
+evita ese problema en instalaciones normales.
 
 Instalación desde PowerShell:
 
