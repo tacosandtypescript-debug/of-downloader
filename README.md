@@ -125,9 +125,9 @@ debes cargar en OF Downloader.
 Descargas:
 
 - Chrome / Chromium:
-  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.5.zip
+  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-chrome-1.0.5.zip
 - Firefox:
-  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.6.zip
+  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-firefox-1.0.6.zip
 
 ### Chrome
 
