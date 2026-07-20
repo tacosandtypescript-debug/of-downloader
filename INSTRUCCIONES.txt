@@ -117,11 +117,11 @@ Repositorio privado con Chrome y Firefox:
 
 Descarga Chrome:
 
-   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-chrome-1.0.5.zip
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-chrome-1.0.6.zip
 
 Descarga Firefox:
 
-   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-firefox-1.0.6.zip
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-firefox-1.0.7.zip
 
 En Chrome:
 1. Descomprime el ZIP.
@@ -164,9 +164,9 @@ Envio directo sin mover archivo:
 
    of recibir-cookie --qr
 
-La app muestra enlace rapido, URL local, codigo y QR seguro. En la extension usa
-Enviar a OF Downloader y pega el enlace rapido. Funciona en la misma Wi-Fi o
-hotspot y se apaga solo.
+La app muestra enlace rapido, URL local y codigo. En la extension usa Buscar
+OF Downloader en mi red. Si lo encuentra, pulsa Enviar a OF Downloader. Si no,
+pega el enlace rapido. Funciona en la misma Wi-Fi o hotspot y se apaga solo.
 
 La app conserva solo:
 

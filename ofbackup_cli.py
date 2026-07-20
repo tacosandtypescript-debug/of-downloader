@@ -22,7 +22,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.14.0"
+APP_VERSION = "2.15.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -501,7 +501,8 @@ def receive_credentials_locally(
     port: int = 8765, timeout: int = 300, *, show_qr: bool = False
 ) -> int:
     code = f"{secrets.randbelow(1_000_000):06d}"
-    received: dict[str, object] = {"done": False, "error": ""}
+    pair_token = secrets.token_urlsafe(18)
+    received: dict[str, object] = {"done": False, "error": "", "paired": False}
 
     class ReceiverHandler(BaseHTTPRequestHandler):
         server_version = "OFDownloaderCookieReceiver/1.0"
@@ -524,6 +525,17 @@ def receive_credentials_locally(
             self._send_json(200, {"ok": True})
 
         def do_GET(self) -> None:  # noqa: N802
+            if self.path.rstrip("/") == "/discover":
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "app": "OF Downloader",
+                        "version": APP_VERSION,
+                        "pairing": True,
+                    },
+                )
+                return
             self._send_json(
                 200,
                 {
@@ -535,6 +547,29 @@ def receive_credentials_locally(
             )
 
         def do_POST(self) -> None:  # noqa: N802
+            if self.path.rstrip("/") == "/pair":
+                length_header = self.headers.get("Content-Length", "0")
+                try:
+                    length = int(length_header)
+                except ValueError:
+                    length = 0
+                if length > MAX_AUTH_EXPORT_SIZE:
+                    self._send_json(413, {"ok": False, "error": "solicitud demasiado grande"})
+                    return
+                if length:
+                    self.rfile.read(length)
+                received["paired"] = True
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "token": pair_token,
+                        "message": "Extension emparejada. Ya puedes enviar.",
+                    },
+                )
+                print("\n✓ Extension encontrada en la red local.")
+                print("Esperando que envie los datos de acceso...")
+                return
             if self.path.rstrip("/") != "/upload":
                 self._send_json(404, {"ok": False, "error": "ruta invalida"})
                 return
@@ -552,7 +587,9 @@ def receive_credentials_locally(
             except (UnicodeDecodeError, json.JSONDecodeError):
                 self._send_json(400, {"ok": False, "error": "json invalido"})
                 return
-            if not isinstance(payload, dict) or str(payload.get("code", "")) != code:
+            valid_code = str(payload.get("code", "")) == code
+            valid_token = str(payload.get("token", "")) == pair_token
+            if not isinstance(payload, dict) or not (valid_code or valid_token):
                 self._send_json(403, {"ok": False, "error": "codigo incorrecto"})
                 return
             try:
@@ -585,8 +622,8 @@ def receive_credentials_locally(
     expires_at = time.monotonic() + timeout
     print("\nRECIBIR COOKIE LOCAL")
     print("1. Abre OnlyFans en el navegador donde esta la extension.")
-    print("2. Pulsa la extension y usa Enviar a OF Downloader.")
-    print("3. Pega el enlace rapido. Si no puedes, usa URL local + codigo.")
+    print("2. Pulsa la extension y usa Buscar OF Downloader.")
+    print("3. Si no lo encuentra, pega el enlace rapido o usa URL local + codigo.")
     print()
     print(f"Enlace rapido: {quick_link}")
     print(f"URL local:     {base_url}")

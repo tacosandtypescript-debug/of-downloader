@@ -125,9 +125,9 @@ debes cargar en OF Downloader.
 Descargas:
 
 - Chrome / Chromium:
-  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-chrome-1.0.5.zip
+  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-chrome-1.0.6.zip
 - Firefox:
-  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-firefox-1.0.6.zip
+  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-firefox-1.0.7.zip
 
 ### Chrome
 
@@ -183,10 +183,9 @@ of recibir-cookie
 of recibir-cookie --qr
 ```
 
-Ese comando muestra enlace rapido, URL local y codigo temporal. Con `--qr`
-tambien dibuja un QR seguro si `qrencode` esta instalado. El QR solo contiene
-el enlace local y el codigo temporal, no contiene la cookie. En la extension
-pulsa **Enviar a OF Downloader** y pega el enlace rapido.
+Ese comando muestra enlace rapido, URL local y codigo temporal. En la extension
+pulsa **Buscar OF Downloader en mi red**. Si lo encuentra, pulsa **Enviar a OF
+Downloader**. Si no lo encuentra, pega el enlace rapido.
 Usalo solo en una Wi-Fi de confianza o hotspot propio.
 
 La app solo conserva:
