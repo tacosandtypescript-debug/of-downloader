@@ -180,8 +180,8 @@ printf '\n'
 
 run_task 0 8 "Consultando actualizaciones de Termux" pkg update -y
 run_task 8 16 "Actualizando Termux" pkg upgrade -y
-run_task 16 28 "Instalando herramientas base, rclone y selector Android" \
-    pkg install -y proot-distro git termux-tools termux-api rclone
+run_task 16 28 "Instalando herramientas base, rclone, QR y selector Android" \
+    pkg install -y proot-distro git termux-tools termux-api rclone qrencode
 
 if ! pm list packages 2>/dev/null | grep -q '^package:com.termux.api$'; then
     echo
@@ -212,7 +212,7 @@ run_task 48 77 "Preparando Python 3.13, FFmpeg y librerías" \
     apt-get update
     apt-get upgrade -y
     apt-get install -y --no-install-recommends \
-        python3 python3-dev python3-venv python3-pip ffmpeg rclone ca-certificates git \
+        python3 python3-dev python3-venv python3-pip ffmpeg rclone qrencode ca-certificates git \
         build-essential pkg-config rustc cargo \
         libffi-dev libssl-dev libxml2-dev libxslt1-dev \
         libjpeg62-turbo-dev liblz4-dev libyaml-dev zlib1g-dev

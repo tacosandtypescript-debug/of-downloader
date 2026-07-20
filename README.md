@@ -125,9 +125,9 @@ debes cargar en OF Downloader.
 Descargas:
 
 - Chrome / Chromium:
-  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.4.zip
+  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.5.zip
 - Firefox:
-  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.5.zip
+  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.6.zip
 
 ### Chrome
 
@@ -180,10 +180,13 @@ Tambien puedes evitar mover archivos:
 
 ```bash
 of recibir-cookie
+of recibir-cookie --qr
 ```
 
-Ese comando muestra una URL local y un codigo temporal. En la extension pulsa
-**Enviar a OF Downloader**, escribe esos dos datos y la app guarda el acceso.
+Ese comando muestra enlace rapido, URL local y codigo temporal. Con `--qr`
+tambien dibuja un QR seguro si `qrencode` esta instalado. El QR solo contiene
+el enlace local y el codigo temporal, no contiene la cookie. En la extension
+pulsa **Enviar a OF Downloader** y pega el enlace rapido.
 Usalo solo en una Wi-Fi de confianza o hotspot propio.
 
 La app solo conserva:
@@ -225,6 +228,7 @@ DESCARGAS
 MI CUENTA
 [4] Conectar o renovar acceso
 [5] Probar acceso
+[11] Recibir cookie desde extension
 
 HERRAMIENTAS
 [6] Cambiar carpeta de descargas
@@ -246,6 +250,7 @@ of probar
 of diagnostico
 of actualizar-app
 of recibir-cookie
+of recibir-cookie --qr
 of drive estado
 of drive pendientes
 of drive limpiar

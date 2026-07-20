@@ -42,11 +42,11 @@ install_system_packages() {
 
     if command -v apt-get >/dev/null 2>&1; then
         "${runner[@]}" apt-get update >>"$LOG_FILE" 2>&1 || return 1
-        "${runner[@]}" apt-get install -y python3 python3-venv ffmpeg rclone >>"$LOG_FILE" 2>&1 || return 1
+        "${runner[@]}" apt-get install -y python3 python3-venv ffmpeg rclone qrencode >>"$LOG_FILE" 2>&1 || return 1
     elif command -v dnf >/dev/null 2>&1; then
-        "${runner[@]}" dnf install -y python3 ffmpeg-free rclone >>"$LOG_FILE" 2>&1 || return 1
+        "${runner[@]}" dnf install -y python3 ffmpeg-free rclone qrencode >>"$LOG_FILE" 2>&1 || return 1
     elif command -v pacman >/dev/null 2>&1; then
-        "${runner[@]}" pacman -Sy --needed --noconfirm python ffmpeg rclone >>"$LOG_FILE" 2>&1 || return 1
+        "${runner[@]}" pacman -Sy --needed --noconfirm python ffmpeg rclone qrencode >>"$LOG_FILE" 2>&1 || return 1
     else
         fail "No reconozco el gestor de paquetes. Instala Python 3.11–3.13, venv y FFmpeg."
     fi
@@ -61,8 +61,9 @@ step 1 "Comprobando dependencias del sistema…"
 if ! command -v python3 >/dev/null 2>&1 || \
    ! command -v ffmpeg >/dev/null 2>&1 || \
    ! command -v rclone >/dev/null 2>&1 || \
+   ! command -v qrencode >/dev/null 2>&1 || \
    ! python3 -c 'import venv' >/dev/null 2>&1; then
-    echo "Se instalaran Python, venv, FFmpeg y rclone. Puede pedir tu contrasena."
+    echo "Se instalaran Python, venv, FFmpeg, rclone y QR. Puede pedir tu contrasena."
     install_system_packages || fail "No se pudieron instalar las dependencias."
 fi
 

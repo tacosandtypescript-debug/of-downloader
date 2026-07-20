@@ -223,6 +223,7 @@ class ThemeTests(unittest.TestCase):
             rendered.index("[3] Descargar publicacion"),
         )
         self.assertIn("[10] Google Drive", rendered)
+        self.assertIn("[11] Recibir cookie", rendered)
         self.assertNotIn("Probar búsqueda de perfil", rendered)
 
     def test_menu_option_one_uses_subscription_picker(self):
@@ -768,8 +769,8 @@ class DownloadTests(unittest.TestCase):
         with mock.patch.object(
             ofbackup_cli, "receive_credentials_locally", return_value=0
         ) as receiver:
-            self.assertEqual(ofbackup_cli.main(["recibir-cookie", "9876"]), 0)
-        receiver.assert_called_once_with(port=9876)
+            self.assertEqual(ofbackup_cli.main(["recibir-cookie", "9876", "--qr"]), 0)
+        receiver.assert_called_once_with(port=9876, show_qr=True)
 
     def test_download_user_does_not_force_normal_only(self):
         with (

@@ -117,11 +117,11 @@ Repositorio privado con Chrome y Firefox:
 
 Descarga Chrome:
 
-   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.4.zip
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-chrome-1.0.5.zip
 
 Descarga Firefox:
 
-   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.5.zip
+   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/releases/latest/download/of_downloader_exporter-firefox-1.0.6.zip
 
 En Chrome:
 1. Descomprime el ZIP.
@@ -162,10 +162,11 @@ Si el selector no abre:
 
 Envio directo sin mover archivo:
 
-   of recibir-cookie
+   of recibir-cookie --qr
 
-La app muestra una URL local y un codigo. En la extension usa Enviar a
-OF Downloader. Funciona en la misma Wi-Fi o hotspot y se apaga solo.
+La app muestra enlace rapido, URL local, codigo y QR seguro. En la extension usa
+Enviar a OF Downloader y pega el enlace rapido. Funciona en la misma Wi-Fi o
+hotspot y se apaga solo.
 
 La app conserva solo:
 
@@ -196,7 +197,7 @@ Manual en Termux:
 Si Google Drive dice que falta rclone en Termux:
 
    proot-distro login --shared-home ofbackup-debian -- apt-get update
-   proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone
+   proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone qrencode
 
 
 SEGURIDAD

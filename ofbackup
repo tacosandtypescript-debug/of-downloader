@@ -96,16 +96,16 @@ update_application() {
     fi
 
     echo "Comprobando herramientas de Termux…"
-    if ! pkg install -y rclone termux-api >/dev/null 2>&1; then
-        echo "AVISO: no se pudo instalar rclone/termux-api automaticamente."
-        echo "Google Drive puede quedar pendiente. Ejecuta:"
-        echo "  pkg install -y rclone termux-api"
+    if ! pkg install -y rclone termux-api qrencode >/dev/null 2>&1; then
+        echo "AVISO: no se pudo instalar rclone/termux-api/qrencode automaticamente."
+        echo "Google Drive o QR puede quedar pendiente. Ejecuta:"
+        echo "  pkg install -y rclone termux-api qrencode"
     fi
     if ! proot-distro login --shared-home ofbackup-debian -- bash -lc \
-        'apt-get update >/dev/null 2>&1 && apt-get install -y rclone >/dev/null 2>&1'; then
-        echo "AVISO: no se pudo instalar rclone dentro de Debian."
-        echo "Google Drive puede quedar pendiente. Ejecuta:"
-        echo "  proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone"
+        'apt-get update >/dev/null 2>&1 && apt-get install -y rclone qrencode >/dev/null 2>&1'; then
+        echo "AVISO: no se pudo instalar rclone/qrencode dentro de Debian."
+        echo "Google Drive o QR puede quedar pendiente. Ejecuta:"
+        echo "  proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone qrencode"
     fi
 
     local requirements_changed=0

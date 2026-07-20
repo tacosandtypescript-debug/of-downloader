@@ -22,7 +22,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-APP_VERSION = "2.13.1"
+APP_VERSION = "2.14.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -485,7 +485,21 @@ def local_network_ip() -> str:
         return "127.0.0.1"
 
 
-def receive_credentials_locally(port: int = 8765, timeout: int = 300) -> int:
+def print_receiver_qr(value: str) -> bool:
+    executable = shutil.which("qrencode")
+    if not executable:
+        print("QR: no disponible. En Termux se instala con: pkg install qrencode")
+        return False
+    completed = subprocess.run([executable, "-t", "ANSIUTF8", value], check=False)
+    if completed.returncode != 0:
+        print("QR: no se pudo dibujar en esta terminal.")
+        return False
+    return True
+
+
+def receive_credentials_locally(
+    port: int = 8765, timeout: int = 300, *, show_qr: bool = False
+) -> int:
     code = f"{secrets.randbelow(1_000_000):06d}"
     received: dict[str, object] = {"done": False, "error": ""}
 
@@ -566,15 +580,21 @@ def receive_credentials_locally(port: int = 8765, timeout: int = 300) -> int:
 
     server.timeout = 0.5
     ip = local_network_ip()
+    base_url = f"http://{ip}:{port}"
+    quick_link = f"{base_url}/?code={code}"
     expires_at = time.monotonic() + timeout
     print("\nRECIBIR COOKIE LOCAL")
     print("1. Abre OnlyFans en el navegador donde esta la extension.")
     print("2. Pulsa la extension y usa Enviar a OF Downloader.")
-    print("3. Escribe esta URL y este codigo.")
+    print("3. Pega el enlace rapido. Si no puedes, usa URL local + codigo.")
     print()
-    print(f"URL local: http://{ip}:{port}")
+    print(f"Enlace rapido: {quick_link}")
+    print(f"URL local:     {base_url}")
     print(f"Codigo:    {code}")
     print(f"Tiempo:    {timeout // 60} minutos")
+    if show_qr:
+        print("\nQR seguro: solo contiene enlace local + codigo temporal, no contiene cookie.")
+        print_receiver_qr(quick_link)
     print()
     print("Seguridad: un solo uso, no imprime secretos y se apaga solo.")
     print("Usalo en Wi-Fi de confianza o en hotspot propio.")
@@ -2346,6 +2366,7 @@ def menu() -> int:
         print(styled("\n  MI CUENTA", "blue", bold=True))
         menu_option("4", "Conectar o renovar acceso")
         menu_option("5", "Probar acceso")
+        menu_option("11", "Recibir cookie desde extension")
 
         print(styled("\n  HERRAMIENTAS", "blue", bold=True))
         menu_option("6", "Cambiar carpeta de descargas")
@@ -2385,6 +2406,8 @@ def menu() -> int:
                 result = test_credentials()
                 if result == IMPORT_REQUEST_EXIT:
                     return IMPORT_REQUEST_EXIT
+            elif choice == "11":
+                receive_credentials_locally(show_qr=True)
             elif choice == "6":
                 change_destination()
             elif choice == "7":
@@ -2418,6 +2441,7 @@ def print_help() -> None:
   of importar                      Importar OFBackup-auth.json
   of importar RUTA                 Importar el archivo directamente
   of recibir-cookie                Recibir acceso desde la extension en red local
+  of recibir-cookie --qr           Recibir acceso y mostrar QR seguro
   of cookie ayuda                  Ver como exportar y mover OFBackup-auth.json
   of probar                        Comprobar la cookie sin descargar contenido
   of probar-perfil USUARIO          Comprobar si OnlyFans devuelve un perfil
@@ -2456,10 +2480,10 @@ En el navegador donde ya abriste OnlyFans:
 
 Envio local directo:
 1. En este equipo ejecuta:
-  of recibir-cookie
-2. La app mostrara una URL local y un codigo temporal.
+  of recibir-cookie --qr
+2. La app mostrara enlace rapido, URL local, codigo temporal y QR seguro.
 3. En la extension usa Enviar a OF Downloader.
-4. Pega la URL y el codigo.
+4. Pega el enlace rapido. Si no puedes, usa URL local + codigo.
 
 Ese modo funciona solo en la misma Wi-Fi o hotspot, dura 5 minutos y es de un
 solo uso. No imprime secretos.
@@ -2518,8 +2542,9 @@ def main(argv: list[str] | None = None) -> int:
             import_credentials_file(Path(argv[1]))
             return 0
         if command in {"recibir-cookie", "recibir", "receive-cookie"}:
-            port = int(argv[1]) if len(argv) > 1 and argv[1].isdigit() else 8765
-            return receive_credentials_locally(port=port)
+            show_qr = "--qr" in argv or "qr" in argv
+            port = next((int(arg) for arg in argv[1:] if arg.isdigit()), 8765)
+            return receive_credentials_locally(port=port, show_qr=show_qr)
         if command in {"diagnostico", "diagnóstico", "status"}:
             diagnostics()
             return 0
