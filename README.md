@@ -3,124 +3,95 @@
 </p>
 
 <p align="center">
-  <strong>OF Downloader · menu de terminal para Termux, Linux y Windows.</strong>
+  <strong>OF Downloader · menú de terminal para Termux, Linux y Windows.</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacosandtypescript-debug/of-downloader/archive/refs/heads/main.zip"><strong>Descargar ZIP</strong></a>
+  <a href="#instalación-rápida">Instalación</a>
   ·
-  <a href="#instalacion-rapida">Instalacion rapida</a>
+  <a href="#extensión-del-navegador">Extensión</a>
   ·
-  <a href="#extension-del-navegador">Extension</a>
+  <a href="#conectar-la-cuenta">Conectar cuenta</a>
   ·
   <a href="#google-drive">Google Drive</a>
   ·
-  <a href="#menu-actual">Menu</a>
-  ·
-  <a href="#reinstalar-limpio">Reinstalar limpio</a>
+  <a href="#actualizar">Actualizar</a>
 </p>
 
 > [!IMPORTANT]
-> Este repositorio es privado. Para clonar o descargar el ZIP debes iniciar
-> sesion en GitHub con una cuenta autorizada.
+> OF Downloader no evita suscripciones, pagos ni restricciones. Solo organiza
+> descargas de contenido disponible para tu propia cuenta. Úsalo respetando los
+> derechos de los creadores, las condiciones del servicio y la ley aplicable.
 
-OF Downloader no evita suscripciones, pagos ni restricciones. Solo organiza la
-descarga de contenido disponible para tu propia cuenta. Usa la herramienta
-respetando los derechos de los creadores, las condiciones del servicio y la ley
-aplicable.
+## Qué hace
 
-## Que hace
-
-- Abre un menu simple en terminal con el comando `of`.
-- Importa el archivo `OFBackup-auth.json` creado por la extension del navegador.
-- Lista perfiles suscritos activos, incluidos perfiles gratis cuando OnlyFans los devuelve.
-- Permite escoger un perfil y detecta posts/fotos/videos antes de descargar.
-- Pregunta antes de descargar un perfil.
+- Abre un menú simple con el comando `of`.
+- Funciona en Termux, Linux y Windows.
+- Conecta la cuenta usando la extensión `OF Downloader Exporter`.
+- Puede recibir la cookie desde la extensión por red local.
+- Lista perfiles suscritos activos cuando OnlyFans los devuelve.
 - Descarga perfiles por usuario/enlace y publicaciones por enlace.
-- Muestra barra de progreso, resumen y logs visibles.
-- Puede subir automaticamente archivos nuevos a Google Drive usando rclone.
-- Permite actualizar la app desde el menu.
+- Muestra progreso, resumen y logs visibles.
+- Puede subir archivos nuevos a Google Drive usando `rclone`.
+- Permite actualizar la app desde el menú.
 
-Version actual de la app: `2.10.1`.
+Versión actual: `2.15.0`
 
-## Links rapidos
+## Links rápidos
 
-- Repo privado:
-  https://github.com/tacosandtypescript-debug/of-downloader
-- Descargar todo el repo en ZIP:
-  https://github.com/tacosandtypescript-debug/of-downloader/archive/refs/heads/main.zip
-- Instalador Windows:
-  https://github.com/tacosandtypescript-debug/of-downloader/blob/main/instalar-windows.ps1
-- Instalador Termux:
-  https://github.com/tacosandtypescript-debug/of-downloader/blob/main/instalar-termux.sh
-- Instalador Linux:
-  https://github.com/tacosandtypescript-debug/of-downloader/blob/main/instalar-linux.sh
-- Repo de extensiones Chrome/Firefox:
-  https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions
-- rclone:
-  https://rclone.org/
+- App principal: https://github.com/tacosandtypescript-debug/of-downloader
+- Extensiones: https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions
+- Descargar ZIP del repo: https://github.com/tacosandtypescript-debug/of-downloader/archive/refs/heads/main.zip
 
-## Instalacion rapida
+## Instalación rápida
 
 ### Termux / Android
 
-Instala Termux desde F-Droid o GitHub, no desde Google Play. Instala tambien
-Termux:API desde la misma fuente para abrir el selector de archivos Android.
+Instala Termux desde F-Droid o GitHub. No uses la versión antigua de Google Play.
 
 ```bash
-pkg update -y && pkg install -y git gh
-gh auth login
-gh repo clone tacosandtypescript-debug/of-downloader
+pkg update -y
+pkg install -y git
+git clone https://github.com/tacosandtypescript-debug/of-downloader.git
 cd of-downloader
 bash instalar-termux.sh
-```
-
-Abrir:
-
-```bash
 of
 ```
 
 ### Linux
 
 ```bash
-sudo apt update && sudo apt install -y git gh
-gh auth login
-gh repo clone tacosandtypescript-debug/of-downloader
+sudo apt update
+sudo apt install -y git
+git clone https://github.com/tacosandtypescript-debug/of-downloader.git
 cd of-downloader
 bash instalar-linux.sh
-```
-
-Abrir:
-
-```bash
 of
 ```
 
 ### Windows
 
-Desde PowerShell:
+Abre PowerShell:
 
 ```powershell
-gh auth login
-gh repo clone tacosandtypescript-debug/of-downloader "$env:USERPROFILE\of-downloader"
+winget install -e --id Git.Git
+git clone https://github.com/tacosandtypescript-debug/of-downloader.git "$env:USERPROFILE\of-downloader"
 cd "$env:USERPROFILE\of-downloader"
 powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
 ```
 
-Abrir una terminal nueva y ejecutar:
+Abre una terminal nueva y ejecuta:
 
 ```powershell
 of
 ```
 
-El instalador intenta preparar Python 3.12 y FFmpeg con `winget` si no estan
-instalados. No uses Python 3.13 para esta app en Windows.
+El instalador de Windows intenta preparar Python 3.12, FFmpeg y rclone con
+`winget`. No uses Python 3.13 para esta app en Windows.
 
-## Extension del navegador
+## Extensión del navegador
 
-La extension exporta el archivo `OFBackup-auth.json`. Ese archivo es lo que
-debes cargar en OF Downloader.
+La extensión se usa para conectar tu cuenta sin pegar cookies manualmente.
 
 Descargas:
 
@@ -129,100 +100,67 @@ Descargas:
 - Firefox:
   https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/raw/main/artifacts/of_downloader_exporter-firefox-1.0.7.zip
 
-### Chrome
-
-Chrome no permite instalar extensiones locales con un solo clic si no estan en
-Chrome Web Store.
+### Instalar en Chrome / Chromium
 
 1. Descarga el ZIP de Chrome.
-2. Descomprimelo.
+2. Descomprime el ZIP.
 3. Abre `chrome://extensions`.
 4. Activa **Modo de desarrollador**.
 5. Pulsa **Cargar descomprimida**.
 6. Selecciona la carpeta que contiene `manifest.json`.
 
-Si aparece “Falta el archivo de manifiesto”, seleccionaste la carpeta equivocada:
-entra una carpeta mas adentro hasta ver `manifest.json`.
+Si Chrome dice que falta el manifiesto, seleccionaste la carpeta equivocada.
+Entra una carpeta más adentro hasta ver `manifest.json`.
 
-### Firefox
+### Instalar en Firefox
 
-Usa el ZIP de Firefox desde las releases. Si tienes el complemento firmado desde
-Mozilla Add-ons, puedes usar ese en lugar del ZIP local.
+Usa el ZIP de Firefox o el complemento firmado desde Mozilla Add-ons si ya está
+aprobado en tu cuenta.
 
 ## Conectar la cuenta
 
-1. Abre OnlyFans en Chrome o Firefox.
-2. Inicia sesion.
-3. Pulsa la extension **OF Downloader Exporter**.
-4. Exporta `OFBackup-auth.json`.
-5. En OF Downloader usa:
+Flujo recomendado:
+
+1. Abre OF Downloader:
 
 ```bash
-of importar
+of
+```
+
+2. Elige:
+
+```text
+[11] Recibir cookie desde extension
+```
+
+3. Abre OnlyFans en el navegador donde instalaste la extensión.
+4. Abre la extensión `OF Downloader Exporter`.
+5. Pulsa **Buscar OF Downloader en mi red**.
+6. Si encuentra el celular/PC, pulsa **Enviar a OF Downloader**.
+7. Comprueba:
+
+```bash
 of probar
 ```
 
-En Termux se abre el selector Android. En Windows/Linux se abre el explorador de
-archivos. Si el selector falla, tambien puedes pasar la ruta:
-
-```bash
-of importar ~/Downloads/OFBackup-auth.json
-```
-
-Para ver el flujo completo de exportar, pasar el archivo entre movil y PC e
-importarlo:
-
-```bash
-of cookie ayuda
-```
-
-Tambien puedes evitar mover archivos:
+Respaldo manual si la búsqueda no funciona:
 
 ```bash
 of recibir-cookie
 of recibir-cookie --qr
 ```
 
-Ese comando muestra enlace rapido, URL local y codigo temporal. En la extension
-pulsa **Buscar OF Downloader en mi red**. Si lo encuentra, pulsa **Enviar a OF
-Downloader**. Si no lo encuentra, pega el enlace rapido.
-Usalo solo en una Wi-Fi de confianza o hotspot propio.
+Ese modo muestra enlace rápido, URL local y código temporal. El QR o enlace no
+contiene la cookie; solo sirve para vincular la extensión con OF Downloader. La
+cookie se envía aparte por red local y el servidor se cierra después de recibir.
 
-La app solo conserva:
-
-- `sess`
-- `auth_id`
-- `x-bc`
-- `User-Agent`
-
-Despues de importar, borra `OFBackup-auth.json` de Descargas.
-
-### Pasar la cookie entre movil y PC
-
-No pegues la cookie en chats ni la escribas a mano. La forma correcta es mover
-el archivo `OFBackup-auth.json` como archivo:
-
-- PC a movil: cable USB, Google Drive, Nearby Share, Telegram guardado como
-  archivo o copiarlo a Descargas del telefono.
-- Movil a PC: Google Drive, cable USB, Nearby Share, correo propio como archivo
-  adjunto o descargarlo en `Downloads`.
-
-Luego ejecuta:
-
-```bash
-of importar
-of probar
-```
-
-Si el selector no abre, usa `of importar RUTA/OFBackup-auth.json`.
-
-## Menu actual
+## Menú principal
 
 ```text
 DESCARGAS
 [1] Elegir perfil de mis suscripciones
 [2] Descargar perfil por usuario o enlace
-[3] Descargar publicacion por enlace
+[3] Descargar publicación por enlace
 
 MI CUENTA
 [4] Conectar o renovar acceso
@@ -231,14 +169,14 @@ MI CUENTA
 
 HERRAMIENTAS
 [6] Cambiar carpeta de descargas
-[7] Ver diagnostico
+[7] Ver diagnóstico
 [8] Actualizar OF Downloader y reiniciar
 [9] Actualizar motor de descarga
 [10] Google Drive
 [0] Salir
 ```
 
-Comandos directos:
+## Comandos útiles
 
 ```bash
 of
@@ -250,54 +188,35 @@ of diagnostico
 of actualizar-app
 of recibir-cookie
 of recibir-cookie --qr
-of drive estado
-of drive pendientes
-of drive limpiar
 ```
 
 ## Google Drive
 
-OF Downloader usa `rclone` para subir a Google Drive. La primera configuracion
-requiere iniciar sesion en Google desde el flujo de `rclone config`.
-
-En Termux, `rclone` debe existir dentro del Debian interno que usa OF Downloader.
-Si `of diagnostico` muestra `rclone no instalado`, ejecuta:
+OF Downloader usa `rclone` para subir a Google Drive.
 
 ```bash
-pkg install -y proot-distro
-proot-distro login --shared-home ofbackup-debian -- apt-get update
-proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone
-```
-
-Comandos:
-
-```bash
-of drive configurar
 of drive instalar
+of drive configurar
 of drive activar
+of drive estado
 of drive subir
 of drive pendientes
 of drive limpiar
 of drive limpiar todo
-of drive estado
-of drive desactivar
 ```
 
 Por defecto:
 
 - Remote: `gdrive`
 - Carpeta en Drive: `OFDownloader`
-- No borra archivos locales despues de subir.
-- Si falla una subida, queda en pendientes y se puede reintentar con `of drive subir`.
-- `of drive pendientes` muestra la cola.
-- `of drive limpiar` borra pendientes cuyo archivo local ya no existe.
-- `of drive limpiar todo` vacia toda la cola pendiente.
-- `of drive instalar` intenta instalar `rclone` si no quedo instalado.
+- No borra archivos locales después de subir.
+- Si falla una subida, queda en pendientes.
 
-Comando avanzado para revisar deteccion de un perfil:
+En Termux, `rclone` debe existir dentro del Debian interno. Si falta:
 
 ```bash
-of probar-perfil NOMBRE
+proot-distro login --shared-home ofbackup-debian -- apt-get update
+proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone qrencode
 ```
 
 ## Rutas importantes
@@ -308,9 +227,7 @@ of probar-perfil NOMBRE
 - Descargas: `/root/storage/downloads/OFBackup`
 - Config privada: `/root/.config/ofbackup`
 - Config OF-Scraper: `/root/.config/ofscraper`
-- Log descarga: `/root/storage/downloads/OFBackup/ultima-descarga.log`
-- Log perfiles: `/root/storage/downloads/OFBackup/perfiles-suscritos.log`
-- Log prueba perfil: `/root/storage/downloads/OFBackup/prueba-perfil.log`
+- Logs visibles: `/root/storage/downloads/OFBackup`
 
 ### Linux
 
@@ -329,13 +246,13 @@ of probar-perfil NOMBRE
 
 ## Actualizar
 
-Desde el menu:
+Desde el menú:
 
 ```text
-8. Actualizar OF Downloader y reiniciar
+[8] Actualizar OF Downloader y reiniciar
 ```
 
-Manual en Termux:
+Manual:
 
 ```bash
 cd ~/of-downloader
@@ -343,15 +260,13 @@ git pull --ff-only origin main
 bash instalar-termux.sh
 ```
 
-Manual en Linux:
+En Linux cambia el último comando por:
 
 ```bash
-cd ~/of-downloader
-git pull --ff-only origin main
 bash instalar-linux.sh
 ```
 
-Manual en Windows:
+En Windows:
 
 ```powershell
 cd "$env:USERPROFILE\of-downloader"
@@ -365,12 +280,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
 
 ```bash
 rm -rf ~/of-downloader
-gh repo clone tacosandtypescript-debug/of-downloader
+git clone https://github.com/tacosandtypescript-debug/of-downloader.git
 cd of-downloader
 bash instalar-termux.sh
 ```
 
-Para borrar tambien configuracion/cookies:
+Para borrar también configuración/cookies:
 
 ```bash
 rm -rf /root/.config/ofbackup /root/.config/ofscraper
@@ -381,24 +296,19 @@ rm -rf /root/.config/ofbackup /root/.config/ofscraper
 ```powershell
 Remove-Item -Recurse -Force "$env:USERPROFILE\of-downloader"
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Programs\OFDownloader"
-gh repo clone tacosandtypescript-debug/of-downloader "$env:USERPROFILE\of-downloader"
+git clone https://github.com/tacosandtypescript-debug/of-downloader.git "$env:USERPROFILE\of-downloader"
 cd "$env:USERPROFILE\of-downloader"
 powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
-```
-
-Para borrar tambien configuracion/cookies:
-
-```powershell
-Remove-Item -Recurse -Force "$env:USERPROFILE\.config\ofbackup"
-Remove-Item -Recurse -Force "$env:USERPROFILE\.config\ofscraper"
 ```
 
 ## Seguridad
 
 - No pegues cookies en chats, issues ni capturas.
 - No publiques `OFBackup-auth.json`, `auth.json` ni `config.json`.
-- Si una cookie se filtro, cierra esa sesion en el navegador y exporta otra.
-- Usa solo contenido al que tu cuenta tenga acceso legitimo.
+- El QR/enlace de conexión no contiene la cookie.
+- La extensión no guarda la cookie.
+- Si una cookie se filtró, cierra esa sesión en el navegador y genera otra.
+- Usa solo contenido al que tu cuenta tenga acceso legítimo.
 
 ## Desarrollo
 
@@ -409,13 +319,13 @@ python -m unittest discover -s tests
 Archivos principales:
 
 ```text
-ofbackup_cli.py              Menu terminal
+ofbackup_cli.py              Menú terminal
 instalar-termux.sh           Instalador Termux
 instalar-linux.sh            Instalador Linux
 instalar-windows.ps1         Instalador Windows
 ofbackup                     Launcher Termux
 of-downloader-linux          Launcher Linux
 of-windows.cmd               Launcher Windows terminal
-tests/                       Pruebas automaticas
+tests/                       Pruebas automáticas
 docs/                        Recursos visuales
 ```
