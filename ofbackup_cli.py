@@ -2513,6 +2513,15 @@ def download_user(username: str | None = None, *, source: str = "menu") -> int:
         print(f"✓ Perfil detectado: @{username}")
     print("Se lanzará la búsqueda del perfil completo permitido por tu cuenta.")
     print("Reescaneo completo activado para evitar caché vacía o antigua.")
+    if source != "selector":
+        detection = detect_profile_counts(username)
+        print_detection_summary(SubscriptionProfile(username=username), detection)
+        if detection is None:
+            print("El conteo previo no esta disponible, pero puedes continuar con la descarga.")
+        answer = input("\nDescargar este perfil completo? [s/N]: ").strip().lower()
+        if answer not in {"s", "si", "sÃ­", "y", "yes"}:
+            print("Cancelado. No se descargo nada.")
+            return 0
     return run_ofscraper(
         build_complete_profile_command(username),
         mode="perfil",

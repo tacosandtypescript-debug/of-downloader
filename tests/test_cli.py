@@ -828,7 +828,9 @@ class DownloadTests(unittest.TestCase):
                 return_value={"download_dir": temporary, "username": ""},
             ),
             mock.patch.object(ofbackup_cli, "save_state"),
+            mock.patch.object(ofbackup_cli, "detect_profile_counts", return_value=None),
             mock.patch.object(ofbackup_cli, "run_ofscraper", return_value=0) as run,
+            mock.patch("builtins.input", return_value="s"),
             mock.patch("builtins.print"),
         ):
             self.assertEqual(ofbackup_cli.download_user("creator.example"), 0)

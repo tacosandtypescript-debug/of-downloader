@@ -57,9 +57,11 @@ class DownloadStats:
 
     @property
     def accounted_total(self) -> int:
-        return self.downloaded.total + self.skipped
+        accounted = self.downloaded.total + self.skipped
+        if self.detected_total:
+            return min(accounted, self.detected_total)
+        return accounted
 
     @property
     def has_unaccounted_detected_media(self) -> bool:
         return bool(self.detected_total and self.accounted_total < self.detected_total)
-
