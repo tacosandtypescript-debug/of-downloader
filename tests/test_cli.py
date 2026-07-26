@@ -1106,6 +1106,14 @@ class ExtensionDownloadTests(unittest.TestCase):
         ):
             self.assertFalse(ofbackup_cli.extension_download_available())
 
+    def test_extension_instructions_are_written_to_download_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            instructions = ofbackup_cli.write_extension_instructions(Path(temporary))
+            self.assertTrue(instructions.exists())
+            text = instructions.read_text(encoding="utf-8")
+        self.assertIn("CONECTAR LA CUENTA", text)
+        self.assertIn("manifest.json", text)
+
 
 if __name__ == "__main__":
     unittest.main()

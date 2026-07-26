@@ -15,6 +15,8 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 import webbrowser
 from queue import Empty, Queue
 from threading import Event, Thread
@@ -68,6 +70,7 @@ EXTENSION_FIREFOX_URL = (
     "https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/"
     "raw/main/artifacts/of_downloader_exporter-firefox-1.0.7.zip"
 )
+EXTENSION_DOWNLOAD_DIR_NAME = "OFDownloader-Extension"
 SUBSCRIPTIONS_LOG_NAME = "perfiles-suscritos.log"
 SUBSCRIPTIONS_SENTINEL = "OFDOWNLOADER_SUBSCRIPTIONS_JSON:"
 DRIVE_LOG_NAME = "google-drive.log"
@@ -651,6 +654,11 @@ def receive_credentials_locally(
     quick_link = f"{base_url}/?code={code}"
     expires_at = time.monotonic() + timeout
     print("\nRECIBIR COOKIE LOCAL")
+    if extension_download_available():
+        extension_directory = extension_download_directory()
+        print(f"Extension / instructivo: {extension_directory}")
+        if not extension_directory.exists():
+            print("Aun no existe. Usa [12] para descargarla antes de continuar.")
     print("1. Abre OnlyFans en el navegador donde esta la extension.")
     print("2. Pulsa la extension y usa Buscar OF Downloader.")
     print("3. Si no lo encuentra, pega el enlace rapido o usa URL local + codigo.")
@@ -2646,6 +2654,99 @@ def download_cookie_extension() -> int:
     else:
         print("\nNo se pudo abrir el navegador automáticamente. Copia uno de los enlaces.")
     print("Después vuelve al menú y usa [11] Recibir cookie desde extensión.")
+    pause()
+    return 0
+
+
+def extension_download_directory() -> Path:
+    if os.name == "nt":
+        downloads = Path(os.getenv("USERPROFILE", str(HOME))) / "Downloads"
+    else:
+        downloads = Path(os.getenv("XDG_DOWNLOAD_DIR", str(HOME / "Downloads"))).expanduser()
+    return downloads / EXTENSION_DOWNLOAD_DIR_NAME
+
+
+def write_extension_instructions(directory: Path) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    instructions = directory / "INSTRUCCIONES.txt"
+    instructions.write_text(
+        "OF DOWNLOADER EXPORTER - INSTALACION Y USO\n"
+        "===========================================\n\n"
+        "CHROME / CHROMIUM / EDGE\n"
+        "1. Descomprime el ZIP descargado.\n"
+        "2. Abre chrome://extensions o edge://extensions.\n"
+        "3. Activa Modo de desarrollador.\n"
+        "4. Pulsa Cargar descomprimida y elige la carpeta con manifest.json.\n\n"
+        "FIREFOX\n"
+        "1. Descomprime el ZIP descargado.\n"
+        "2. Abre about:debugging.\n"
+        "3. En Este Firefox pulsa Cargar complemento temporal.\n"
+        "4. Elige manifest.json dentro de la carpeta descomprimida.\n\n"
+        "CONECTAR LA CUENTA\n"
+        "1. Abre OnlyFans en el navegador donde instalaste la extension.\n"
+        "2. En OF Downloader elige [11] Recibir cookie desde extension.\n"
+        "3. Pulsa Buscar OF Downloader en mi red desde la extension.\n"
+        "4. Cuando lo encuentre, pulsa Enviar a OF Downloader.\n"
+        "5. Si no lo encuentra, usa el enlace, URL local y codigo de [11].\n\n"
+        "SEGURIDAD\n"
+        "No compartas OFBackup-auth.json ni capturas con cookies o codigos.\n",
+        encoding="utf-8",
+    )
+    return instructions
+
+
+def download_extension_archive(url: str, filename: str, directory: Path) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    target = directory / filename
+    temporary = target.with_suffix(target.suffix + ".part")
+    try:
+        with urllib.request.urlopen(url, timeout=45) as response, temporary.open("wb") as output:
+            while True:
+                chunk = response.read(1024 * 128)
+                if not chunk:
+                    break
+                output.write(chunk)
+        temporary.replace(target)
+    except (OSError, urllib.error.URLError) as exc:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        raise UserError(f"No se pudo descargar la extension: {exc}") from exc
+    return target
+
+
+def download_cookie_extension() -> int:
+    if not extension_download_available():
+        print("La descarga de la extension solo esta disponible en Windows y Linux.")
+        return 1
+    directory = extension_download_directory()
+    print("\nDESCARGAR EXTENSION OF DOWNLOADER EXPORTER")
+    print(f"Destino: {directory}")
+    print("1. Chrome / Chromium / Edge")
+    print("2. Firefox")
+    choice = input("Elige navegador [1/2]: ").strip()
+    if choice == "1":
+        url, filename = EXTENSION_CHROME_URL, "of_downloader_exporter-chrome-1.0.6.zip"
+    elif choice == "2":
+        url, filename = EXTENSION_FIREFOX_URL, "of_downloader_exporter-firefox-1.0.7.zip"
+    else:
+        print("Cancelado.")
+        return 0
+    try:
+        archive = download_extension_archive(url, filename, directory)
+        instructions = write_extension_instructions(directory)
+    except UserError as exc:
+        print(f"\n✗ {exc}")
+        pause()
+        return 1
+    print(f"\n✓ Extension descargada: {archive}")
+    print(f"✓ Instructivo guardado: {instructions}")
+    print("Despues de instalarla, vuelve al menu y usa [11] Recibir cookie desde extension.")
+    try:
+        webbrowser.open(directory.as_uri(), new=2)
+    except webbrowser.Error:
+        pass
     pause()
     return 0
 
