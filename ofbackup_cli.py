@@ -213,6 +213,8 @@ try:
     photos = counts["photos"] if seen else data.get("photosCount", 0)
     videos = counts["videos"] if seen else data.get("videosCount", 0)
     posts = len(counted_posts) if counted_posts else data.get("postsCount", 0)
+    declared = (int(photos or 0) + int(videos or 0)) or "unknown"
+    observed = len(seen) or "unknown"
     accessible = counts["accessible"] if seen else "unknown"
     blocked = counts["blocked"] if seen else "unknown"
     print(
@@ -223,7 +225,8 @@ try:
         f"photos={photos} "
         f"videos={videos} "
         f"archived={data.get('archivedPostsCount', 0)} "
-        f"counted={len(seen)} "
+        f"counted={observed} "
+        f"declared={declared} "
         f"accessible={accessible} "
         f"blocked={blocked} "
         f"area_errors={','.join(partial_errors) or 'none'} "
@@ -1300,6 +1303,7 @@ class ProfileDetection:
     videos: int | None = None
     archived: int | None = None
     counted: int | None = None
+    declared: int | None = None
     accessible: int | None = None
     blocked: int | None = None
     partial: bool = False
@@ -2028,6 +2032,7 @@ def parse_profile_detection(stdout: str) -> ProfileDetection | None:
         videos=optional_int(values.get("videos")),
         archived=optional_int(values.get("archived")),
         counted=optional_int(values.get("counted")),
+        declared=optional_int(values.get("declared")),
         accessible=optional_int(values.get("accessible")),
         blocked=optional_int(values.get("blocked")),
         partial=values.get("partial") == "1",
@@ -2045,7 +2050,9 @@ def detect_profile_counts(username: str, timeout: int = 120) -> ProfileDetection
     detection = parse_profile_detection(stdout)
     if code == 0 and detection is not None:
         if detection.counted is not None:
-            total = f"{detection.counted} medios"
+            total = f"{detection.counted} medios observados"
+        elif detection.declared is not None:
+            total = f"{detection.declared} medios declarados"
         else:
             total = "conteo no informado"
         details = []
@@ -2186,9 +2193,15 @@ def print_detection_summary(profile: SubscriptionProfile, detection: ProfileDete
         print(f"Accesibles: {compact_count(detection.accessible)}")
     if detection.blocked is not None:
         print(f"Bloqueados: {compact_count(detection.blocked)}")
-    if detection.counted:
+    if detection.declared is not None:
+        print(f"Medios declarados: {compact_count(detection.declared)}")
+    if detection.counted is not None:
         status = "parcial" if detection.partial else "completo"
-        print(f"Conteo real de medios: {detection.counted} ({status})")
+        print(f"Medios observados: {detection.counted} ({status})")
+    else:
+        print("Medios observados: no informado (la API no entrego cada elemento)")
+    if detection.accessible is None and detection.blocked is None:
+        print("Accesibles/bloqueados: no informado")
 
 
 def choose_profile_and_download() -> int:
