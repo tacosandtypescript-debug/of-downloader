@@ -871,10 +871,13 @@ class SubscriptionProfileTests(unittest.TestCase):
     def test_parse_profile_detection_keeps_deep_count_fields(self):
         detection = ofbackup_cli.parse_profile_detection(
             "OFDOWNLOADER_PROFILE_OK username=creator.example id=123 "
-            "posts=9 photos=7 videos=2 archived=1 counted=9 partial=1\n"
+            "posts=9 photos=7 videos=2 archived=1 counted=9 "
+            "accessible=6 blocked=3 partial=1\n"
         )
         self.assertIsNotNone(detection)
         self.assertEqual(detection.counted, 9)
+        self.assertEqual(detection.accessible, 6)
+        self.assertEqual(detection.blocked, 3)
         self.assertTrue(detection.partial)
 
     def test_parses_subscription_profiles_from_ofscraper_output(self):

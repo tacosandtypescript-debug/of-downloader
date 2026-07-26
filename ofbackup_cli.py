@@ -137,7 +137,7 @@ try:
         raise SystemExit(4)
 
     seen = set()
-    counts = {"photos": 0, "videos": 0}
+    counts = {"photos": 0, "videos": 0, "accessible": 0, "blocked": 0}
     counted_posts = set()
     partial_errors = []
 
@@ -170,6 +170,17 @@ try:
                 if key in seen:
                     continue
                 seen.add(key)
+                source = media.get("source")
+                has_source = isinstance(source, dict) and any(
+                    source.get(key_name) for key_name in ("source", "url", "src")
+                )
+                blocked = (
+                    media.get("canView") is False
+                    or media.get("isLocked") is True
+                    or media.get("locked") is True
+                    or (media.get("canView") is None and not has_source)
+                )
+                counts["blocked" if blocked else "accessible"] += 1
                 if media_type in {"photo", "image", "images"}:
                     counts["photos"] += 1
                 elif media_type in {"video", "videos"}:
@@ -193,6 +204,8 @@ try:
     photos = counts["photos"] if seen else data.get("photosCount", 0)
     videos = counts["videos"] if seen else data.get("videosCount", 0)
     posts = len(counted_posts) if counted_posts else data.get("postsCount", 0)
+    accessible = counts["accessible"] if seen else "unknown"
+    blocked = counts["blocked"] if seen else "unknown"
     print(
         "OFDOWNLOADER_PROFILE_OK "
         f"username={data.get('username', '')} "
@@ -202,6 +215,8 @@ try:
         f"videos={videos} "
         f"archived={data.get('archivedPostsCount', 0)} "
         f"counted={len(seen)} "
+        f"accessible={accessible} "
+        f"blocked={blocked} "
         f"partial={1 if partial_errors else 0}"
     )
     raise SystemExit(0)
@@ -1274,6 +1289,8 @@ class ProfileDetection:
     videos: int | None = None
     archived: int | None = None
     counted: int | None = None
+    accessible: int | None = None
+    blocked: int | None = None
     partial: bool = False
 
 
@@ -2000,6 +2017,8 @@ def parse_profile_detection(stdout: str) -> ProfileDetection | None:
         videos=optional_int(values.get("videos")),
         archived=optional_int(values.get("archived")),
         counted=optional_int(values.get("counted")),
+        accessible=optional_int(values.get("accessible")),
+        blocked=optional_int(values.get("blocked")),
         partial=values.get("partial") == "1",
     )
 
@@ -2018,7 +2037,13 @@ def detect_profile_counts(username: str, timeout: int = 120) -> ProfileDetection
             total = f"{detection.counted} medios"
         else:
             total = "conteo no informado"
-        print(f"Deteccion lista: {total}.")
+        details = []
+        if detection.accessible is not None:
+            details.append(f"accesibles {detection.accessible}")
+        if detection.blocked is not None:
+            details.append(f"bloqueados {detection.blocked}")
+        suffix = f" ({', '.join(details)})" if details else ""
+        print(f"Deteccion lista: {total}{suffix}.")
         return detection
     print("No se pudo detectar el contenido antes de descargar.")
     if code == 124:
@@ -2146,6 +2171,10 @@ def print_detection_summary(profile: SubscriptionProfile, detection: ProfileDete
     print(f"Fotos:      {compact_count(detection.photos)}")
     print(f"Videos:     {compact_count(detection.videos)}")
     print(f"Archivados: {compact_count(detection.archived)}")
+    if detection.accessible is not None:
+        print(f"Accesibles: {compact_count(detection.accessible)}")
+    if detection.blocked is not None:
+        print(f"Bloqueados: {compact_count(detection.blocked)}")
     if detection.counted:
         status = "parcial" if detection.partial else "completo"
         print(f"Conteo real de medios: {detection.counted} ({status})")
