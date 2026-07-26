@@ -644,6 +644,28 @@ class DownloadTests(unittest.TestCase):
             (9, 2),
         )
 
+    def test_extracts_live_media_progress_from_output(self):
+        stats = ofbackup_cli.DownloadStats()
+        changed = ofbackup_cli.update_download_stats_from_line(
+            stats, "[####------] 45% Fotos 2/30 · Videos 1/19 · Omitidos 2"
+        )
+        self.assertTrue(changed)
+        self.assertEqual(stats.processed_images, 2)
+        self.assertEqual(stats.processed_videos, 1)
+        self.assertEqual(stats.detected_images, 30)
+        self.assertEqual(stats.detected_videos, 19)
+        self.assertEqual(stats.skipped, 2)
+
+    def test_progress_label_includes_live_speed_and_eta(self):
+        stats = ofbackup_cli.DownloadStats(
+            detected_images=10,
+            processed_images=5,
+            started_at=ofbackup_cli.time.monotonic() - 5,
+        )
+        label = stats.label("Descargando archivos")
+        self.assertIn("Velocidad", label)
+        self.assertIn("ETA", label)
+
     def test_counts_new_media_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

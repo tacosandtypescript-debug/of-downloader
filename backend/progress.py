@@ -34,8 +34,51 @@ def extract_media_totals(line: str) -> tuple[int | None, int | None]:
     return first_match(image_patterns), first_match(video_patterns)
 
 
+def extract_media_progress(
+    line: str,
+) -> tuple[tuple[int, int] | None, tuple[int, int] | None]:
+    """Lee contadores vivos como ``Fotos 12/30`` y ``Videos 4/19``."""
+    patterns = {
+        "images": r"\b(?:images?|photos?|fotos?)\s*(\d+)\s*/\s*(\d+)\b",
+        "videos": r"\b(?:videos?|v[ií]deos?)\s*(\d+)\s*/\s*(\d+)\b",
+    }
+
+    def match(key: str) -> tuple[int, int] | None:
+        found = re.search(patterns[key], line, flags=re.IGNORECASE)
+        if not found:
+            return None
+        current, total = (int(value) for value in found.groups())
+        return min(current, total), total
+
+    return match("images"), match("videos")
+
+
 def update_download_stats_from_line(stats: DownloadStats, line: str) -> bool:
     changed = False
+    image_progress, video_progress = extract_media_progress(line)
+    if image_progress:
+        current, total = image_progress
+        if total > (stats.detected_images or 0):
+            stats.detected_images = total
+            changed = True
+        if current > (stats.processed_images or 0):
+            stats.processed_images = current
+            changed = True
+    if video_progress:
+        current, total = video_progress
+        if total > (stats.detected_videos or 0):
+            stats.detected_videos = total
+            changed = True
+        if current > (stats.processed_videos or 0):
+            stats.processed_videos = current
+            changed = True
+
+    skipped_match = re.search(r"\b(?:omitidos?|skipped)\s*[:=]?\s*(\d+)", line, flags=re.IGNORECASE)
+    if skipped_match:
+        skipped = int(skipped_match.group(1))
+        if skipped > stats.skipped:
+            stats.skipped = skipped
+            changed = True
     images, videos = extract_media_totals(line)
     if images is not None and images > (stats.detected_images or 0):
         stats.detected_images = images
@@ -62,8 +105,9 @@ def update_download_stats_from_line(stats: DownloadStats, line: str) -> bool:
     ):
         stats.failed += 1
         changed = True
-    elif any(phrase in lowered for phrase in ("already downloaded", "skipped", "skip media")):
+    elif not skipped_match and any(
+        phrase in lowered for phrase in ("already downloaded", "skipped", "skip media")
+    ):
         stats.skipped += 1
         changed = True
     return changed
-

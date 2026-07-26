@@ -2308,6 +2308,7 @@ def run_ofscraper(
     traceback_seen = False
     auth_failed = False
     stats = DownloadStats()
+    stats.started_at = time.monotonic()
     progress: int | None = None
     last_stage = "Iniciando"
     last_label = stats.label(last_stage)
