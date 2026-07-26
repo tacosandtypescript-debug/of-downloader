@@ -35,7 +35,13 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.16.2`
+Versión actual: `2.16.3`
+
+### Novedades de 2.16.3
+
+- FFmpeg y rclone son opcionales durante la instalación de Windows.
+- Si winget no puede instalarlos, el instalador termina correctamente y muestra
+  qué funciones quedan desactivadas.
 
 ### Novedades de 2.16.2
 
