@@ -8,9 +8,9 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-python -c "import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,14) else 1)"
+python -c "import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,13) else 1)"
 if errorlevel 1 (
-    echo Se necesita Python 3.11, 3.12 o 3.13. Python 3.14 no es compatible con OF-Scraper.
+    echo Se necesita Python 3.11 o 3.12. Python 3.13 o superior no es compatible con OF-Scraper.
     pause
     exit /b 1
 )
@@ -19,5 +19,5 @@ if not exist ".venv" (
 )
 .venv\Scripts\python -m pip install --upgrade pip
 .venv\Scripts\python -m pip install -r requirements.txt
-.venv\Scripts\python app.py
+.venv\Scripts\python ofbackup_cli.py
 pause

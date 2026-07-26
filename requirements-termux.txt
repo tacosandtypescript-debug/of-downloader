@@ -1,2 +1,2 @@
 ofscraper==3.14.7
-Pillow>=12.2,<13
+psutil>=6,<7

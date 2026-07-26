@@ -43,9 +43,20 @@ Para elegir desde tus perfiles suscritos activos:
 
    of perfiles
 
-La opcion 1 del menu hace lo mismo: lista perfiles activos, incluye gratis
-cuando OnlyFans los devuelve, detecta posts/fotos/videos y pregunta antes de
-descargar.
+La opcion 1 del menu lista perfiles activos, incluye gratis cuando OnlyFans los
+devuelve, detecta posts/fotos/videos y pregunta antes de descargar el perfil
+completo.
+
+La descarga completa recorre Timeline, Archived, Pinned, Stories, Streams,
+Profile y Purchased, con todos los posts, reescaneo del perfil y sin cache de
+API. Los archivos existentes no se borran ni se vuelven a contar como nuevos.
+Durante la descarga veras una barra y contadores. En un perfil completo pulsa
+P y Enter para pausar, cambia de red y pulsa R y Enter para reanudar.
+
+En Linux y Termux los controles se ejecutan desde el lanzador y pausan todo el
+grupo de procesos. a-Shell no es compatible con OF-Scraper porque no ofrece el
+entorno de sockets/procesos que necesita el motor; puede usarse para conectarse
+por SSH a un Linux o Termux donde este instalado OF Downloader.
 
 Logs visibles:
 
@@ -94,10 +105,6 @@ WINDOWS
 5. Abre una terminal nueva y usa:
 
    of
-
-6. Para abrir la ventana grafica:
-
-   of-downloader
 
 Para importar el archivo de la extension:
 

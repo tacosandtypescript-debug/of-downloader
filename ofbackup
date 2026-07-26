@@ -9,6 +9,8 @@ APP_UPDATE_REQUEST_EXIT=43
 SELECTED_TEMP=""
 MAX_AUTH_SIZE=65536
 UPDATE_STATUS="unknown"
+CONTROLLED_PID=""
+CONTROLLED_GROUP=0
 
 cleanup_temp() {
     if [[ -n "$SELECTED_TEMP" ]]; then
@@ -17,14 +19,89 @@ cleanup_temp() {
     fi
 }
 
-trap cleanup_temp EXIT
-trap 'cleanup_temp; exit 130' INT TERM
+cleanup_controlled() {
+    if [[ -n "$CONTROLLED_PID" ]] && kill -0 "$CONTROLLED_PID" 2>/dev/null; then
+        if ((CONTROLLED_GROUP)); then
+            kill -TERM -- "-$CONTROLLED_PID" 2>/dev/null || kill -TERM "$CONTROLLED_PID" 2>/dev/null || true
+        else
+            kill -TERM "$CONTROLLED_PID" 2>/dev/null || true
+        fi
+    fi
+}
+
+trap 'cleanup_temp; cleanup_controlled' EXIT
+trap 'cleanup_temp; cleanup_controlled; exit 130' INT TERM
 
 run_ofbackup() {
     proot-distro login --shared-home ofbackup-debian -- \
-        env "OFDOWNLOADER_UPDATE_STATUS=$UPDATE_STATUS" \
+        env "OFDOWNLOADER_PLATFORM=TERMUX" \
+        "OFDOWNLOADER_EXTERNAL_PAUSE=1" \
+        "OFDOWNLOADER_UPDATE_STATUS=$UPDATE_STATUS" \
         "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@"
 }
+
+run_ofbackup_controlled() {
+    local command="" paused=0 status=0
+    CONTROLLED_PID=""
+    CONTROLLED_GROUP=0
+
+    if command -v setsid >/dev/null 2>&1; then
+        setsid "$0" __run-ofbackup "$@" &
+        CONTROLLED_GROUP=1
+    else
+        run_ofbackup "$@" &
+    fi
+    CONTROLLED_PID=$!
+
+    if [[ ! -t 0 ]]; then
+        wait "$CONTROLLED_PID"
+        status=$?
+        CONTROLLED_PID=""
+        return "$status"
+    fi
+
+    echo "Controles Termux: P + Enter pausa | R + Enter reanuda"
+    while kill -0 "$CONTROLLED_PID" 2>/dev/null; do
+        if read -r -t 1 command; then
+            case "${command,,}" in
+                p|pausa|pause)
+                    if ((paused == 0)) && {
+                        if ((CONTROLLED_GROUP)); then
+                            kill -STOP -- "-$CONTROLLED_PID" 2>/dev/null || kill -STOP "$CONTROLLED_PID" 2>/dev/null
+                        else
+                            kill -STOP "$CONTROLLED_PID" 2>/dev/null
+                        fi
+                    }; then
+                        paused=1
+                        echo "[PAUSADA] Cambia de red y pulsa R + Enter para continuar."
+                    fi
+                    ;;
+                r|reanudar|resume)
+                    if ((paused == 1)) && {
+                        if ((CONTROLLED_GROUP)); then
+                            kill -CONT -- "-$CONTROLLED_PID" 2>/dev/null || kill -CONT "$CONTROLLED_PID" 2>/dev/null
+                        else
+                            kill -CONT "$CONTROLLED_PID" 2>/dev/null
+                        fi
+                    }; then
+                        paused=0
+                        echo "[REANUDADA] La descarga continúa."
+                    fi
+                    ;;
+            esac
+        fi
+    done
+    wait "$CONTROLLED_PID"
+    status=$?
+    CONTROLLED_PID=""
+    return "$status"
+}
+
+if [[ "${1:-}" == "__run-ofbackup" ]]; then
+    shift
+    run_ofbackup "$@"
+    exit $?
+fi
 
 find_repo_dir() {
     local candidate
@@ -247,7 +324,7 @@ case "${1:-menu}" in
 esac
 
 while true; do
-    run_ofbackup "$@"
+    run_ofbackup_controlled "$@"
     status=$?
     if [[ "$status" -eq "$APP_UPDATE_REQUEST_EXIT" ]]; then
         if update_application; then

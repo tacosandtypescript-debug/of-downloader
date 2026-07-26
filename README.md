@@ -30,7 +30,7 @@
 - Conecta la cuenta usando la extensión `OF Downloader Exporter`.
 - Puede recibir la cookie desde la extensión por red local.
 - Lista perfiles suscritos activos cuando OnlyFans los devuelve.
-- Descarga perfiles por usuario/enlace y publicaciones por enlace.
+- Descarga perfiles completos por usuario/enlace y publicaciones por enlace.
 - Muestra progreso, resumen y logs visibles.
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
@@ -88,6 +88,37 @@ of
 
 El instalador de Windows intenta preparar Python 3.12, FFmpeg y rclone con
 `winget`. No uses Python 3.13 para esta app en Windows.
+
+## Descargar un perfil completo
+
+La descarga de perfil recorre todo el contenido que tu cuenta puede consultar:
+Timeline, archivados, fijados, historias, streams, perfil y compras. Usa todos
+los posts, fuerza el reescaneo y desactiva las cachés del motor para evitar que
+una ejecución anterior o incompleta oculte contenido.
+
+Durante la descarga se muestra una barra viva con el estado y el contador
+`Total descargado/total`. En perfiles completos puedes pulsar `P` y Enter para
+pausar OF-Scraper y sus procesos hijos, cambiar de red y pulsar `R` y Enter para
+reanudar. Si el motor no informa un total, se muestra el total descargado sin
+inventar una cantidad restante.
+
+Estos controles funcionan en Linux y Termux. a-Shell no es un entorno compatible
+con este descargador: OF-Scraper necesita sockets, procesos hijos y dependencias
+que no son puramente Python. Desde a-Shell se puede controlar un equipo Linux o
+Termux remoto mediante SSH, pero no ejecutar el motor completo localmente.
+
+Desde el menú elige `[2] Descargar perfil por usuario o enlace`, o ejecuta:
+
+```bash
+of usuario NOMBRE
+of "https://onlyfans.com/NOMBRE"
+```
+
+La opción `[1]` permite elegir un perfil de tus suscripciones y muestra un
+conteo previo antes de confirmar la descarga completa. Las emisiones en vivo no
+se incluyen porque no son contenido histórico descargable. Los archivos ya
+existentes se conservan y el resumen final distingue archivos nuevos, omitidos
+y fallos.
 
 ## Extensión del navegador
 
