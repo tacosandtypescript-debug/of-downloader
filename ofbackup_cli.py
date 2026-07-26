@@ -129,7 +129,15 @@ if not hasattr(logging.Logger, "traceback_"):
 try:
     from ofscraper.main.open import load
     import ofscraper.managers.manager as manager
-    from ofscraper.data.api import archive, highlights, pinned, profile, streams, timeline
+    from ofscraper.data.api import (
+        archive,
+        highlights,
+        paid,
+        pinned,
+        profile,
+        streams,
+        timeline,
+    )
 
     load.systemSet()
     load.settings_loader()
@@ -201,6 +209,7 @@ try:
                     media.get("canView") is False
                     or media.get("isLocked") is True
                     or media.get("locked") is True
+                    or media.get("unlocked") in {0, False}
                     or (media.get("canView") is None and not has_source)
                 )
                 counts["blocked" if blocked else "accessible"] += 1
@@ -223,6 +232,10 @@ try:
         try_area("pinned", pinned.get_pinned_posts, model_id, c=c)
         try_area("stories", highlights.get_stories_post, model_id, c=c)
         try_area("streams", streams.get_streams_posts, model_id, model_username, c=c)
+        # OF-Scraper mantiene el contenido comprado/de pago en un endpoint
+        # separado; sin esta consulta el perfil puede parecer tener cero
+        # medios aunque el comando de descarga sí incluya Purchased.
+        try_area("purchased", paid.get_paid_posts, model_username, model_id, c=c)
 
     profile_photos = data.get("photosCount")
     profile_videos = data.get("videosCount")
