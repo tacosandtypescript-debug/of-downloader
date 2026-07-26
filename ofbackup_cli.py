@@ -15,6 +15,7 @@ import socket
 import subprocess
 import sys
 import time
+import webbrowser
 from queue import Empty, Queue
 from threading import Event, Thread
 from dataclasses import dataclass, field
@@ -58,6 +59,15 @@ AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
 DOWNLOAD_LOG_PATH = APP_DIR / "ultima-descarga.log"
 PUBLIC_DOWNLOAD_LOG_NAME = "ultima-descarga.log"
 PROFILE_TEST_LOG_NAME = "prueba-perfil.log"
+EXTENSION_PAGE_URL = "https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions"
+EXTENSION_CHROME_URL = (
+    "https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/"
+    "raw/main/artifacts/of_downloader_exporter-chrome-1.0.6.zip"
+)
+EXTENSION_FIREFOX_URL = (
+    "https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/"
+    "raw/main/artifacts/of_downloader_exporter-firefox-1.0.7.zip"
+)
 SUBSCRIPTIONS_LOG_NAME = "perfiles-suscritos.log"
 SUBSCRIPTIONS_SENTINEL = "OFDOWNLOADER_SUBSCRIPTIONS_JSON:"
 DRIVE_LOG_NAME = "google-drive.log"
@@ -2609,6 +2619,37 @@ def pause() -> None:
         pass
 
 
+def extension_download_available() -> bool:
+    """La descarga guiada de la extensión solo se ofrece en escritorio."""
+    platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "").upper()
+    if platform_name == "TERMUX" or "com.termux" in os.getenv("PREFIX", ""):
+        return False
+    if platform_name in {"WINDOWS", "LINUX"}:
+        return True
+    return os.name == "nt" or sys.platform.startswith("linux")
+
+
+def download_cookie_extension() -> int:
+    if not extension_download_available():
+        print("La descarga de la extensión solo está disponible en Windows y Linux.")
+        return 1
+    print("\nEXTENSIÓN OF DOWNLOADER EXPORTER")
+    print("Se abrirá la página oficial para descargarla e instalarla en tu navegador.")
+    print(f"Chrome / Chromium: {EXTENSION_CHROME_URL}")
+    print(f"Firefox:           {EXTENSION_FIREFOX_URL}")
+    try:
+        opened = webbrowser.open(EXTENSION_PAGE_URL, new=2)
+    except webbrowser.Error:
+        opened = False
+    if opened:
+        print("\n✓ Página de descarga abierta en el navegador.")
+    else:
+        print("\nNo se pudo abrir el navegador automáticamente. Copia uno de los enlaces.")
+    print("Después vuelve al menú y usa [11] Recibir cookie desde extensión.")
+    pause()
+    return 0
+
+
 def menu() -> int:
     while True:
         state = get_state()
@@ -2639,6 +2680,8 @@ def menu() -> int:
         menu_option("4", "Conectar o renovar acceso")
         menu_option("5", "Probar acceso")
         menu_option("11", "Recibir cookie desde extension")
+        if extension_download_available():
+            menu_option("12", "Descargar extension para cookie")
 
         print(styled("\n  HERRAMIENTAS", "blue", bold=True))
         menu_option("6", "Cambiar carpeta de descargas")
@@ -2680,6 +2723,8 @@ def menu() -> int:
                     return IMPORT_REQUEST_EXIT
             elif choice == "11":
                 receive_credentials_locally(show_qr=True)
+            elif choice == "12" and extension_download_available():
+                download_cookie_extension()
             elif choice == "6":
                 change_destination()
             elif choice == "7":

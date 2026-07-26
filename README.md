@@ -198,6 +198,7 @@ MI CUENTA
 [4] Conectar o renovar acceso
 [5] Probar acceso
 [11] Recibir cookie desde extension
+[12] Descargar extension para cookie  (Windows y Linux)
 
 HERRAMIENTAS
 [6] Cambiar carpeta de descargas

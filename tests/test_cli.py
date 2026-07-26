@@ -1089,5 +1089,23 @@ class SubscriptionProfileTests(unittest.TestCase):
         )
 
 
+class ExtensionDownloadTests(unittest.TestCase):
+    def test_extension_download_is_available_on_desktop(self):
+        with mock.patch.dict(
+            ofbackup_cli.os.environ,
+            {"OFDOWNLOADER_PLATFORM": "WINDOWS", "PREFIX": ""},
+            clear=True,
+        ):
+            self.assertTrue(ofbackup_cli.extension_download_available())
+
+    def test_extension_download_is_hidden_on_termux(self):
+        with mock.patch.dict(
+            ofbackup_cli.os.environ,
+            {"OFDOWNLOADER_PLATFORM": "TERMUX", "PREFIX": "/data/data/com.termux/files/usr"},
+            clear=True,
+        ):
+            self.assertFalse(ofbackup_cli.extension_download_available())
+
+
 if __name__ == "__main__":
     unittest.main()
