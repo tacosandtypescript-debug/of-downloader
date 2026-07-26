@@ -153,9 +153,23 @@ try:
     def walk_media(value):
         if isinstance(value, dict):
             media = value.get("media")
-            if isinstance(media, list):
-                for item in media:
-                    yield item
+            if isinstance(media, (dict, list)):
+                yield from walk_media(media)
+            # Algunas respuestas usan nombres alternativos para los adjuntos.
+            for key in ("attachments", "mediaFiles", "files"):
+                nested = value.get(key)
+                if isinstance(nested, (dict, list)):
+                    yield from walk_media(nested)
+            media_type = str(
+                value.get("type")
+                or value.get("media_type")
+                or value.get("mediaType")
+                or value.get("mediatype")
+                or ("video" if value.get("isVideo") is True else "")
+                or ("photo" if value.get("isImage") is True else "")
+            ).lower()
+            if media_type in {"photo", "image", "images", "video", "videos"}:
+                yield value
             for key in ("preview", "linkedPost", "post"):
                 nested = value.get(key)
                 if isinstance(nested, (dict, list)):
@@ -210,10 +224,14 @@ try:
         try_area("stories", highlights.get_stories_post, model_id, c=c)
         try_area("streams", streams.get_streams_posts, model_id, model_username, c=c)
 
-    photos = counts["photos"] if seen else data.get("photosCount", 0)
-    videos = counts["videos"] if seen else data.get("videosCount", 0)
+    profile_photos = data.get("photosCount")
+    profile_videos = data.get("videosCount")
+    photos = profile_photos if profile_photos is not None else counts["photos"]
+    videos = profile_videos if profile_videos is not None else counts["videos"]
     posts = len(counted_posts) if counted_posts else data.get("postsCount", 0)
-    declared = (int(photos or 0) + int(videos or 0)) or "unknown"
+    declared = (int(profile_photos or 0) + int(profile_videos or 0)) or (
+        (counts["photos"] + counts["videos"]) or "unknown"
+    )
     observed = len(seen) or "unknown"
     accessible = counts["accessible"] if seen else "unknown"
     blocked = counts["blocked"] if seen else "unknown"
