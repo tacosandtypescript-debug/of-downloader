@@ -1,2 +1,1 @@
-"""Interfaces de usuario de OF Downloader."""
-
+"""Renderizadores y componentes de interfaz de OF Downloader."""

@@ -35,7 +35,12 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.16.0`
+Versión actual: `2.16.1`
+
+### Novedades de 2.16.1
+
+- Corrección del actualizador de Termux para instalar `backend/` y `frontend/`.
+- Verificación de componentes antes de reiniciar el menú.
 
 ### Novedades de 2.16.0
 
