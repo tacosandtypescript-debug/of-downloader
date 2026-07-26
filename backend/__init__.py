@@ -1,2 +1,1 @@
-"""Backend reutilizable de OF Downloader."""
-
+"""Backend compartido de OF Downloader."""
