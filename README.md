@@ -121,6 +121,12 @@ se incluyen porque no son contenido histórico descargable. Los archivos ya
 existentes se conservan y el resumen final distingue archivos nuevos, omitidos
 y fallos.
 
+La deteccion previa tambien consulta el area `Purchased` para identificar
+contenido comprado o bloqueado cuando OnlyFans lo entrega a la sesion. Si solo
+devuelve los totales del perfil, veras "medios declarados" y el detalle de
+accesibles/bloqueados quedara como "no informado"; no significa que el perfil
+este vacio.
+
 ## Extensión del navegador
 
 La extensión se usa para conectar tu cuenta sin pegar cookies manualmente.
