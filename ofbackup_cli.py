@@ -1139,9 +1139,10 @@ class DownloadStats:
             parts.append(f"Omitidos {self.skipped}")
         total_detected = (self.detected_images or 0) + (self.detected_videos or 0)
         if total_detected:
-            remaining = max(0, total_detected - self.downloaded.total)
+            accounted = self.accounted_total
+            remaining = max(0, total_detected - accounted)
             parts.append(
-                f"Total {self.downloaded.total}/{total_detected} | Restan {remaining}"
+                f"Total {accounted}/{total_detected} | Restan {remaining}"
             )
         elif self.downloaded.total:
             parts.append(f"Total descargado {self.downloaded.total}")
@@ -1896,7 +1897,7 @@ def run_profile_lookup_process(
         )
         started = time.monotonic()
         if sys.stdout.isatty():
-            show_download_progress(5, "Detectando fotos y videos")
+            show_download_progress(None, "Detectando fotos y videos")
         else:
             print("Detectando fotos y videos antes de descargar...")
             print("Puede tardar hasta 2 minutos en perfiles grandes.")
@@ -1913,8 +1914,7 @@ def run_profile_lookup_process(
                 stderr = (stderr or "") + f"\nLa prueba supero {timeout} segundos.\n"
                 break
             if sys.stdout.isatty():
-                progress = min(95, 5 + int((elapsed / max(timeout, 1)) * 90))
-                show_download_progress(progress, "Detectando fotos y videos")
+                show_download_progress(None, "Detectando fotos y videos")
             time.sleep(0.5)
         else:
             stdout, stderr = process.communicate()
@@ -1923,7 +1923,7 @@ def run_profile_lookup_process(
             if code == 0:
                 show_download_progress(100, "Deteccion lista")
             else:
-                show_download_progress(0, "Deteccion previa no disponible", failed=True)
+                show_download_progress(None, "Deteccion previa no disponible", failed=True)
             print()
     except OSError as exc:
         code, stdout, stderr = 1, "", str(exc)
@@ -2123,16 +2123,21 @@ def choose_profile_and_download() -> int:
     return download_user(selected.username, source="selector")
 
 
-def show_download_progress(percent: int, label: str, *, failed: bool = False) -> None:
-    percent = min(100, max(0, percent))
+def show_download_progress(percent: int | None, label: str, *, failed: bool = False) -> None:
     columns = shutil.get_terminal_size((60, 20)).columns
     width = max(10, min(20, columns - 36))
-    filled = percent * width // 100
+    if percent is None:
+        percent_text = "--"
+        filled = 0
+    else:
+        percent = min(100, max(0, percent))
+        percent_text = f"{percent:02d}"
+        filled = percent * width // 100
     bar = "#" * filled + "-" * (width - filled)
     max_label = max(12, columns - width - 10)
     if len(label) > max_label:
         label = label[: max_label - 1].rstrip() + "…"
-    message = f"[{bar}] {percent:3d}% {label}"
+    message = f"[{bar}] {percent_text}% {label}"
     if sys.stdout.isatty():
         prefix = "\033[2K\r"
         if colors_enabled():
@@ -2162,7 +2167,7 @@ def run_ofscraper(
     traceback_seen = False
     auth_failed = False
     stats = DownloadStats()
-    progress = 3
+    progress: int | None = None
     last_stage = "Iniciando"
     last_label = stats.label(last_stage)
     last_scan = 0.0
@@ -2199,7 +2204,7 @@ def run_ofscraper(
                 and sys.stdin.isatty()
                 and not os.getenv("OFDOWNLOADER_EXTERNAL_PAUSE")
             ):
-                print("Controles: P + Enter pausa | R + Enter reanuda")
+                print("\nControles: P + Enter pausa | R + Enter reanuda")
 
                 def pause_commands() -> None:
                     while not control_stop.is_set():
@@ -2256,28 +2261,33 @@ def run_ofscraper(
                     stats_changed = True
 
                 reported = extract_download_percent(line)
-                detected_total = (stats.detected_images or 0) + (stats.detected_videos or 0)
-                if detected_total and stats.downloaded.total:
+                detected_total = stats.detected_total
+                if detected_total and stats.accounted_total:
                     counted_progress = min(
-                        95,
-                        10 + (stats.downloaded.total * 85 // detected_total),
+                        99, stats.accounted_total * 100 // detected_total
                     )
-                    new_progress = max(progress, counted_progress)
+                    new_progress = (
+                        counted_progress
+                        if progress is None
+                        else max(progress, counted_progress)
+                    )
                     stage = "Descargando archivos"
                 elif reported is not None:
-                    new_progress = max(progress, min(95, 35 + reported * 3 // 5))
+                    new_progress = (
+                        reported if progress is None else max(progress, reported)
+                    )
                     stage = "Descargando archivos"
                 elif "key mode:" in lowered:
-                    new_progress, stage = max(progress, 10), "Preparando video"
+                    new_progress, stage = progress, "Preparando video"
                 elif "checking auth status" in lowered:
-                    new_progress, stage = max(progress, 20), "Verificando acceso"
+                    new_progress, stage = progress, "Verificando acceso"
                 elif any(word in lowered for word in ("scrap", "timeline", "post")):
                     search_label = (
                         "Buscando el perfil" if mode == "perfil" else "Buscando la publicación"
                     )
-                    new_progress, stage = max(progress, 35), search_label
+                    new_progress, stage = progress, search_label
                 elif "download" in lowered:
-                    new_progress, stage = max(progress, 45), "Descargando archivos"
+                    new_progress, stage = progress, "Descargando archivos"
                 else:
                     new_progress, stage = progress, last_stage
 
