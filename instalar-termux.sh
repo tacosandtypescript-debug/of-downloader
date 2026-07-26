@@ -148,6 +148,9 @@ complete_task() {
 prepare_ofbackup_files() {
     mkdir -p "$APP_HOME"
     install -m 600 "$SOURCE_DIR/ofbackup_cli.py" "$APP_HOME/ofbackup_cli.py"
+    mkdir -p "$APP_HOME/backend" "$APP_HOME/frontend"
+    install -m 600 "$SOURCE_DIR/backend/"*.py "$APP_HOME/backend/"
+    install -m 600 "$SOURCE_DIR/frontend/"*.py "$APP_HOME/frontend/"
     install -m 600 "$SOURCE_DIR/requirements-termux.txt" "$APP_HOME/requirements-termux.txt"
 }
 

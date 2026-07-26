@@ -23,10 +23,20 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlparse
 
-try:
-    import psutil
-except ImportError:  # pragma: no cover - el instalador incluye psutil
-    psutil = None
+from backend.models import (
+    DownloadStats as BackendDownloadStats,
+    MediaCounts as BackendMediaCounts,
+)
+from backend.process import (
+    PausableProcess as BackendPausableProcess,
+    read_process_output as backend_read_process_output,
+)
+from backend.progress import (
+    extract_download_percent as backend_extract_download_percent,
+    extract_media_totals as backend_extract_media_totals,
+    update_download_stats_from_line as backend_update_download_stats_from_line,
+)
+from frontend.progress import show_download_progress as frontend_show_download_progress
 
 
 APP_VERSION = "2.15.0"
@@ -2147,6 +2157,18 @@ def show_download_progress(percent: int | None, label: str, *, failed: bool = Fa
             print(prefix + message, end="", flush=True)
     else:
         print(message)
+
+
+# Compatibilidad: el CLI conserva sus nombres públicos, pero la implementación
+# activa vive en backend/frontend para que otros frontends puedan reutilizarla.
+MediaCounts = BackendMediaCounts
+DownloadStats = BackendDownloadStats
+PausableProcess = BackendPausableProcess
+read_process_output = backend_read_process_output
+extract_download_percent = backend_extract_download_percent
+extract_media_totals = backend_extract_media_totals
+update_download_stats_from_line = backend_update_download_stats_from_line
+show_download_progress = frontend_show_download_progress
 
 
 def run_ofscraper(
