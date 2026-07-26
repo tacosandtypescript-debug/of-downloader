@@ -2022,6 +2022,10 @@ def detect_profile_counts(username: str, timeout: int = 120) -> ProfileDetection
         print("La deteccion tardo demasiado.")
     elif "Auth Failed" in stdout or "Auth Failed" in stderr:
         print("OnlyFans rechazo los datos de acceso.")
+    elif "NoSuchCommand" in stdout or "NoSuchCommand" in stderr:
+        print("La sesion responde, pero esta version de OF-Scraper no expone la API")
+        print("necesaria para contar el perfil antes de descargar.")
+        print("La descarga principal puede continuar; el conteo previo no esta disponible.")
     else:
         print("Puede ser sesion invalida, perfil sin acceso o bloqueo de la API.")
     if visible_log:
@@ -2133,7 +2137,7 @@ def print_detection_summary(profile: SubscriptionProfile, detection: ProfileDete
     print("\nDETECCION")
     print(f"Perfil: @{profile.username}")
     if detection is None:
-        print("Detectados: no informado")
+        print("Conteo previo: no disponible (la sesion puede seguir siendo valida)")
         return
     print(f"Posts:      {compact_count(detection.posts)}")
     print(f"Fotos:      {compact_count(detection.photos)}")
