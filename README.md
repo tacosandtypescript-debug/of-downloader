@@ -197,8 +197,6 @@ DESCARGAS
 MI CUENTA
 [4] Conectar o renovar acceso
 [5] Probar acceso
-[11] Recibir cookie desde extension
-[12] Descargar extension para cookie  (Windows y Linux)
 
 HERRAMIENTAS
 [6] Cambiar carpeta de descargas
@@ -206,6 +204,10 @@ HERRAMIENTAS
 [8] Actualizar OF Downloader y reiniciar
 [9] Actualizar motor de descarga
 [10] Google Drive
+
+EXTENSION Y COOKIE
+[11] Recibir cookie desde extension
+[12] Descargar extension para cookie  (Windows y Linux)
 [0] Salir
 ```
 

@@ -63,12 +63,12 @@ PUBLIC_DOWNLOAD_LOG_NAME = "ultima-descarga.log"
 PROFILE_TEST_LOG_NAME = "prueba-perfil.log"
 EXTENSION_PAGE_URL = "https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions"
 EXTENSION_CHROME_URL = (
-    "https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/"
-    "raw/main/artifacts/of_downloader_exporter-chrome-1.0.6.zip"
+    "https://raw.githubusercontent.com/tacosandtypescript-debug/"
+    "of-downloader-browser-extensions/main/artifacts/of_downloader_exporter-chrome-1.0.6.zip"
 )
 EXTENSION_FIREFOX_URL = (
-    "https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions/"
-    "raw/main/artifacts/of_downloader_exporter-firefox-1.0.7.zip"
+    "https://raw.githubusercontent.com/tacosandtypescript-debug/"
+    "of-downloader-browser-extensions/main/artifacts/of_downloader_exporter-firefox-1.0.7.zip"
 )
 EXTENSION_DOWNLOAD_DIR_NAME = "OFDownloader-Extension"
 SUBSCRIPTIONS_LOG_NAME = "perfiles-suscritos.log"
@@ -2700,7 +2700,11 @@ def download_extension_archive(url: str, filename: str, directory: Path) -> Path
     target = directory / filename
     temporary = target.with_suffix(target.suffix + ".part")
     try:
-        with urllib.request.urlopen(url, timeout=45) as response, temporary.open("wb") as output:
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": f"OF-Downloader/{APP_VERSION}"},
+        )
+        with urllib.request.urlopen(request, timeout=45) as response, temporary.open("wb") as output:
             while True:
                 chunk = response.read(1024 * 128)
                 if not chunk:
@@ -2780,9 +2784,6 @@ def menu() -> int:
         print(styled("\n  MI CUENTA", "blue", bold=True))
         menu_option("4", "Conectar o renovar acceso")
         menu_option("5", "Probar acceso")
-        menu_option("11", "Recibir cookie desde extension")
-        if extension_download_available():
-            menu_option("12", "Descargar extension para cookie")
 
         print(styled("\n  HERRAMIENTAS", "blue", bold=True))
         menu_option("6", "Cambiar carpeta de descargas")
@@ -2794,6 +2795,11 @@ def menu() -> int:
         menu_option("8", update_label)
         menu_option("9", "Actualizar motor de descarga")
         menu_option("10", "Google Drive")
+
+        print(styled("\n  EXTENSION Y COOKIE", "blue", bold=True))
+        menu_option("11", "Recibir cookie desde extension")
+        if extension_download_available():
+            menu_option("12", "Descargar extension para cookie")
         menu_option("0", "Salir")
 
         status = styled("● CONECTADA", "green", bold=True) if connected else styled(
