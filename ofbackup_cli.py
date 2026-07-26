@@ -112,11 +112,19 @@ except Exception as exc:
 PROFILE_TEST_SCRIPT = r"""
 import sys
 import traceback
+import logging
 
 username = sys.argv[1]
 # OF-Scraper inspecciona sys.argv durante su inicialización. El nombre del
 # perfil es un argumento de este script, no un comando de OF-Scraper.
 sys.argv = [sys.argv[0]]
+
+# OF-Scraper 3.14.7 usa niveles de log propios que no siempre quedan
+# registrados cuando se inicializa desde un script externo.
+if not hasattr(logging.Logger, "trace"):
+    logging.Logger.trace = logging.Logger.debug
+if not hasattr(logging.Logger, "traceback_"):
+    logging.Logger.traceback_ = logging.Logger.debug
 
 try:
     from ofscraper.main.open import load
