@@ -35,7 +35,12 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.16.1`
+Versión actual: `2.16.2`
+
+### Novedades de 2.16.2
+
+- `qrencode` pasa a ser opcional en Termux; no detiene la instalación si no existe.
+- `rclone` y `termux-api` siguen tratándose como herramientas independientes.
 
 ### Novedades de 2.16.1
 
