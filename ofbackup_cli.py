@@ -724,22 +724,32 @@ def select_auth_export_file() -> Path | None:
 
 
 def import_default_auth_export(*, prompt_if_missing: bool = True) -> None:
+    default_path = default_auth_export_path()
+    if not prompt_if_missing:
+        import_credentials_file(default_path)
+        return
+
+    print("Arrastra aqui OFBackup-auth.json y pulsa Enter.")
+    print("Si dejas vacio, se abrira el selector de archivos del sistema.")
+    print(r"Ejemplo Windows: C:\Users\TU_USUARIO\Downloads\OFBackup-auth.json")
+    try:
+        value = input("Archivo: ").strip()
+    except EOFError:
+        value = ""
+    if value:
+        import_credentials_file(user_supplied_path(value))
+        return
+
     selected = select_auth_export_file()
     if selected is not None:
         import_credentials_file(selected)
         return
 
-    default_path = default_auth_export_path()
     if default_path.is_file():
         import_credentials_file(default_path)
         return
-    if not prompt_if_missing:
-        import_credentials_file(default_path)
-        return
+
     print(f"No encontre el archivo en: {default_path}")
-    print("Si lo guardaste con otro nombre o en otra carpeta, pega la ruta completa.")
-    print(r"Ejemplo Windows: C:\Users\TU_USUARIO\Downloads\OFBackup-auth.json")
-    value = input("Ruta del archivo o Enter para cancelar: ").strip()
     if not value:
         raise UserError(
             f"Pon {AUTH_EXPORT_FILENAME} en Descargas o usa: of importar RUTA_DEL_ARCHIVO"
@@ -779,14 +789,14 @@ def json_cookie_prompt(*, allow_object: bool = False) -> str:
 
 def configure_credentials() -> int:
     print("\nCONECTAR MI CUENTA")
-    print("Usa el archivo OFBackup-auth.json creado por la extension del navegador.")
+    print("Carga manualmente OFBackup-auth.json, exportado desde la extension del navegador.")
     print("Si necesitas instrucciones para sacarlo y moverlo, ejecuta: of cookie ayuda")
-    platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "TERMUX").upper()
+    platform_name = runtime_platform_name()
     if platform_name in {"LINUX", "WINDOWS"}:
-        print("Abriendo el explorador para elegir OFBackup-auth.json...")
+        print("Puedes arrastrarlo a esta ventana o dejar Enter para abrir el selector.")
         import_default_auth_export()
         return 0
-    print("Abriendo el selector Android para elegir OFBackup-auth.json...")
+    print("Abriendo el selector de archivos de Android para elegir OFBackup-auth.json...")
     return IMPORT_REQUEST_EXIT
 
 
@@ -2627,9 +2637,22 @@ def pause() -> None:
         pass
 
 
+def runtime_platform_name() -> str:
+    configured = os.getenv("OFDOWNLOADER_PLATFORM", "").upper()
+    if configured:
+        return configured
+    if "com.termux" in os.getenv("PREFIX", ""):
+        return "TERMUX"
+    if os.name == "nt":
+        return "WINDOWS"
+    if sys.platform.startswith("linux"):
+        return "LINUX"
+    return "UNKNOWN"
+
+
 def extension_download_available() -> bool:
     """La descarga guiada de la extensión solo se ofrece en escritorio."""
-    platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "").upper()
+    platform_name = runtime_platform_name()
     if platform_name == "TERMUX" or "com.termux" in os.getenv("PREFIX", ""):
         return False
     if platform_name in {"WINDOWS", "LINUX"}:
@@ -2782,7 +2805,7 @@ def menu() -> int:
         menu_option("3", "Descargar publicacion por enlace")
 
         print(styled("\n  MI CUENTA", "blue", bold=True))
-        menu_option("4", "Conectar o renovar acceso")
+        menu_option("4", "Cargar archivo de cookie manualmente")
         menu_option("5", "Probar acceso")
 
         print(styled("\n  HERRAMIENTAS", "blue", bold=True))

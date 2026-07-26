@@ -369,6 +369,10 @@ class AuthImportTests(unittest.TestCase):
         output = io.StringIO()
         with (
             mock.patch("builtins.input", return_value="1"),
+            mock.patch.dict(
+                ofbackup_cli.os.environ,
+                {"OFDOWNLOADER_PLATFORM": "TERMUX"},
+            ),
             mock.patch.object(ofbackup_cli.sys, "stdout", output),
         ):
             self.assertEqual(
