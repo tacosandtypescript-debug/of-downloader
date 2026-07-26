@@ -183,8 +183,13 @@ printf '\n'
 
 run_task 0 8 "Consultando actualizaciones de Termux" pkg update -y
 run_task 8 16 "Actualizando Termux" pkg upgrade -y
-run_task 16 28 "Instalando herramientas base, rclone, QR y selector Android" \
-    pkg install -y proot-distro git termux-tools termux-api rclone qrencode
+run_task 16 28 "Instalando herramientas base y selector Android" \
+    pkg install -y proot-distro git termux-tools termux-api rclone
+
+if ! pkg install -y qrencode >/dev/null 2>&1; then
+    echo "AVISO: qrencode no esta disponible en este repositorio de Termux."
+    echo "El QR es opcional; el resto del descargador continuara funcionando."
+fi
 
 if ! pm list packages 2>/dev/null | grep -q '^package:com.termux.api$'; then
     echo
@@ -215,12 +220,17 @@ run_task 48 77 "Preparando Python 3.13, FFmpeg y librerías" \
     apt-get update
     apt-get upgrade -y
     apt-get install -y --no-install-recommends \
-        python3 python3-dev python3-venv python3-pip ffmpeg rclone qrencode ca-certificates git \
+        python3 python3-dev python3-venv python3-pip ffmpeg rclone ca-certificates git \
         build-essential pkg-config rustc cargo \
         libffi-dev libssl-dev libxml2-dev libxslt1-dev \
         libjpeg62-turbo-dev liblz4-dev libyaml-dev zlib1g-dev
     python3 -c "import sys; assert (3, 11) <= sys.version_info[:2] < (3, 14), sys.version"
 '
+
+if ! proot-distro login --shared-home "$CONTAINER" -- bash -lc \
+    'apt-get install -y --no-install-recommends qrencode >/dev/null 2>&1'; then
+    echo "AVISO: qrencode no esta disponible dentro de Debian. El QR es opcional."
+fi
 
 run_task 77 80 "Copiando archivos de OF Downloader" prepare_ofbackup_files
 
