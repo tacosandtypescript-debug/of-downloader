@@ -605,6 +605,18 @@ class DownloadTests(unittest.TestCase):
             ofbackup_cli.show_download_progress(None, "Analizando perfil")
         self.assertIn("--% Analizando perfil", output.getvalue())
 
+    def test_progress_uses_readable_blocks_when_terminal_has_color(self):
+        output = io.StringIO()
+        with (
+            mock.patch.object(ofbackup_cli.sys, "stdout", output),
+            mock.patch.object(ofbackup_cli.sys.stdout, "isatty", return_value=True),
+            mock.patch("frontend.progress.colors_enabled", return_value=True),
+        ):
+            ofbackup_cli.show_download_progress(45, "Fotos 2/30")
+        self.assertIn("▰", output.getvalue())
+        self.assertIn("▱", output.getvalue())
+        self.assertIn("45% Fotos 2/30", output.getvalue())
+
     def test_reads_progress_updates_separated_by_carriage_return(self):
         output = []
         queue = ofbackup_cli.Queue()
