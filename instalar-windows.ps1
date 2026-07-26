@@ -119,13 +119,18 @@ function Install-FFmpeg {
         return $false
     }
     Write-Host "FFmpeg no esta instalado. Intentare instalarlo automaticamente con winget..." -ForegroundColor Yellow
-    Run-Checked "winget" @(
-        "install",
-        "--id", "Gyan.FFmpeg",
-        "-e",
-        "--accept-package-agreements",
-        "--accept-source-agreements"
-    ) "No se pudo instalar FFmpeg automaticamente con winget."
+    try {
+        Run-Checked "winget" @(
+            "install",
+            "--id", "Gyan.FFmpeg",
+            "-e",
+            "--accept-package-agreements",
+            "--accept-source-agreements"
+        ) "No se pudo instalar FFmpeg automaticamente con winget."
+    } catch {
+        Write-Host "AVISO: FFmpeg no se pudo instalar automaticamente. Continuara sin FFmpeg." -ForegroundColor Yellow
+        return $false
+    }
     $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
     $installed = Find-FFmpegPath
     if ($installed) {
@@ -145,13 +150,18 @@ function Install-Rclone {
         return $false
     }
     Write-Host "rclone no esta instalado. Intentare instalarlo automaticamente con winget..." -ForegroundColor Yellow
-    Run-Checked "winget" @(
-        "install",
-        "--id", "Rclone.Rclone",
-        "-e",
-        "--accept-package-agreements",
-        "--accept-source-agreements"
-    ) "No se pudo instalar rclone automaticamente con winget."
+    try {
+        Run-Checked "winget" @(
+            "install",
+            "--id", "Rclone.Rclone",
+            "-e",
+            "--accept-package-agreements",
+            "--accept-source-agreements"
+        ) "No se pudo instalar rclone automaticamente con winget."
+    } catch {
+        Write-Host "AVISO: rclone no se pudo instalar automaticamente. Google Drive quedara desactivado." -ForegroundColor Yellow
+        return $false
+    }
     $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
     return [bool](Get-Command rclone -ErrorAction SilentlyContinue)
 }
