@@ -931,14 +931,7 @@ def ansi_supported() -> bool:
         return False
     if not sys.stdout.isatty():
         return False
-    if os.name != "nt":
-        return True
-    return bool(
-        os.getenv("WT_SESSION")
-        or os.getenv("ANSICON")
-        or os.getenv("ConEmuANSI", "").upper() == "ON"
-        or os.getenv("TERM_PROGRAM")
-    )
+    return os.getenv("TERM", "").lower() != "dumb"
 
 
 def colors_enabled() -> bool:

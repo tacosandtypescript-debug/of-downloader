@@ -166,7 +166,7 @@ class ThemeTests(unittest.TestCase):
             value = ofbackup_cli.styled("OF Downloader", "cyan", bold=True)
         self.assertIn("38;2;0;175;240", value)
 
-    def test_windows_classic_powershell_disables_ansi(self):
+    def test_windows_classic_powershell_enables_ansi_when_interactive(self):
         output = mock.Mock()
         output.isatty.return_value = True
         with (
@@ -174,7 +174,8 @@ class ThemeTests(unittest.TestCase):
             mock.patch.object(ofbackup_cli.os, "name", "nt"),
             mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True),
         ):
-            self.assertEqual(ofbackup_cli.styled("OF Downloader", "cyan"), "OF Downloader")
+            value = ofbackup_cli.styled("OF Downloader", "cyan")
+        self.assertIn("38;2;0;175;240", value)
 
     def test_windows_terminal_enables_ansi(self):
         output = mock.Mock()
@@ -616,6 +617,14 @@ class DownloadTests(unittest.TestCase):
         self.assertIn("▰", output.getvalue())
         self.assertIn("▱", output.getvalue())
         self.assertIn("45% Fotos 2/30", output.getvalue())
+
+    def test_colors_are_enabled_in_an_interactive_windows_terminal(self):
+        with (
+            mock.patch.object(ofbackup_cli.sys.stdout, "isatty", return_value=True),
+            mock.patch("frontend.progress.os.name", "nt"),
+            mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True),
+        ):
+            self.assertTrue(ofbackup_cli.colors_enabled())
 
     def test_reads_progress_updates_separated_by_carriage_return(self):
         output = []
