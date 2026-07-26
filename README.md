@@ -102,7 +102,8 @@ pausar OF-Scraper y sus procesos hijos, cambiar de red y pulsar `R` y Enter para
 reanudar. Si el motor no informa un total, se muestra el total descargado sin
 inventar una cantidad restante.
 
-Estos controles funcionan en Linux y Termux. a-Shell no es un entorno compatible
+Estos controles funcionan dentro de la CLI en Linux y Termux; el lanzador deja
+el teclado al menú y Python toma el control solo durante la descarga. a-Shell no es un entorno compatible
 con este descargador: OF-Scraper necesita sockets, procesos hijos y dependencias
 que no son puramente Python. Desde a-Shell se puede controlar un equipo Linux o
 Termux remoto mediante SSH, pero no ejecutar el motor completo localmente.
