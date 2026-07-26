@@ -53,6 +53,11 @@ API. Los archivos existentes no se borran ni se vuelven a contar como nuevos.
 Durante la descarga veras una barra y contadores. En un perfil completo pulsa
 P y Enter para pausar, cambia de red y pulsa R y Enter para reanudar.
 
+La deteccion previa tambien consulta Purchased para contar contenido comprado o
+bloqueado cuando la sesion lo entrega. Si OnlyFans solo devuelve los totales,
+se mostrara "medios declarados" y "accesibles/bloqueados: no informado"; esto
+no significa que el perfil este vacio.
+
 En Linux y Termux los controles se ejecutan dentro de la CLI y solo aparecen
 durante la descarga, para no interferir con el menú. a-Shell no es compatible con OF-Scraper porque no ofrece el
 entorno de sockets/procesos que necesita el motor; puede usarse para conectarse

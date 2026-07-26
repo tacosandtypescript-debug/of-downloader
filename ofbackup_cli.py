@@ -15,6 +15,9 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
+import webbrowser
 from queue import Empty, Queue
 from threading import Event, Thread
 from dataclasses import dataclass, field
@@ -23,13 +26,23 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlparse
 
-try:
-    import psutil
-except ImportError:  # pragma: no cover - el instalador incluye psutil
-    psutil = None
+from backend.models import (
+    DownloadStats as BackendDownloadStats,
+    MediaCounts as BackendMediaCounts,
+)
+from backend.process import (
+    PausableProcess as BackendPausableProcess,
+    read_process_output as backend_read_process_output,
+)
+from backend.progress import (
+    extract_download_percent as backend_extract_download_percent,
+    extract_media_totals as backend_extract_media_totals,
+    update_download_stats_from_line as backend_update_download_stats_from_line,
+)
+from frontend.progress import show_download_progress as frontend_show_download_progress
 
 
-APP_VERSION = "2.15.0"
+APP_VERSION = "2.16.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -48,6 +61,16 @@ AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
 DOWNLOAD_LOG_PATH = APP_DIR / "ultima-descarga.log"
 PUBLIC_DOWNLOAD_LOG_NAME = "ultima-descarga.log"
 PROFILE_TEST_LOG_NAME = "prueba-perfil.log"
+EXTENSION_PAGE_URL = "https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions"
+EXTENSION_CHROME_URL = (
+    "https://raw.githubusercontent.com/tacosandtypescript-debug/"
+    "of-downloader-browser-extensions/main/artifacts/of_downloader_exporter-chrome-1.0.6.zip"
+)
+EXTENSION_FIREFOX_URL = (
+    "https://raw.githubusercontent.com/tacosandtypescript-debug/"
+    "of-downloader-browser-extensions/main/artifacts/of_downloader_exporter-firefox-1.0.7.zip"
+)
+EXTENSION_DOWNLOAD_DIR_NAME = "OFDownloader-Extension"
 SUBSCRIPTIONS_LOG_NAME = "perfiles-suscritos.log"
 SUBSCRIPTIONS_SENTINEL = "OFDOWNLOADER_SUBSCRIPTIONS_JSON:"
 DRIVE_LOG_NAME = "google-drive.log"
@@ -88,13 +111,33 @@ except Exception as exc:
 
 PROFILE_TEST_SCRIPT = r"""
 import sys
+import traceback
+import logging
 
 username = sys.argv[1]
+# OF-Scraper inspecciona sys.argv durante su inicialización. El nombre del
+# perfil es un argumento de este script, no un comando de OF-Scraper.
+sys.argv = [sys.argv[0]]
+
+# OF-Scraper 3.14.7 usa niveles de log propios que no siempre quedan
+# registrados cuando se inicializa desde un script externo.
+if not hasattr(logging.Logger, "trace"):
+    logging.Logger.trace = logging.Logger.debug
+if not hasattr(logging.Logger, "traceback_"):
+    logging.Logger.traceback_ = logging.Logger.debug
 
 try:
     from ofscraper.main.open import load
     import ofscraper.managers.manager as manager
-    from ofscraper.data.api import archive, highlights, pinned, profile, streams, timeline
+    from ofscraper.data.api import (
+        archive,
+        highlights,
+        paid,
+        pinned,
+        profile,
+        streams,
+        timeline,
+    )
 
     load.systemSet()
     load.settings_loader()
@@ -111,16 +154,30 @@ try:
         raise SystemExit(4)
 
     seen = set()
-    counts = {"photos": 0, "videos": 0}
+    counts = {"photos": 0, "videos": 0, "accessible": 0, "blocked": 0}
     counted_posts = set()
     partial_errors = []
 
     def walk_media(value):
         if isinstance(value, dict):
             media = value.get("media")
-            if isinstance(media, list):
-                for item in media:
-                    yield item
+            if isinstance(media, (dict, list)):
+                yield from walk_media(media)
+            # Algunas respuestas usan nombres alternativos para los adjuntos.
+            for key in ("attachments", "mediaFiles", "files"):
+                nested = value.get(key)
+                if isinstance(nested, (dict, list)):
+                    yield from walk_media(nested)
+            media_type = str(
+                value.get("type")
+                or value.get("media_type")
+                or value.get("mediaType")
+                or value.get("mediatype")
+                or ("video" if value.get("isVideo") is True else "")
+                or ("photo" if value.get("isImage") is True else "")
+            ).lower()
+            if media_type in {"photo", "image", "images", "video", "videos"}:
+                yield value
             for key in ("preview", "linkedPost", "post"):
                 nested = value.get(key)
                 if isinstance(nested, (dict, list)):
@@ -144,6 +201,18 @@ try:
                 if key in seen:
                     continue
                 seen.add(key)
+                source = media.get("source")
+                has_source = isinstance(source, dict) and any(
+                    source.get(key_name) for key_name in ("source", "url", "src")
+                )
+                blocked = (
+                    media.get("canView") is False
+                    or media.get("isLocked") is True
+                    or media.get("locked") is True
+                    or media.get("unlocked") in {0, False}
+                    or (media.get("canView") is None and not has_source)
+                )
+                counts["blocked" if blocked else "accessible"] += 1
                 if media_type in {"photo", "image", "images"}:
                     counts["photos"] += 1
                 elif media_type in {"video", "videos"}:
@@ -163,10 +232,22 @@ try:
         try_area("pinned", pinned.get_pinned_posts, model_id, c=c)
         try_area("stories", highlights.get_stories_post, model_id, c=c)
         try_area("streams", streams.get_streams_posts, model_id, model_username, c=c)
+        # OF-Scraper mantiene el contenido comprado/de pago en un endpoint
+        # separado; sin esta consulta el perfil puede parecer tener cero
+        # medios aunque el comando de descarga sí incluya Purchased.
+        try_area("purchased", paid.get_paid_posts, model_username, model_id, c=c)
 
-    photos = counts["photos"] if seen else data.get("photosCount", 0)
-    videos = counts["videos"] if seen else data.get("videosCount", 0)
+    profile_photos = data.get("photosCount")
+    profile_videos = data.get("videosCount")
+    photos = profile_photos if profile_photos is not None else counts["photos"]
+    videos = profile_videos if profile_videos is not None else counts["videos"]
     posts = len(counted_posts) if counted_posts else data.get("postsCount", 0)
+    declared = (int(profile_photos or 0) + int(profile_videos or 0)) or (
+        (counts["photos"] + counts["videos"]) or "unknown"
+    )
+    observed = len(seen) or "unknown"
+    accessible = counts["accessible"] if seen else "unknown"
+    blocked = counts["blocked"] if seen else "unknown"
     print(
         "OFDOWNLOADER_PROFILE_OK "
         f"username={data.get('username', '')} "
@@ -175,7 +256,11 @@ try:
         f"photos={photos} "
         f"videos={videos} "
         f"archived={data.get('archivedPostsCount', 0)} "
-        f"counted={len(seen)} "
+        f"counted={observed} "
+        f"declared={declared} "
+        f"accessible={accessible} "
+        f"blocked={blocked} "
+        f"area_errors={','.join(partial_errors) or 'none'} "
         f"partial={1 if partial_errors else 0}"
     )
     raise SystemExit(0)
@@ -183,6 +268,7 @@ except SystemExit:
     raise
 except Exception as exc:
     print(f"OFDOWNLOADER_PROFILE_ERROR:{type(exc).__name__}", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
     raise SystemExit(5)
 """
 
@@ -631,6 +717,11 @@ def receive_credentials_locally(
     quick_link = f"{base_url}/?code={code}"
     expires_at = time.monotonic() + timeout
     print("\nRECIBIR COOKIE LOCAL")
+    if extension_download_available():
+        extension_directory = extension_download_directory()
+        print(f"Extension / instructivo: {extension_directory}")
+        if not extension_directory.exists():
+            print("Aun no existe. Usa [12] para descargarla antes de continuar.")
     print("1. Abre OnlyFans en el navegador donde esta la extension.")
     print("2. Pulsa la extension y usa Buscar OF Downloader.")
     print("3. Si no lo encuentra, pega el enlace rapido o usa URL local + codigo.")
@@ -696,22 +787,32 @@ def select_auth_export_file() -> Path | None:
 
 
 def import_default_auth_export(*, prompt_if_missing: bool = True) -> None:
+    default_path = default_auth_export_path()
+    if not prompt_if_missing:
+        import_credentials_file(default_path)
+        return
+
+    print("Arrastra aqui OFBackup-auth.json y pulsa Enter.")
+    print("Si dejas vacio, se abrira el selector de archivos del sistema.")
+    print(r"Ejemplo Windows: C:\Users\TU_USUARIO\Downloads\OFBackup-auth.json")
+    try:
+        value = input("Archivo: ").strip()
+    except EOFError:
+        value = ""
+    if value:
+        import_credentials_file(user_supplied_path(value))
+        return
+
     selected = select_auth_export_file()
     if selected is not None:
         import_credentials_file(selected)
         return
 
-    default_path = default_auth_export_path()
     if default_path.is_file():
         import_credentials_file(default_path)
         return
-    if not prompt_if_missing:
-        import_credentials_file(default_path)
-        return
+
     print(f"No encontre el archivo en: {default_path}")
-    print("Si lo guardaste con otro nombre o en otra carpeta, pega la ruta completa.")
-    print(r"Ejemplo Windows: C:\Users\TU_USUARIO\Downloads\OFBackup-auth.json")
-    value = input("Ruta del archivo o Enter para cancelar: ").strip()
     if not value:
         raise UserError(
             f"Pon {AUTH_EXPORT_FILENAME} en Descargas o usa: of importar RUTA_DEL_ARCHIVO"
@@ -751,14 +852,14 @@ def json_cookie_prompt(*, allow_object: bool = False) -> str:
 
 def configure_credentials() -> int:
     print("\nCONECTAR MI CUENTA")
-    print("Usa el archivo OFBackup-auth.json creado por la extension del navegador.")
+    print("Carga manualmente OFBackup-auth.json, exportado desde la extension del navegador.")
     print("Si necesitas instrucciones para sacarlo y moverlo, ejecuta: of cookie ayuda")
-    platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "TERMUX").upper()
+    platform_name = runtime_platform_name()
     if platform_name in {"LINUX", "WINDOWS"}:
-        print("Abriendo el explorador para elegir OFBackup-auth.json...")
+        print("Puedes arrastrarlo a esta ventana o dejar Enter para abrir el selector.")
         import_default_auth_export()
         return 0
-    print("Abriendo el selector Android para elegir OFBackup-auth.json...")
+    print("Abriendo el selector de archivos de Android para elegir OFBackup-auth.json...")
     return IMPORT_REQUEST_EXIT
 
 
@@ -830,14 +931,7 @@ def ansi_supported() -> bool:
         return False
     if not sys.stdout.isatty():
         return False
-    if os.name != "nt":
-        return True
-    return bool(
-        os.getenv("WT_SESSION")
-        or os.getenv("ANSICON")
-        or os.getenv("ConEmuANSI", "").upper() == "ON"
-        or os.getenv("TERM_PROGRAM")
-    )
+    return os.getenv("TERM", "").lower() != "dumb"
 
 
 def colors_enabled() -> bool:
@@ -1233,6 +1327,9 @@ class ProfileDetection:
     videos: int | None = None
     archived: int | None = None
     counted: int | None = None
+    declared: int | None = None
+    accessible: int | None = None
+    blocked: int | None = None
     partial: bool = False
 
 
@@ -1959,6 +2056,9 @@ def parse_profile_detection(stdout: str) -> ProfileDetection | None:
         videos=optional_int(values.get("videos")),
         archived=optional_int(values.get("archived")),
         counted=optional_int(values.get("counted")),
+        declared=optional_int(values.get("declared")),
+        accessible=optional_int(values.get("accessible")),
+        blocked=optional_int(values.get("blocked")),
         partial=values.get("partial") == "1",
     )
 
@@ -1974,16 +2074,28 @@ def detect_profile_counts(username: str, timeout: int = 120) -> ProfileDetection
     detection = parse_profile_detection(stdout)
     if code == 0 and detection is not None:
         if detection.counted is not None:
-            total = f"{detection.counted} medios"
+            total = f"{detection.counted} medios observados"
+        elif detection.declared is not None:
+            total = f"{detection.declared} medios declarados"
         else:
             total = "conteo no informado"
-        print(f"Deteccion lista: {total}.")
+        details = []
+        if detection.accessible is not None:
+            details.append(f"accesibles {detection.accessible}")
+        if detection.blocked is not None:
+            details.append(f"bloqueados {detection.blocked}")
+        suffix = f" ({', '.join(details)})" if details else ""
+        print(f"Deteccion lista: {total}{suffix}.")
         return detection
     print("No se pudo detectar el contenido antes de descargar.")
     if code == 124:
         print("La deteccion tardo demasiado.")
     elif "Auth Failed" in stdout or "Auth Failed" in stderr:
         print("OnlyFans rechazo los datos de acceso.")
+    elif "NoSuchCommand" in stdout or "NoSuchCommand" in stderr:
+        print("La sesion responde, pero esta version de OF-Scraper no expone la API")
+        print("necesaria para contar el perfil antes de descargar.")
+        print("La descarga principal puede continuar; el conteo previo no esta disponible.")
     else:
         print("Puede ser sesion invalida, perfil sin acceso o bloqueo de la API.")
     if visible_log:
@@ -2095,15 +2207,25 @@ def print_detection_summary(profile: SubscriptionProfile, detection: ProfileDete
     print("\nDETECCION")
     print(f"Perfil: @{profile.username}")
     if detection is None:
-        print("Detectados: no informado")
+        print("Conteo previo: no disponible (la sesion puede seguir siendo valida)")
         return
     print(f"Posts:      {compact_count(detection.posts)}")
     print(f"Fotos:      {compact_count(detection.photos)}")
     print(f"Videos:     {compact_count(detection.videos)}")
     print(f"Archivados: {compact_count(detection.archived)}")
-    if detection.counted:
+    if detection.accessible is not None:
+        print(f"Accesibles: {compact_count(detection.accessible)}")
+    if detection.blocked is not None:
+        print(f"Bloqueados: {compact_count(detection.blocked)}")
+    if detection.declared is not None:
+        print(f"Medios declarados: {compact_count(detection.declared)}")
+    if detection.counted is not None:
         status = "parcial" if detection.partial else "completo"
-        print(f"Conteo real de medios: {detection.counted} ({status})")
+        print(f"Medios observados: {detection.counted} ({status})")
+    else:
+        print("Medios observados: no informado (la API no entrego cada elemento)")
+    if detection.accessible is None and detection.blocked is None:
+        print("Accesibles/bloqueados: no informado")
 
 
 def choose_profile_and_download() -> int:
@@ -2149,6 +2271,18 @@ def show_download_progress(percent: int | None, label: str, *, failed: bool = Fa
         print(message)
 
 
+# Compatibilidad: el CLI conserva sus nombres públicos, pero la implementación
+# activa vive en backend/frontend para que otros frontends puedan reutilizarla.
+MediaCounts = BackendMediaCounts
+DownloadStats = BackendDownloadStats
+PausableProcess = BackendPausableProcess
+read_process_output = backend_read_process_output
+extract_download_percent = backend_extract_download_percent
+extract_media_totals = backend_extract_media_totals
+update_download_stats_from_line = backend_update_download_stats_from_line
+show_download_progress = frontend_show_download_progress
+
+
 def run_ofscraper(
     arguments: list[str], *, mode: str = "publicacion", target: str | None = None
 ) -> int:
@@ -2167,6 +2301,7 @@ def run_ofscraper(
     traceback_seen = False
     auth_failed = False
     stats = DownloadStats()
+    stats.started_at = time.monotonic()
     progress: int | None = None
     last_stage = "Iniciando"
     last_label = stats.label(last_stage)
@@ -2427,6 +2562,15 @@ def download_user(username: str | None = None, *, source: str = "menu") -> int:
         print(f"✓ Perfil detectado: @{username}")
     print("Se lanzará la búsqueda del perfil completo permitido por tu cuenta.")
     print("Reescaneo completo activado para evitar caché vacía o antigua.")
+    if source != "selector":
+        detection = detect_profile_counts(username)
+        print_detection_summary(SubscriptionProfile(username=username), detection)
+        if detection is None:
+            print("El conteo previo no esta disponible, pero puedes continuar con la descarga.")
+        answer = input("\nDescargar este perfil completo? [s/N]: ").strip().lower()
+        if answer not in {"s", "si", "sÃ­", "y", "yes"}:
+            print("Cancelado. No se descargo nada.")
+            return 0
     return run_ofscraper(
         build_complete_profile_command(username),
         mode="perfil",
@@ -2587,6 +2731,147 @@ def pause() -> None:
         pass
 
 
+def runtime_platform_name() -> str:
+    configured = os.getenv("OFDOWNLOADER_PLATFORM", "").upper()
+    if configured:
+        return configured
+    if "com.termux" in os.getenv("PREFIX", ""):
+        return "TERMUX"
+    if os.name == "nt":
+        return "WINDOWS"
+    if sys.platform.startswith("linux"):
+        return "LINUX"
+    return "UNKNOWN"
+
+
+def extension_download_available() -> bool:
+    """La descarga guiada de la extensión solo se ofrece en escritorio."""
+    platform_name = runtime_platform_name()
+    if platform_name == "TERMUX" or "com.termux" in os.getenv("PREFIX", ""):
+        return False
+    if platform_name in {"WINDOWS", "LINUX"}:
+        return True
+    return os.name == "nt" or sys.platform.startswith("linux")
+
+
+def download_cookie_extension() -> int:
+    if not extension_download_available():
+        print("La descarga de la extensión solo está disponible en Windows y Linux.")
+        return 1
+    print("\nEXTENSIÓN OF DOWNLOADER EXPORTER")
+    print("Se abrirá la página oficial para descargarla e instalarla en tu navegador.")
+    print(f"Chrome / Chromium: {EXTENSION_CHROME_URL}")
+    print(f"Firefox:           {EXTENSION_FIREFOX_URL}")
+    try:
+        opened = webbrowser.open(EXTENSION_PAGE_URL, new=2)
+    except webbrowser.Error:
+        opened = False
+    if opened:
+        print("\n✓ Página de descarga abierta en el navegador.")
+    else:
+        print("\nNo se pudo abrir el navegador automáticamente. Copia uno de los enlaces.")
+    print("Después vuelve al menú y usa [11] Recibir cookie desde extensión.")
+    pause()
+    return 0
+
+
+def extension_download_directory() -> Path:
+    if os.name == "nt":
+        downloads = Path(os.getenv("USERPROFILE", str(HOME))) / "Downloads"
+    else:
+        downloads = Path(os.getenv("XDG_DOWNLOAD_DIR", str(HOME / "Downloads"))).expanduser()
+    return downloads / EXTENSION_DOWNLOAD_DIR_NAME
+
+
+def write_extension_instructions(directory: Path) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    instructions = directory / "INSTRUCCIONES.txt"
+    instructions.write_text(
+        "OF DOWNLOADER EXPORTER - INSTALACION Y USO\n"
+        "===========================================\n\n"
+        "CHROME / CHROMIUM / EDGE\n"
+        "1. Descomprime el ZIP descargado.\n"
+        "2. Abre chrome://extensions o edge://extensions.\n"
+        "3. Activa Modo de desarrollador.\n"
+        "4. Pulsa Cargar descomprimida y elige la carpeta con manifest.json.\n\n"
+        "FIREFOX\n"
+        "1. Descomprime el ZIP descargado.\n"
+        "2. Abre about:debugging.\n"
+        "3. En Este Firefox pulsa Cargar complemento temporal.\n"
+        "4. Elige manifest.json dentro de la carpeta descomprimida.\n\n"
+        "CONECTAR LA CUENTA\n"
+        "1. Abre OnlyFans en el navegador donde instalaste la extension.\n"
+        "2. En OF Downloader elige [11] Recibir cookie desde extension.\n"
+        "3. Pulsa Buscar OF Downloader en mi red desde la extension.\n"
+        "4. Cuando lo encuentre, pulsa Enviar a OF Downloader.\n"
+        "5. Si no lo encuentra, usa el enlace, URL local y codigo de [11].\n\n"
+        "SEGURIDAD\n"
+        "No compartas OFBackup-auth.json ni capturas con cookies o codigos.\n",
+        encoding="utf-8",
+    )
+    return instructions
+
+
+def download_extension_archive(url: str, filename: str, directory: Path) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    target = directory / filename
+    temporary = target.with_suffix(target.suffix + ".part")
+    try:
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": f"OF-Downloader/{APP_VERSION}"},
+        )
+        with urllib.request.urlopen(request, timeout=45) as response, temporary.open("wb") as output:
+            while True:
+                chunk = response.read(1024 * 128)
+                if not chunk:
+                    break
+                output.write(chunk)
+        temporary.replace(target)
+    except (OSError, urllib.error.URLError) as exc:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        raise UserError(f"No se pudo descargar la extension: {exc}") from exc
+    return target
+
+
+def download_cookie_extension() -> int:
+    if not extension_download_available():
+        print("La descarga de la extension solo esta disponible en Windows y Linux.")
+        return 1
+    directory = extension_download_directory()
+    print("\nDESCARGAR EXTENSION OF DOWNLOADER EXPORTER")
+    print(f"Destino: {directory}")
+    print("1. Chrome / Chromium / Edge")
+    print("2. Firefox")
+    choice = input("Elige navegador [1/2]: ").strip()
+    if choice == "1":
+        url, filename = EXTENSION_CHROME_URL, "of_downloader_exporter-chrome-1.0.6.zip"
+    elif choice == "2":
+        url, filename = EXTENSION_FIREFOX_URL, "of_downloader_exporter-firefox-1.0.7.zip"
+    else:
+        print("Cancelado.")
+        return 0
+    try:
+        archive = download_extension_archive(url, filename, directory)
+        instructions = write_extension_instructions(directory)
+    except UserError as exc:
+        print(f"\n✗ {exc}")
+        pause()
+        return 1
+    print(f"\n✓ Extension descargada: {archive}")
+    print(f"✓ Instructivo guardado: {instructions}")
+    print("Despues de instalarla, vuelve al menu y usa [11] Recibir cookie desde extension.")
+    try:
+        webbrowser.open(directory.as_uri(), new=2)
+    except webbrowser.Error:
+        pass
+    pause()
+    return 0
+
+
 def menu() -> int:
     while True:
         state = get_state()
@@ -2614,9 +2899,8 @@ def menu() -> int:
         menu_option("3", "Descargar publicacion por enlace")
 
         print(styled("\n  MI CUENTA", "blue", bold=True))
-        menu_option("4", "Conectar o renovar acceso")
+        menu_option("4", "Cargar archivo de cookie manualmente")
         menu_option("5", "Probar acceso")
-        menu_option("11", "Recibir cookie desde extension")
 
         print(styled("\n  HERRAMIENTAS", "blue", bold=True))
         menu_option("6", "Cambiar carpeta de descargas")
@@ -2628,6 +2912,11 @@ def menu() -> int:
         menu_option("8", update_label)
         menu_option("9", "Actualizar motor de descarga")
         menu_option("10", "Google Drive")
+
+        print(styled("\n  EXTENSION Y COOKIE", "blue", bold=True))
+        menu_option("11", "Recibir cookie desde extension")
+        if extension_download_available():
+            menu_option("12", "Descargar extension para cookie")
         menu_option("0", "Salir")
 
         status = styled("● CONECTADA", "green", bold=True) if connected else styled(
@@ -2658,6 +2947,8 @@ def menu() -> int:
                     return IMPORT_REQUEST_EXIT
             elif choice == "11":
                 receive_credentials_locally(show_qr=True)
+            elif choice == "12" and extension_download_available():
+                download_cookie_extension()
             elif choice == "6":
                 change_destination()
             elif choice == "7":

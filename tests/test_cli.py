@@ -166,7 +166,7 @@ class ThemeTests(unittest.TestCase):
             value = ofbackup_cli.styled("OF Downloader", "cyan", bold=True)
         self.assertIn("38;2;0;175;240", value)
 
-    def test_windows_classic_powershell_disables_ansi(self):
+    def test_windows_classic_powershell_enables_ansi_when_interactive(self):
         output = mock.Mock()
         output.isatty.return_value = True
         with (
@@ -174,7 +174,8 @@ class ThemeTests(unittest.TestCase):
             mock.patch.object(ofbackup_cli.os, "name", "nt"),
             mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True),
         ):
-            self.assertEqual(ofbackup_cli.styled("OF Downloader", "cyan"), "OF Downloader")
+            value = ofbackup_cli.styled("OF Downloader", "cyan")
+        self.assertIn("38;2;0;175;240", value)
 
     def test_windows_terminal_enables_ansi(self):
         output = mock.Mock()
@@ -369,6 +370,10 @@ class AuthImportTests(unittest.TestCase):
         output = io.StringIO()
         with (
             mock.patch("builtins.input", return_value="1"),
+            mock.patch.dict(
+                ofbackup_cli.os.environ,
+                {"OFDOWNLOADER_PLATFORM": "TERMUX"},
+            ),
             mock.patch.object(ofbackup_cli.sys, "stdout", output),
         ):
             self.assertEqual(
@@ -601,6 +606,26 @@ class DownloadTests(unittest.TestCase):
             ofbackup_cli.show_download_progress(None, "Analizando perfil")
         self.assertIn("--% Analizando perfil", output.getvalue())
 
+    def test_progress_uses_readable_blocks_when_terminal_has_color(self):
+        output = io.StringIO()
+        with (
+            mock.patch.object(ofbackup_cli.sys, "stdout", output),
+            mock.patch.object(ofbackup_cli.sys.stdout, "isatty", return_value=True),
+            mock.patch("frontend.progress.colors_enabled", return_value=True),
+        ):
+            ofbackup_cli.show_download_progress(45, "Fotos 2/30")
+        self.assertIn("▰", output.getvalue())
+        self.assertIn("▱", output.getvalue())
+        self.assertIn("45% Fotos 2/30", output.getvalue())
+
+    def test_colors_are_enabled_in_an_interactive_windows_terminal(self):
+        with (
+            mock.patch.object(ofbackup_cli.sys.stdout, "isatty", return_value=True),
+            mock.patch("frontend.progress.os.name", "nt"),
+            mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True),
+        ):
+            self.assertTrue(ofbackup_cli.colors_enabled())
+
     def test_reads_progress_updates_separated_by_carriage_return(self):
         output = []
         queue = ofbackup_cli.Queue()
@@ -639,6 +664,28 @@ class DownloadTests(unittest.TestCase):
             ofbackup_cli.extract_media_totals("Se encontraron 9 fotos y 2 videos"),
             (9, 2),
         )
+
+    def test_extracts_live_media_progress_from_output(self):
+        stats = ofbackup_cli.DownloadStats()
+        changed = ofbackup_cli.update_download_stats_from_line(
+            stats, "[####------] 45% Fotos 2/30 · Videos 1/19 · Omitidos 2"
+        )
+        self.assertTrue(changed)
+        self.assertEqual(stats.processed_images, 2)
+        self.assertEqual(stats.processed_videos, 1)
+        self.assertEqual(stats.detected_images, 30)
+        self.assertEqual(stats.detected_videos, 19)
+        self.assertEqual(stats.skipped, 2)
+
+    def test_progress_label_includes_live_speed_and_eta(self):
+        stats = ofbackup_cli.DownloadStats(
+            detected_images=10,
+            processed_images=5,
+            started_at=ofbackup_cli.time.monotonic() - 5,
+        )
+        label = stats.label("Descargando archivos")
+        self.assertIn("Velocidad", label)
+        self.assertIn("ETA", label)
 
     def test_counts_new_media_files(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -824,7 +871,9 @@ class DownloadTests(unittest.TestCase):
                 return_value={"download_dir": temporary, "username": ""},
             ),
             mock.patch.object(ofbackup_cli, "save_state"),
+            mock.patch.object(ofbackup_cli, "detect_profile_counts", return_value=None),
             mock.patch.object(ofbackup_cli, "run_ofscraper", return_value=0) as run,
+            mock.patch("builtins.input", return_value="s"),
             mock.patch("builtins.print"),
         ):
             self.assertEqual(ofbackup_cli.download_user("creator.example"), 0)
@@ -861,13 +910,20 @@ class SubscriptionProfileTests(unittest.TestCase):
     def test_profile_detection_script_compiles(self):
         compile(ofbackup_cli.PROFILE_TEST_SCRIPT, "<profile-test-script>", "exec")
 
+    def test_profile_detection_script_does_not_expose_username_as_motor_command(self):
+        self.assertIn("sys.argv = [sys.argv[0]]", ofbackup_cli.PROFILE_TEST_SCRIPT)
+
     def test_parse_profile_detection_keeps_deep_count_fields(self):
         detection = ofbackup_cli.parse_profile_detection(
             "OFDOWNLOADER_PROFILE_OK username=creator.example id=123 "
-            "posts=9 photos=7 videos=2 archived=1 counted=9 partial=1\n"
+            "posts=9 photos=7 videos=2 archived=1 counted=9 declared=9 "
+            "accessible=6 blocked=3 partial=1\n"
         )
         self.assertIsNotNone(detection)
         self.assertEqual(detection.counted, 9)
+        self.assertEqual(detection.accessible, 6)
+        self.assertEqual(detection.blocked, 3)
+        self.assertEqual(detection.declared, 9)
         self.assertTrue(detection.partial)
 
     def test_parses_subscription_profiles_from_ofscraper_output(self):
@@ -1087,6 +1143,32 @@ class SubscriptionProfileTests(unittest.TestCase):
             ),
             ["ofscraper", "--auth-fail", "--username", "example"],
         )
+
+
+class ExtensionDownloadTests(unittest.TestCase):
+    def test_extension_download_is_available_on_desktop(self):
+        with mock.patch.dict(
+            ofbackup_cli.os.environ,
+            {"OFDOWNLOADER_PLATFORM": "WINDOWS", "PREFIX": ""},
+            clear=True,
+        ):
+            self.assertTrue(ofbackup_cli.extension_download_available())
+
+    def test_extension_download_is_hidden_on_termux(self):
+        with mock.patch.dict(
+            ofbackup_cli.os.environ,
+            {"OFDOWNLOADER_PLATFORM": "TERMUX", "PREFIX": "/data/data/com.termux/files/usr"},
+            clear=True,
+        ):
+            self.assertFalse(ofbackup_cli.extension_download_available())
+
+    def test_extension_instructions_are_written_to_download_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            instructions = ofbackup_cli.write_extension_instructions(Path(temporary))
+            self.assertTrue(instructions.exists())
+            text = instructions.read_text(encoding="utf-8")
+        self.assertIn("CONECTAR LA CUENTA", text)
+        self.assertIn("manifest.json", text)
 
 
 if __name__ == "__main__":

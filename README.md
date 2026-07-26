@@ -35,7 +35,14 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.15.0`
+Versión actual: `2.16.0`
+
+### Novedades de 2.16.0
+
+- Barra de progreso en vivo con bloques de color `▰/▱`.
+- Contadores reales de fotos, videos y omitidos leídos del motor.
+- Velocidad y tiempo estimado (ETA) durante perfiles grandes.
+- Colores automáticos en PowerShell, Linux y Termux, con respaldo ASCII.
 
 ## Links rápidos
 
@@ -121,6 +128,12 @@ se incluyen porque no son contenido histórico descargable. Los archivos ya
 existentes se conservan y el resumen final distingue archivos nuevos, omitidos
 y fallos.
 
+La deteccion previa tambien consulta el area `Purchased` para identificar
+contenido comprado o bloqueado cuando OnlyFans lo entrega a la sesion. Si solo
+devuelve los totales del perfil, veras "medios declarados" y el detalle de
+accesibles/bloqueados quedara como "no informado"; no significa que el perfil
+este vacio.
+
 ## Extensión del navegador
 
 La extensión se usa para conectar tu cuenta sin pegar cookies manualmente.
@@ -197,7 +210,6 @@ DESCARGAS
 MI CUENTA
 [4] Conectar o renovar acceso
 [5] Probar acceso
-[11] Recibir cookie desde extension
 
 HERRAMIENTAS
 [6] Cambiar carpeta de descargas
@@ -205,6 +217,10 @@ HERRAMIENTAS
 [8] Actualizar OF Downloader y reiniciar
 [9] Actualizar motor de descarga
 [10] Google Drive
+
+EXTENSION Y COOKIE
+[11] Recibir cookie desde extension
+[12] Descargar extension para cookie  (Windows y Linux)
 [0] Salir
 ```
 

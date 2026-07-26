@@ -68,7 +68,9 @@ check_repository_update() {
     }
     if [[ "$current" == "$remote" ]]; then
         if [[ ! -f "$HOST_APP_HOME/ofbackup_cli.py" ]] || \
-           ! cmp -s "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py"; then
+           ! cmp -s "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py" || \
+           [[ ! -f "$HOST_APP_HOME/backend/models.py" ]] || \
+           [[ ! -f "$HOST_APP_HOME/frontend/progress.py" ]]; then
             printf 'available'
         else
             printf 'current'
@@ -117,6 +119,9 @@ update_application() {
 
     mkdir -p "$HOST_APP_HOME"
     install -m 600 "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py"
+    mkdir -p "$HOST_APP_HOME/backend" "$HOST_APP_HOME/frontend"
+    install -m 600 "$repo/backend/"*.py "$HOST_APP_HOME/backend/"
+    install -m 600 "$repo/frontend/"*.py "$HOST_APP_HOME/frontend/"
     install -m 600 "$repo/requirements-termux.txt" "$HOST_APP_HOME/requirements-termux.txt"
     install -m 755 "$repo/ofbackup" "$PREFIX/bin/of"
     install -m 755 "$repo/ofbackup" "$PREFIX/bin/ofbackup"
