@@ -35,7 +35,12 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.16.3`
+Versión actual: `2.16.4`
+
+### Novedades de 2.16.4
+
+- Evita mostrar códigos ANSI crudos en el PowerShell clásico de Windows.
+- Mantiene colores en Windows Terminal, PowerShell 7, Linux y Termux.
 
 ### Novedades de 2.16.3
 

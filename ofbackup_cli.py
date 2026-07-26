@@ -42,7 +42,7 @@ from backend.progress import (
 from frontend.progress import show_download_progress as frontend_show_download_progress
 
 
-APP_VERSION = "2.16.3"
+APP_VERSION = "2.16.4"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -931,7 +931,14 @@ def ansi_supported() -> bool:
         return False
     if not sys.stdout.isatty():
         return False
-    return os.getenv("TERM", "").lower() != "dumb"
+    if os.name != "nt":
+        return os.getenv("TERM", "").lower() != "dumb"
+    return bool(
+        os.getenv("WT_SESSION")
+        or os.getenv("ANSICON")
+        or os.getenv("ConEmuANSI", "").upper() == "ON"
+        or os.getenv("TERM_PROGRAM")
+    )
 
 
 def colors_enabled() -> bool:
