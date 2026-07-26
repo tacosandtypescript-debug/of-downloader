@@ -1122,7 +1122,7 @@ class DownloadStats:
     seen_events: set[str] = field(default_factory=set, repr=False)
 
     def label(self, stage: str) -> str:
-        parts = [stage]
+        parts: list[str] = []
         if self.detected_images is not None or self.downloaded.images:
             if self.detected_images is None:
                 parts.append(f"Fotos {self.downloaded.images}")
@@ -1145,7 +1145,20 @@ class DownloadStats:
             )
         elif self.downloaded.total:
             parts.append(f"Total descargado {self.downloaded.total}")
+        parts.append(stage)
         return " · ".join(parts)
+
+    @property
+    def detected_total(self) -> int:
+        return (self.detected_images or 0) + (self.detected_videos or 0)
+
+    @property
+    def accounted_total(self) -> int:
+        return self.downloaded.total + self.skipped
+
+    @property
+    def has_unaccounted_detected_media(self) -> bool:
+        return bool(self.detected_total and self.accounted_total < self.detected_total)
 
 
 class PausableProcess:
@@ -1907,8 +1920,10 @@ def run_profile_lookup_process(
             stdout, stderr = process.communicate()
             code = process.returncode
         if sys.stdout.isatty():
-            label = "Deteccion finalizada" if code == 0 else "Deteccion detenida"
-            show_download_progress(100 if code == 0 else 95, label, failed=code != 0)
+            if code == 0:
+                show_download_progress(100, "Deteccion lista")
+            else:
+                show_download_progress(0, "Deteccion previa no disponible", failed=True)
             print()
     except OSError as exc:
         code, stdout, stderr = 1, "", str(exc)
@@ -2110,13 +2125,21 @@ def choose_profile_and_download() -> int:
 
 def show_download_progress(percent: int, label: str, *, failed: bool = False) -> None:
     percent = min(100, max(0, percent))
-    width = 24
+    columns = shutil.get_terminal_size((60, 20)).columns
+    width = max(10, min(20, columns - 36))
     filled = percent * width // 100
     bar = "#" * filled + "-" * (width - filled)
-    message = f"[{bar}] {percent:3d}%  {label}"
-    if colors_enabled():
-        color = PALETTE["red" if failed else "cyan"]
-        print(f"\r\033[2K\033[1;{color}m{message}\033[0m", end="", flush=True)
+    max_label = max(12, columns - width - 10)
+    if len(label) > max_label:
+        label = label[: max_label - 1].rstrip() + "…"
+    message = f"[{bar}] {percent:3d}% {label}"
+    if sys.stdout.isatty():
+        prefix = "\033[2K\r"
+        if colors_enabled():
+            color = PALETTE["red" if failed else "cyan"]
+            print(f"{prefix}\033[1;{color}m{message}\033[0m", end="", flush=True)
+        else:
+            print(prefix + message, end="", flush=True)
     else:
         print(message)
 
@@ -2295,7 +2318,16 @@ def run_ofscraper(
             print(f"Registro para revisar el error: {DOWNLOAD_LOG_PATH}")
         return shown_code
     else:
-        show_download_progress(100, stats.label("Descarga completada"))
+        incomplete = stats.has_unaccounted_detected_media
+        if incomplete:
+            show_download_progress(
+                progress,
+                stats.label("Proceso terminado; revisar"),
+                failed=True,
+            )
+            print("\n⚠ El motor terminó, pero no se contabilizaron todos los medios detectados.")
+        else:
+            show_download_progress(100, stats.label("Descarga completada"))
         print(f"\n✓ Descarga terminada. Archivos en: {get_state()['download_dir']}")
         print_download_summary(stats, destination, completed=True)
         maybe_upload_to_drive(new_files, destination)

@@ -615,6 +615,15 @@ class DownloadTests(unittest.TestCase):
         self.assertIn("Total 6/10", label)
         self.assertIn("Restan 4", label)
 
+    def test_progress_marks_detected_media_that_were_not_accounted_for(self):
+        stats = ofbackup_cli.DownloadStats(
+            detected_images=30,
+            detected_videos=19,
+            downloaded=ofbackup_cli.MediaCounts(images=2, videos=1),
+            skipped=2,
+        )
+        self.assertTrue(stats.has_unaccounted_detected_media)
+
     def test_extracts_media_totals_from_output(self):
         self.assertEqual(
             ofbackup_cli.extract_media_totals("Images: 27 Videos: 16"),
