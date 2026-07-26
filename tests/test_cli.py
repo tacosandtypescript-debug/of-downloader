@@ -595,6 +595,12 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(ofbackup_cli.extract_download_percent("Video 73.8%"), 73)
         self.assertIsNone(ofbackup_cli.extract_download_percent("sin porcentaje"))
 
+    def test_progress_is_indeterminate_without_a_real_percentage(self):
+        output = io.StringIO()
+        with mock.patch.object(ofbackup_cli.sys, "stdout", output):
+            ofbackup_cli.show_download_progress(None, "Analizando perfil")
+        self.assertIn("--% Analizando perfil", output.getvalue())
+
     def test_reads_progress_updates_separated_by_carriage_return(self):
         output = []
         queue = ofbackup_cli.Queue()
