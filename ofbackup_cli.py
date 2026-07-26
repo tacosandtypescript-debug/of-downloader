@@ -113,6 +113,9 @@ PROFILE_TEST_SCRIPT = r"""
 import sys
 
 username = sys.argv[1]
+# OF-Scraper inspecciona sys.argv durante su inicialización. El nombre del
+# perfil es un argumento de este script, no un comando de OF-Scraper.
+sys.argv = [sys.argv[0]]
 
 try:
     from ofscraper.main.open import load

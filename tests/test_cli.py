@@ -865,6 +865,9 @@ class SubscriptionProfileTests(unittest.TestCase):
     def test_profile_detection_script_compiles(self):
         compile(ofbackup_cli.PROFILE_TEST_SCRIPT, "<profile-test-script>", "exec")
 
+    def test_profile_detection_script_does_not_expose_username_as_motor_command(self):
+        self.assertIn("sys.argv = [sys.argv[0]]", ofbackup_cli.PROFILE_TEST_SCRIPT)
+
     def test_parse_profile_detection_keeps_deep_count_fields(self):
         detection = ofbackup_cli.parse_profile_detection(
             "OFDOWNLOADER_PROFILE_OK username=creator.example id=123 "
