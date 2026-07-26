@@ -251,16 +251,14 @@ Run-Checked $venvPython @("-m", "pip", "install", "-r", (Join-Path $repo "requir
 
 Step-Info "[4/5] Creando comandos..."
 $ofTarget = Join-Path $binDir "of.cmd"
-$guiTarget = Join-Path $binDir "of-downloader.cmd"
 Set-Content -Path $ofTarget -Encoding ASCII -Value "@echo off`r`ncall `"$repo\of-windows.cmd`" %*`r`n"
-Set-Content -Path $guiTarget -Encoding ASCII -Value "@echo off`r`ncall `"$repo\of-downloader-windows.cmd`" %*`r`n"
 Add-UserPath $binDir
 
 Step-Info "[5/5] Creando acceso del menu Inicio..."
 $shortcutPath = Join-Path $startMenu "OF Downloader.lnk"
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = $guiTarget
+$shortcut.TargetPath = $ofTarget
 $shortcut.WorkingDirectory = $repo
 $shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,146"
 $shortcut.Save()
@@ -281,5 +279,4 @@ Write-Host ""
 Write-Host "OK: OF Downloader quedo instalado para Windows." -ForegroundColor Green
 Write-Host "Abre una terminal nueva y ejecuta:"
 Write-Host "  of"
-Write-Host "  of-downloader"
 Write-Host "Descargas: $downloads"

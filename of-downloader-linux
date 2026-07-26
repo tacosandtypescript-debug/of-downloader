@@ -7,6 +7,8 @@ CLI="$APP_DIR/ofbackup_cli.py"
 IMPORT_REQUEST_EXIT=42
 UPDATE_REQUEST_EXIT=43
 UPDATE_STATUS="unknown"
+CONTROLLED_PID=""
+CONTROLLED_GROUP=0
 
 if [[ ! -x "$PYTHON" || ! -f "$CLI" ]]; then
     echo "OF Downloader no está instalado correctamente."
@@ -60,11 +62,74 @@ check_repository_update() {
 run_cli() {
     env \
         OFDOWNLOADER_PLATFORM="LINUX" \
+        OFDOWNLOADER_EXTERNAL_PAUSE="1" \
         OFDOWNLOADER_DOWNLOAD_DIR="$(download_root)/OFDownloader" \
         OFDOWNLOADER_UPDATE_STATUS="$UPDATE_STATUS" \
         OFSCRAPER_BIN="$APP_DIR/.venv/bin/ofscraper" \
         "$PYTHON" "$CLI" "$@"
 }
+
+run_cli_controlled() {
+    local command="" paused=0 status=0
+    CONTROLLED_PID=""
+    CONTROLLED_GROUP=0
+    if command -v setsid >/dev/null 2>&1; then
+        setsid "$0" __run-cli "$@" &
+        CONTROLLED_GROUP=1
+    else
+        run_cli "$@" &
+    fi
+    CONTROLLED_PID=$!
+
+    if [[ ! -t 0 ]]; then
+        wait "$CONTROLLED_PID"
+        status=$?
+        CONTROLLED_PID=""
+        return "$status"
+    fi
+
+    echo "Controles Linux: P + Enter pausa | R + Enter reanuda"
+    while kill -0 "$CONTROLLED_PID" 2>/dev/null; do
+        if read -r -t 1 command; then
+            case "${command,,}" in
+                p|pausa|pause)
+                    if ((paused == 0)) && {
+                        if ((CONTROLLED_GROUP)); then
+                            kill -STOP -- "-$CONTROLLED_PID" 2>/dev/null || kill -STOP "$CONTROLLED_PID" 2>/dev/null
+                        else
+                            kill -STOP "$CONTROLLED_PID" 2>/dev/null
+                        fi
+                    }; then
+                        paused=1
+                        echo "[PAUSADA] Cambia de red y pulsa R + Enter para continuar."
+                    fi
+                    ;;
+                r|reanudar|resume)
+                    if ((paused == 1)) && {
+                        if ((CONTROLLED_GROUP)); then
+                            kill -CONT -- "-$CONTROLLED_PID" 2>/dev/null || kill -CONT "$CONTROLLED_PID" 2>/dev/null
+                        else
+                            kill -CONT "$CONTROLLED_PID" 2>/dev/null
+                        fi
+                    }; then
+                        paused=0
+                        echo "[REANUDADA] La descarga continúa."
+                    fi
+                    ;;
+            esac
+        fi
+    done
+    wait "$CONTROLLED_PID"
+    status=$?
+    CONTROLLED_PID=""
+    return "$status"
+}
+
+if [[ "${1:-}" == "__run-cli" ]]; then
+    shift
+    run_cli "$@"
+    exit $?
+fi
 
 import_file() {
     local selected="${1:-}"
@@ -106,7 +171,7 @@ case "${1:-menu}" in
 esac
 
 while true; do
-    run_cli "$@"
+    run_cli_controlled "$@"
     status=$?
     if [[ "$status" -eq "$IMPORT_REQUEST_EXIT" ]]; then
         import_file || true

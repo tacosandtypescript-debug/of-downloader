@@ -193,6 +193,14 @@ class ThemeTests(unittest.TestCase):
             self.assertIn("DISPONIBLE", ofbackup_cli.repository_update_badge("available"))
             self.assertIn("AL DÍA", ofbackup_cli.repository_update_badge("current"))
 
+    def test_update_notification_is_prominent_when_update_is_available(self):
+        notification = ofbackup_cli.update_notification("available")
+        self.assertIn("NOTIFICACIÓN", notification)
+        self.assertIn("[8]", notification)
+
+    def test_update_notification_is_hidden_when_application_is_current(self):
+        self.assertIsNone(ofbackup_cli.update_notification("current"))
+
     def test_update_command_requests_wrapper_restart(self):
         self.assertEqual(
             ofbackup_cli.main(["actualizar-app"]),
@@ -587,6 +595,26 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(ofbackup_cli.extract_download_percent("Video 73.8%"), 73)
         self.assertIsNone(ofbackup_cli.extract_download_percent("sin porcentaje"))
 
+    def test_reads_progress_updates_separated_by_carriage_return(self):
+        output = []
+        queue = ofbackup_cli.Queue()
+        ofbackup_cli.read_process_output(
+            io.StringIO("Buscando\rFoto 1/10\rFoto 2/10\n"), queue
+        )
+        while not queue.empty():
+            output.append(queue.get())
+        self.assertEqual(output, ["Buscando", "Foto 1/10", "Foto 2/10", None])
+
+    def test_progress_label_reports_remaining_items(self):
+        stats = ofbackup_cli.DownloadStats(
+            detected_images=8,
+            detected_videos=2,
+            downloaded=ofbackup_cli.MediaCounts(images=5, videos=1),
+        )
+        label = stats.label("Descargando archivos")
+        self.assertIn("Total 6/10", label)
+        self.assertIn("Restan 4", label)
+
     def test_extracts_media_totals_from_output(self):
         self.assertEqual(
             ofbackup_cli.extract_media_totals("Images: 27 Videos: 16"),
@@ -799,6 +827,19 @@ class DownloadTests(unittest.TestCase):
             "Timeline,Archived,Pinned,Stories,Streams,Profile,Purchased", arguments
         )
         self.assertEqual(keyword_arguments["mode"], "perfil")
+
+    def test_complete_profile_command_covers_all_supported_areas(self):
+        command = ofbackup_cli.build_complete_profile_command("creator.example")
+        self.assertEqual(command[0:4], ["--username", "creator.example", "--action", "download"])
+        self.assertEqual(
+            command[command.index("--download-area") + 1],
+            ofbackup_cli.PROFILE_DOWNLOAD_AREAS,
+        )
+        self.assertEqual(command[command.index("--posts") + 1], "all")
+        for option in ("--no-cache", "--no-api-cache", "--update-profile", "--force-all"):
+            self.assertIn(option, command)
+        self.assertIn("images,videos", command)
+        self.assertIn("--no-live", command)
 
 
 class SubscriptionProfileTests(unittest.TestCase):

@@ -11,5 +11,5 @@ if not exist "%SCRIPT_DIR%.venv\Scripts\python.exe" (
     exit /b 1
 )
 
-"%SCRIPT_DIR%.venv\Scripts\python.exe" "%SCRIPT_DIR%app.py" %*
+call "%SCRIPT_DIR%of-windows.cmd" %*
 exit /b %ERRORLEVEL%

@@ -15,11 +15,18 @@ import socket
 import subprocess
 import sys
 import time
+from queue import Empty, Queue
+from threading import Event, Thread
 from dataclasses import dataclass, field
 from datetime import datetime
 from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlparse
+
+try:
+    import psutil
+except ImportError:  # pragma: no cover - el instalador incluye psutil
+    psutil = None
 
 
 APP_VERSION = "2.15.0"
@@ -48,6 +55,9 @@ DRIVE_QUEUE_PATH = APP_DIR / "drive-pending.json"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"}
 VIDEO_EXTENSIONS = {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".ts"}
 PARTIAL_EXTENSIONS = {".part", ".partial", ".tmp", ".temp", ".download"}
+PROFILE_DOWNLOAD_AREAS = (
+    "Timeline,Archived,Pinned,Stories,Streams,Profile,Purchased"
+)
 
 AUTH_TEST_SCRIPT = r"""
 import sys
@@ -870,6 +880,31 @@ def repository_update_badge(status: str | None = None) -> str:
     return styled("● NO COMPROBADA", "muted")
 
 
+def update_notification(status: str | None = None) -> str | None:
+    """Devuelve una notificación breve para el panel principal."""
+    status = status or os.getenv("OFDOWNLOADER_UPDATE_STATUS", "unknown")
+    if status == "available":
+        return styled(
+            "  ⚠ NOTIFICACIÓN: hay una actualización disponible. "
+            "Elige [8] para instalarla y reiniciar.",
+            "yellow",
+            bold=True,
+        )
+    if status == "diverged":
+        return styled(
+            "  ⚠ NOTIFICACIÓN: el repositorio local y remoto han divergido. "
+            "Revisa el repositorio antes de actualizar.",
+            "yellow",
+            bold=True,
+        )
+    if status == "offline":
+        return styled(
+            "  · Actualizaciones: no se pudo comprobar la conexión.",
+            "muted",
+        )
+    return None
+
+
 def test_credentials(timeout: int = 60) -> int:
     """Comprueba la sesión con una consulta mínima y sin descargar contenido."""
     if not credentials_ready():
@@ -1102,7 +1137,77 @@ class DownloadStats:
             parts.append(f"Fallos {self.failed}")
         if self.skipped:
             parts.append(f"Omitidos {self.skipped}")
+        total_detected = (self.detected_images or 0) + (self.detected_videos or 0)
+        if total_detected:
+            remaining = max(0, total_detected - self.downloaded.total)
+            parts.append(
+                f"Total {self.downloaded.total}/{total_detected} | Restan {remaining}"
+            )
+        elif self.downloaded.total:
+            parts.append(f"Total descargado {self.downloaded.total}")
         return " · ".join(parts)
+
+
+class PausableProcess:
+    """Suspende y reanuda un proceso junto con sus hijos (OF-Scraper/FFmpeg)."""
+
+    def __init__(self, pid: int):
+        self.process = psutil.Process(pid) if psutil is not None else None
+        self.paused = False
+
+    @property
+    def available(self) -> bool:
+        return self.process is not None
+
+    def _processes(self):
+        if not self.process:
+            return []
+        try:
+            return [self.process, *self.process.children(recursive=True)]
+        except (psutil.Error, OSError):
+            return [self.process]
+
+    def pause(self) -> bool:
+        if not self.process or self.paused:
+            return False
+        for process in self._processes():
+            try:
+                process.suspend()
+            except (psutil.Error, OSError):
+                continue
+        self.paused = True
+        return True
+
+    def resume(self) -> bool:
+        if not self.process or not self.paused:
+            return False
+        for process in reversed(self._processes()):
+            try:
+                process.resume()
+            except (psutil.Error, OSError):
+                continue
+        self.paused = False
+        return True
+
+
+def read_process_output(stream, output: Queue[str | None]) -> None:
+    """Entrega cada actualización separada por salto de línea o retorno de carro."""
+    buffer: list[str] = []
+    try:
+        while True:
+            char = stream.read(1)
+            if not char:
+                break
+            if char in "\r\n":
+                if buffer:
+                    output.put("".join(buffer))
+                    buffer.clear()
+            else:
+                buffer.append(char)
+        if buffer:
+            output.put("".join(buffer))
+    finally:
+        output.put(None)
 
 
 @dataclass
@@ -2038,6 +2143,10 @@ def run_ofscraper(
     last_stage = "Iniciando"
     last_label = stats.label(last_stage)
     last_scan = 0.0
+    last_heartbeat = 0.0
+    output_queue: Queue[str | None] = Queue()
+    pause_controller: PausableProcess | None = None
+    control_stop = Event()
     show_download_progress(progress, last_label)
     APP_DIR.mkdir(parents=True, exist_ok=True)
     try:
@@ -2060,9 +2169,47 @@ def run_ofscraper(
             )
             if process.stdout is None:  # pragma: no cover - garantía de subprocess
                 raise UserError("No se pudo leer la salida de OF-Scraper.")
-            for line in process.stdout:
-                log_file.write(line)
-                log_file.flush()
+            pause_controller = PausableProcess(process.pid) if mode == "perfil" else None
+            if (
+                pause_controller
+                and pause_controller.available
+                and sys.stdin.isatty()
+                and not os.getenv("OFDOWNLOADER_EXTERNAL_PAUSE")
+            ):
+                print("Controles: P + Enter pausa | R + Enter reanuda")
+
+                def pause_commands() -> None:
+                    while not control_stop.is_set():
+                        try:
+                            command = input().strip().lower()
+                        except (EOFError, OSError):
+                            return
+                        if command in {"p", "pausa", "pause"}:
+                            if pause_controller and pause_controller.pause():
+                                print("\n[PAUSADA] La descarga está detenida. Cambia de red y pulsa R + Enter.")
+                        elif command in {"r", "reanudar", "resume"}:
+                            if pause_controller and pause_controller.resume():
+                                print("\n[REANUDADA] La descarga continúa.")
+
+                Thread(target=pause_commands, daemon=True).start()
+
+            Thread(
+                target=read_process_output,
+                args=(process.stdout, output_queue),
+                daemon=True,
+            ).start()
+            output_finished = False
+            while not output_finished:
+                try:
+                    line = output_queue.get(timeout=1)
+                except Empty:
+                    line = ""
+                if line is None:
+                    output_finished = True
+                    continue
+                if line:
+                    log_file.write(line + "\n")
+                    log_file.flush()
                 lowered = line.lower()
                 if "traceback (most recent call last):" in lowered:
                     traceback_seen = True
@@ -2072,7 +2219,7 @@ def run_ofscraper(
                     process.terminate()
                     break
 
-                stats_changed = update_download_stats_from_line(stats, line)
+                stats_changed = bool(line) and update_download_stats_from_line(stats, line)
                 now = time.monotonic()
                 if now - last_scan >= 1:
                     stats.downloaded = count_changed_media(
@@ -2081,8 +2228,20 @@ def run_ofscraper(
                     last_scan = now
                     stats_changed = True
 
+                if now - last_heartbeat >= 2:
+                    last_heartbeat = now
+                    stats_changed = True
+
                 reported = extract_download_percent(line)
-                if reported is not None:
+                detected_total = (stats.detected_images or 0) + (stats.detected_videos or 0)
+                if detected_total and stats.downloaded.total:
+                    counted_progress = min(
+                        95,
+                        10 + (stats.downloaded.total * 85 // detected_total),
+                    )
+                    new_progress = max(progress, counted_progress)
+                    stage = "Descargando archivos"
+                elif reported is not None:
                     new_progress = max(progress, min(95, 35 + reported * 3 // 5))
                     stage = "Descargando archivos"
                 elif "key mode:" in lowered:
@@ -2110,6 +2269,7 @@ def run_ofscraper(
                     last_label = label
                     show_download_progress(progress, last_label)
             returncode = process.wait()
+            control_stop.set()
     except OSError as exc:
         raise UserError(f"No se pudo iniciar OF-Scraper: {exc}") from exc
 
@@ -2226,28 +2386,36 @@ def download_user(username: str | None = None, *, source: str = "menu") -> int:
     print("Se lanzará la búsqueda del perfil completo permitido por tu cuenta.")
     print("Reescaneo completo activado para evitar caché vacía o antigua.")
     return run_ofscraper(
-        [
-            "--username",
-            username,
-            "--action",
-            "download",
-            "--no-cache",
-            "--no-api-cache",
-            "--update-profile",
-            "--posts",
-            "all",
-            "--download-area",
-            "Timeline,Archived,Pinned,Stories,Streams,Profile,Purchased",
-            "--mediatype",
-            "images,videos",
-            "--force-all",
-            "--no-live",
-            "--output",
-            "normal",
-        ],
+        build_complete_profile_command(username),
         mode="perfil",
         target=username,
     )
+
+
+def build_complete_profile_command(username: str) -> list[str]:
+    """Construye el comando explícito para recorrer todo el perfil accesible."""
+    return [
+        "--username",
+        username,
+        "--action",
+        "download",
+        # Evita que una ejecución anterior o incompleta oculte contenido.
+        "--no-cache",
+        "--no-api-cache",
+        "--update-profile",
+        # Incluye todos los posts y todas las áreas que OF-Scraper expone.
+        "--posts",
+        "all",
+        "--download-area",
+        PROFILE_DOWNLOAD_AREAS,
+        "--mediatype",
+        "images,videos",
+        "--force-all",
+        # Las emisiones en vivo no son contenido histórico descargable.
+        "--no-live",
+        "--output",
+        "normal",
+    ]
 
 
 def test_profile_lookup(username: str | None = None, timeout: int = 120) -> int:
@@ -2349,7 +2517,7 @@ def diagnostics() -> None:
 
 
 def update_engine() -> int:
-    print("Actualizando pip, OF-Scraper y Pillow…")
+    print("Actualizando pip y OF-Scraper…")
     commands = [
         [sys.executable, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
         [
@@ -2359,7 +2527,6 @@ def update_engine() -> int:
             "install",
             "--upgrade",
             f"ofscraper=={OFSCRAPER_VERSION}",
-            "Pillow>=12.2,<13",
         ],
     ]
     for command in commands:
@@ -2395,6 +2562,10 @@ def menu() -> int:
             menu_brand_line(label, logo_line)
         print(styled("  " + "─" * 42, "navy"))
 
+        update_status = os.getenv("OFDOWNLOADER_UPDATE_STATUS", "unknown")
+        notification = update_notification(update_status)
+        if notification:
+            print(notification)
         print(styled("\n  DESCARGAS", "blue", bold=True))
         menu_option("1", "Elegir perfil de mis suscripciones")
         menu_option("2", "Descargar perfil por usuario o enlace")
