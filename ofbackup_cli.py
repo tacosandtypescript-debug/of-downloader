@@ -111,6 +111,7 @@ except Exception as exc:
 
 PROFILE_TEST_SCRIPT = r"""
 import sys
+import traceback
 
 username = sys.argv[1]
 # OF-Scraper inspecciona sys.argv durante su inicialización. El nombre del
@@ -217,6 +218,7 @@ try:
         f"counted={len(seen)} "
         f"accessible={accessible} "
         f"blocked={blocked} "
+        f"area_errors={','.join(partial_errors) or 'none'} "
         f"partial={1 if partial_errors else 0}"
     )
     raise SystemExit(0)
@@ -224,6 +226,7 @@ except SystemExit:
     raise
 except Exception as exc:
     print(f"OFDOWNLOADER_PROFILE_ERROR:{type(exc).__name__}", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
     raise SystemExit(5)
 """
 
