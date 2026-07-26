@@ -18,10 +18,15 @@ PALETTE = {
 def colors_enabled() -> bool:
     if os.getenv("NO_COLOR") or not sys.stdout.isatty():
         return False
-    # PowerShell y Windows Terminal modernos soportan ANSI aunque no expongan
-    # WT_SESSION/ANSICON. Solo evitamos colores en una terminal declarada como
-    # dumb; la salida redirigida ya queda cubierta por isatty().
-    return os.getenv("TERM", "").lower() != "dumb"
+    if os.name != "nt":
+        return os.getenv("TERM", "").lower() != "dumb"
+    # PowerShell clasico no interpreta ANSI y mostraria los escapes crudos.
+    return bool(
+        os.getenv("WT_SESSION")
+        or os.getenv("ANSICON")
+        or os.getenv("ConEmuANSI", "").upper() == "ON"
+        or os.getenv("TERM_PROGRAM")
+    )
 
 
 def show_download_progress(percent: int | None, label: str, *, failed: bool = False) -> None:
