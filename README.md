@@ -35,7 +35,14 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.15.0`
+Versión actual: `2.16.0`
+
+### Novedades de 2.16.0
+
+- Barra de progreso en vivo con bloques de color `▰/▱`.
+- Contadores reales de fotos, videos y omitidos leídos del motor.
+- Velocidad y tiempo estimado (ETA) durante perfiles grandes.
+- Colores automáticos en PowerShell, Linux y Termux, con respaldo ASCII.
 
 ## Links rápidos
 
