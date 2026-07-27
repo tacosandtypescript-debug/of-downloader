@@ -38,7 +38,14 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.17.0`
+Versión actual: `2.17.1`
+
+### Novedades de 2.17.1
+
+- Corrección de la cola del dashboard en Linux y Windows.
+- Notificaciones de actualización también en Windows.
+- Carga inicial de perfiles, logs visibles y serialización segura de trabajos.
+- Selector de perfil/publicación y destino de descarga conectados.
 
 ### Novedades de 2.17.0
 
