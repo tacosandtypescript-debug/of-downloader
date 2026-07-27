@@ -74,6 +74,20 @@ class DashboardServerTests(unittest.TestCase):
         self.assertNotIn('"sess"', serialized)
         self.assertNotIn('"x-bc"', serialized)
 
+    def test_dashboard_parses_live_file_queue_counters(self):
+        job = web_dashboard.DashboardJob(id="1", target="demo", kind="profile")
+        web_dashboard.update_dashboard_job_from_line(
+            job,
+            "[########] 45% Fotos 12/30 · Videos 4/19 · Omitidos 2 · "
+            "Velocidad 2.4/s · ETA 00:25 · C:\\downloads\\foto-12.jpg",
+        )
+        self.assertEqual(job.current_file, "C:\\downloads\\foto-12.jpg")
+        self.assertEqual((job.processed_images, job.detected_images), (12, 30))
+        self.assertEqual((job.processed_videos, job.detected_videos), (4, 19))
+        self.assertEqual(job.skipped, 2)
+        self.assertEqual(job.speed, "2.4/s")
+        self.assertEqual(job.eta, "00:25")
+
 
 class DashboardAuthImportTests(unittest.TestCase):
     def test_import_saves_only_supported_auth_fields(self):

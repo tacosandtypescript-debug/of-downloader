@@ -1345,6 +1345,7 @@ class SubscriptionProfile:
     username: str
     display_name: str = ""
     profile_id: str = ""
+    avatar_url: str = ""
     status: str = "activo"
     posts: int | None = None
     photos: int | None = None
@@ -1962,12 +1963,29 @@ def normalize_subscription_profile(data: dict) -> SubscriptionProfile | None:
     username = profile_username(username) or username.lstrip("@")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+", username):
         return None
+    avatar = first_present(
+        data,
+        (
+            "avatarUrl",
+            "avatar_url",
+            "avatar",
+            "profilePicture",
+            "profilePictureUrl",
+            "profile_image",
+        ),
+    )
+    if isinstance(avatar, dict):
+        avatar = first_present(avatar, ("url", "source", "src", "full", "fullSize"))
+    avatar_url = str(avatar or "").strip()
+    if not re.fullmatch(r"https?://[^\s]+", avatar_url, re.IGNORECASE):
+        avatar_url = ""
     return SubscriptionProfile(
         username=username,
         display_name=str(
             first_present(data, ("displayName", "name", "rawText", "username")) or ""
         ).strip(),
         profile_id=str(first_present(data, ("id", "userId", "model_id")) or "").strip(),
+        avatar_url=avatar_url,
         status=subscription_status(data),
         posts=optional_int(first_present(data, ("postsCount", "post_count", "posts"))),
         photos=optional_int(first_present(data, ("photosCount", "photo_count", "photos"))),
@@ -2576,7 +2594,14 @@ def download_link(url: str | None = None) -> int:
     )
 
 
-def download_user(username: str | None = None, *, source: str = "menu") -> int:
+def download_user(
+    username: str | None = None,
+    *,
+    source: str = "menu",
+    media_type: str = "images,videos",
+    rescan: bool = True,
+    force_all: bool = True,
+) -> int:
     state = get_state()
     username = (
         username
@@ -2604,36 +2629,45 @@ def download_user(username: str | None = None, *, source: str = "menu") -> int:
             print("Cancelado. No se descargo nada.")
             return 0
     return run_ofscraper(
-        build_complete_profile_command(username),
+        build_complete_profile_command(
+            username, media_type=media_type, rescan=rescan, force_all=force_all
+        ),
         mode="perfil",
         target=username,
     )
 
 
-def build_complete_profile_command(username: str) -> list[str]:
+def build_complete_profile_command(
+    username: str,
+    *,
+    media_type: str = "images,videos",
+    rescan: bool = True,
+    force_all: bool = True,
+) -> list[str]:
     """Construye el comando explícito para recorrer todo el perfil accesible."""
-    return [
+    command = [
         "--username",
         username,
         "--action",
         "download",
         # Evita que una ejecución anterior o incompleta oculte contenido.
-        "--no-cache",
-        "--no-api-cache",
-        "--update-profile",
         # Incluye todos los posts y todas las áreas que OF-Scraper expone.
         "--posts",
         "all",
         "--download-area",
         PROFILE_DOWNLOAD_AREAS,
         "--mediatype",
-        "images,videos",
-        "--force-all",
+        media_type,
         # Las emisiones en vivo no son contenido histórico descargable.
         "--no-live",
         "--output",
         "normal",
     ]
+    if rescan:
+        command[4:4] = ["--no-cache", "--no-api-cache", "--update-profile"]
+    if force_all:
+        command.insert(command.index("--no-live"), "--force-all")
+    return command
 
 
 def test_profile_lookup(username: str | None = None, timeout: int = 120) -> int:
@@ -2922,11 +2956,25 @@ def open_dashboard(*, port: int = 8766, open_browser: bool = True) -> int:
     return run_dashboard(port=port, open_browser=open_browser)
 
 
-def download_web_target(target: str) -> int:
+def download_web_target(
+    target: str,
+    *,
+    media_type: str = "images,videos",
+    rescan: bool = True,
+    force_all: bool = True,
+) -> int:
     """Ruta sin preguntas interactivas usada por la cola del dashboard."""
     username = profile_username(target)
     if username:
-        return download_user(username, source="selector")
+        if media_type == "images,videos" and rescan and force_all:
+            return download_user(username, source="selector")
+        return download_user(
+            username,
+            source="selector",
+            media_type=media_type,
+            rescan=rescan,
+            force_all=force_all,
+        )
     return download_link(target)
 
 
@@ -3154,9 +3202,18 @@ def main(argv: list[str] | None = None) -> int:
             port = next((int(arg) for arg in argv[1:] if arg.isdigit()), 8766)
             return open_dashboard(port=port)
         if command == "descargar-web":
-            if len(argv) != 2:
+            if len(argv) < 2:
                 raise UserError("Falta el usuario, enlace o ID para la descarga web.")
-            return download_web_target(argv[1])
+            options = {item.split("=", 1)[0]: item.split("=", 1)[1] for item in argv[2:] if "=" in item}
+            media_type = options.get("--media", "images,videos")
+            if media_type not in {"images", "videos", "images,videos"}:
+                raise UserError("Tipo de contenido no válido.")
+            return download_web_target(
+                argv[1],
+                media_type=media_type,
+                rescan=options.get("--rescan", "1") == "1",
+                force_all=options.get("--force-all", "1") == "1",
+            )
         if command in {"diagnostico", "diagnóstico", "status"}:
             diagnostics()
             return 0
