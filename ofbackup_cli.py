@@ -1383,6 +1383,24 @@ def media_snapshot(root: Path) -> dict[str, tuple[int, int]]:
     return snapshot
 
 
+def partial_media_files(root: Path) -> list[Path]:
+    """Devuelve temporales que el motor dejó sin convertir en un medio final."""
+    root = root.expanduser()
+    if not root.exists():
+        return []
+    files: list[Path] = []
+    try:
+        for path in root.rglob("*"):
+            try:
+                if path.is_file() and path.suffix.lower() in PARTIAL_EXTENSIONS:
+                    files.append(path)
+            except OSError:
+                continue
+    except OSError:
+        return files
+    return sorted(files, key=lambda path: str(path).lower())
+
+
 def count_changed_media(
     before: dict[str, tuple[int, int]], after: dict[str, tuple[int, int]]
 ) -> MediaCounts:
@@ -1489,6 +1507,12 @@ def print_download_summary(
     print(f"Fallos detectados: {stats.failed}")
     if stats.skipped:
         print(f"Omitidos porque ya existian: {stats.skipped}")
+    if stats.partial_files:
+        print(f"Temporales incompletos: {stats.partial_files}")
+        print(
+            "Aviso: quedaron archivos .part/.tmp. No se borraron para permitir "
+            "un posible reintento; revisa FFmpeg y la conexion antes de repetir."
+        )
     if completed and detected_parts and not stats.failed:
         detected_total = (stats.detected_images or 0) + (stats.detected_videos or 0)
         if stats.downloaded.total < detected_total:
@@ -2392,9 +2416,9 @@ def run_ofscraper(
                 stats_changed = bool(line) and update_download_stats_from_line(stats, line)
                 now = time.monotonic()
                 if now - last_scan >= 1:
-                    stats.downloaded = count_changed_media(
-                        before_download, media_snapshot(destination)
-                    )
+                    current_snapshot = media_snapshot(destination)
+                    stats.downloaded = count_changed_media(before_download, current_snapshot)
+                    stats.partial_files = len(partial_media_files(destination))
                     last_scan = now
                     stats_changed = True
 
@@ -2450,6 +2474,7 @@ def run_ofscraper(
 
     after_download = media_snapshot(destination)
     stats.downloaded = count_changed_media(before_download, after_download)
+    stats.partial_files = len(partial_media_files(destination))
     new_files = changed_media_files(before_download, after_download)
     if returncode or traceback_seen or auth_failed:
         shown_code = returncode or 1

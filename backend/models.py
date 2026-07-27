@@ -24,6 +24,7 @@ class DownloadStats:
     downloaded: MediaCounts = field(default_factory=MediaCounts)
     failed: int = 0
     skipped: int = 0
+    partial_files: int = 0
     processed_images: int | None = None
     processed_videos: int | None = None
     started_at: float | None = None
@@ -47,6 +48,8 @@ class DownloadStats:
             parts.append(f"Fallos {self.failed}")
         if self.skipped:
             parts.append(f"Omitidos {self.skipped}")
+        if self.partial_files:
+            parts.append(f"Temporales {self.partial_files}")
         if self.detected_total:
             remaining = max(0, self.detected_total - self.accounted_total)
             parts.append(
@@ -81,4 +84,7 @@ class DownloadStats:
 
     @property
     def has_unaccounted_detected_media(self) -> bool:
-        return bool(self.detected_total and self.accounted_total < self.detected_total)
+        return bool(
+            self.partial_files
+            or (self.detected_total and self.accounted_total < self.detected_total)
+        )
