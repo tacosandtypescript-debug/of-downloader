@@ -152,6 +152,7 @@ class JobManager:
     def _persist(self) -> None:
         try:
             self._store.save(self.snapshot())
+            self.events.publish(QueueEvent("queue_snapshot", None, {"jobs": self.snapshot()}))
         except (OSError, _cli().UserError):
             pass
 
@@ -653,7 +654,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
         host = self.headers.get("Host", "").split(":", 1)[0].strip("[]").lower()
         if host not in {"127.0.0.1", "localhost", "::1"}:
             return False
-        return secrets.compare_digest(self.headers.get("X-OFD-Token", ""), self.app.token)
+        query_token = parse_qs(urlparse(self.path).query).get("token", [""])[0]
+        return secrets.compare_digest(self.headers.get("X-OFD-Token", "") or query_token, self.app.token)
+
+    def _events(self) -> None:
+        channel = self.app.jobs.events.subscribe()
+        try:
+            self._headers("text/event-stream; charset=utf-8")
+            self.wfile.write(b"retry: 2000\n\n")
+            self.wfile.flush()
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                event = QueueEventBus.next(channel, timeout=1.0)
+                if event is None:
+                    self.wfile.write(b": heartbeat\n\n")
+                    self.wfile.flush()
+                    continue
+                payload = json.dumps({"type": event.kind, **event.payload}, ensure_ascii=False)
+                self.wfile.write(f"event: {event.kind}\ndata: {payload}\n\n".encode("utf-8"))
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            self.app.jobs.events.unsubscribe(channel)
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
@@ -712,6 +735,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             if path == "/api/open-folder":
                 self._json(self.app.open_download_folder())
+                return
+            if path == "/api/events":
+                self._events()
                 return
             if path == "/api/settings/destination":
                 self._json(self.app.set_destination(self._read_json()))

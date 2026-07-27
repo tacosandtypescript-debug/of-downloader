@@ -528,7 +528,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark">OF</div>
-        <div><strong>Downloader</strong><span><span id="appVersion">Panel local v2.17.1</span></span></div>
+        <div><strong>Downloader</strong><span><span id="appVersion">Panel local v2.17.3</span></span></div>
       </div>
 
       <div class="nav-label">Principal</div>
@@ -1244,7 +1244,18 @@
   resetCookie();
   bindProfileButtons();
   loadStatus(false);
-  setInterval(() => loadStatus(true), 2200);
+  const queueEvents = new EventSource(`/api/events?token=${encodeURIComponent(TOKEN)}`);
+  queueEvents.addEventListener('queue_snapshot', event => {
+    try {
+      const data = JSON.parse(event.data);
+      if (Array.isArray(data.jobs)) {
+        jobs = data.jobs;
+        renderJobs();
+      }
+    } catch (_) { /* El siguiente evento o sondeo recupera el estado. */ }
+  });
+  queueEvents.onerror = () => { /* SSE se reconecta automáticamente; el sondeo es respaldo. */ };
+  setInterval(() => loadStatus(true), 10000);
 })();
 </script>
 
