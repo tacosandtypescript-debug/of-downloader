@@ -741,6 +741,7 @@
   let jobs = [];
   let activeJob = null;
   let cookiePayload = null;
+  let profilesLoaded = false;
 
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -842,6 +843,7 @@
       ? `Fotos ${job.processed_images || 0}/${job.detected_images ?? '—'} · Videos ${job.processed_videos || 0}/${job.detected_videos ?? '—'} · Omitidos ${job.skipped || 0}`
       : '';
     const detail = `${job.kind === 'profile' ? 'Perfil completo' : 'Publicación'} · ${escapeHtml(job.current_file || job.message || statusLabel(job.status))}${counters ? ` · ${counters}` : ''}`;
+    const log = job.log_path ? ` · Log: ${escapeHtml(job.log_path)}` : '';
     const actionable = ['queued', 'running', 'paused'].includes(job.status);
     const action = compact || !actionable ? '' : `<button class="ghost-btn job-action" data-job="${job.id}" data-action="${job.status === 'paused' ? 'resume' : job.status === 'running' ? 'pause' : 'cancel'}">${job.status === 'paused' ? 'Reanudar' : job.status === 'running' ? 'Pausar' : 'Cancelar'}</button>`;
     return `<div class="queue-item" data-job-row="${job.id}"><div class="queue-num">${String(index + 1).padStart(2, '0')}</div><div><strong>${target}</strong><small>${detail}${job.progress == null ? '' : ` · ${job.progress}%`}</small></div><div style="display:flex;gap:7px;align-items:center"><span class="badge ${badgeClass(job.status)}">${statusLabel(job.status)}</span>${action}</div></div>`;
@@ -903,6 +905,7 @@
     $('#driveFinalPath').textContent = `${data.drive_remote || 'gdrive'}:/${data.drive_folder || 'OFDownloader'}`;
     $('#driveJobSwitch').checked = Boolean(data.drive_enabled && data.drive_upload_after_download);
     renderJobs();
+    if (data.connected && !profilesLoaded && typeof loadProfiles === 'function') loadProfiles(false);
   };
 
   const loadStatus = async (silent = true) => {
@@ -1025,6 +1028,8 @@
     $$('.profile-download').forEach(button => button.addEventListener('click', async () => {
       button.disabled = true;
       try {
+        target.value = button.dataset.user;
+        downloadType.value = 'profile';
         await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target: button.dataset.user, options: { media_type: 'images,videos', rescan: true, force_all: true } }) });
         openView('downloads');
         notify('Perfil añadido directamente a la cola');
@@ -1042,11 +1047,13 @@
     try {
       const data = await api(forceRefresh ? '/api/profiles?refresh=1' : '/api/profiles');
       renderProfiles(data.profiles || []);
-      notify(data.stale ? `${data.message} (${data.updated_at || 'sin fecha'})` : data.message);
+      const logHint = data.log_path ? ` · Registro: ${data.log_path}` : '';
+      notify(data.stale ? `${data.message} (${data.updated_at || 'sin fecha'})${logHint}` : `${data.message}${logHint}`);
     } catch (error) {
-      $('#profileGrid').innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+      $('#profileGrid').innerHTML = `<div class="empty-state">${escapeHtml(error.message)}<br><small>Revisa el registro de perfiles en la carpeta de descargas.</small></div>`;
       notify(error.message, true);
     } finally {
+      profilesLoaded = true;
       button.disabled = false;
       button.textContent = 'Actualizar perfiles';
     }
