@@ -742,6 +742,7 @@
   let activeJob = null;
   let cookiePayload = null;
   let profilesLoaded = false;
+  let accountConnected = false;
 
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -774,7 +775,7 @@
       $('#pageTitle').textContent = target.dataset.title;
       $('#pageSubtitle').textContent = target.dataset.subtitle;
     }
-    if (name === 'profiles' && typeof loadProfiles === 'function') loadProfiles(false);
+    if (name === 'profiles' && accountConnected && typeof loadProfiles === 'function') loadProfiles(false);
     body.classList.remove('menu-open');
   };
 
@@ -883,6 +884,7 @@
 
   const applyStatus = data => {
     jobs = data.jobs || [];
+    accountConnected = Boolean(data.connected);
     $('#appVersion').textContent = `Panel local v${data.version}`;
     $('#systemStatus').textContent = data.connected ? 'Todo operativo' : 'Falta conectar la cuenta';
     $('#systemStatusNote').textContent = `Servidor local · ${data.platform}`;
@@ -905,6 +907,10 @@
     $('#driveFinalPath').textContent = `${data.drive_remote || 'gdrive'}:/${data.drive_folder || 'OFDownloader'}`;
     $('#driveJobSwitch').checked = Boolean(data.drive_enabled && data.drive_upload_after_download);
     renderJobs();
+    $('#refreshProfiles').disabled = !accountConnected;
+    if (!accountConnected) {
+      $('#profileGrid').innerHTML = '<div class="empty-state">Carga primero OFBackup-auth.json desde Configuración y pulsa “Probar acceso”.</div>';
+    }
     if (data.connected && !profilesLoaded && typeof loadProfiles === 'function') loadProfiles(false);
   };
 
@@ -1040,6 +1046,10 @@
   };
 
   const loadProfiles = async (forceRefresh = false) => {
+    if (!accountConnected) {
+      $('#profileGrid').innerHTML = '<div class="empty-state">Carga primero OFBackup-auth.json desde Configuración y pulsa “Probar acceso”.</div>';
+      return;
+    }
     if (profilesLoaded && !forceRefresh) return;
     profilesLoaded = true;
     const button = $('#refreshProfiles');
