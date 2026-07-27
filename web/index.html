@@ -1006,8 +1006,9 @@
       button.disabled = true;
       try {
         await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target: button.dataset.user, options: { media_type: 'images,videos', rescan: true, force_all: true } }) });
+        openView('downloads');
         notify('Perfil añadido directamente a la cola');
-        await loadStatus();
+        await loadStatus(false);
       } catch (error) { notify(error.message, true); }
       finally { button.disabled = false; }
     }));
