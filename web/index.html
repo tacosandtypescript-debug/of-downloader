@@ -622,6 +622,7 @@
               </div>
               <div class="progress-labels"><span id="stageText">Esperando trabajos</span><strong id="progressText">—</strong></div>
               <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0"></div></div>
+              <div class="progress-labels"><span id="fileProgressText">Archivos procesados</span><span id="currentFileText">Esperando archivo...</span></div>
               <div class="download-stats">
                 <div class="stat-box"><span>Velocidad</span><strong id="speedText">2.4 archivos/s</strong></div>
                 <div class="stat-box"><span>Tiempo restante</span><strong id="etaText">00:25</strong></div>
@@ -839,6 +840,10 @@
     const detail = $('#activeDetail');
     const badge = $('#runningBadge');
     const progress = activeJob?.progress ?? 0;
+    const totalFiles = activeJob ? (activeJob.detected_images || 0) + (activeJob.detected_videos || 0) : 0;
+    const processedFiles = activeJob ? (activeJob.processed_images || 0) + (activeJob.processed_videos || 0) + (activeJob.skipped || 0) : 0;
+    $('#fileProgressText').textContent = activeJob && totalFiles ? `${Math.min(processedFiles, totalFiles)} de ${totalFiles} archivos` : 'Archivos procesados';
+    $('#currentFileText').textContent = activeJob?.current_file || 'Esperando archivo...';
     $('#progressFill').style.width = `${progress}%`;
     $('#progressText').textContent = activeJob?.progress == null ? '—' : `${progress}%`;
     const media = activeJob ? `Fotos ${activeJob.processed_images || 0}/${activeJob.detected_images ?? '—'} · Videos ${activeJob.processed_videos || 0}/${activeJob.detected_videos ?? '—'} · Omitidos ${activeJob.skipped || 0}` : '';

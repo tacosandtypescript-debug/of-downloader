@@ -38,7 +38,12 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.17.5`
+Versión actual: `2.17.6`
+
+### Novedades de 2.17.6
+
+- La tarjeta activa muestra `X de Y archivos` y el archivo actual.
+- La barra principal representa el progreso total del perfil.
 
 ### Novedades de 2.17.5
 
