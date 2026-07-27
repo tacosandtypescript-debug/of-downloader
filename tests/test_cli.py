@@ -702,6 +702,21 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(counts.videos, 1)
         self.assertEqual(counts.other, 0)
 
+    def test_partial_media_files_are_reported_separately(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "tempvid_123.part").write_bytes(b"partial video")
+            (root / "tempaudio_123.part").write_bytes(b"partial audio")
+            (root / "finished.mp4").write_bytes(b"video")
+            files = ofbackup_cli.partial_media_files(root)
+        self.assertEqual(len(files), 2)
+        self.assertTrue(all(path.suffix == ".part" for path in files))
+
+    def test_partial_files_mark_download_incomplete(self):
+        stats = ofbackup_cli.DownloadStats(partial_files=2)
+        self.assertTrue(stats.has_unaccounted_detected_media)
+        self.assertIn("Temporales 2", stats.label("Proceso terminado"))
+
     def test_changed_media_files_returns_new_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
