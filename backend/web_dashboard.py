@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import io
@@ -45,6 +45,20 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def repair_dashboard_encoding(text: str) -> str:
+    """Corrige textos antiguos guardados con una doble conversión UTF-8."""
+    replacements = {
+        "ÃƒÂ¡": "á", "ÃƒÂ©": "é", "ÃƒÂ­": "í", "ÃƒÂ³": "ó", "ÃƒÂº": "ú",
+        "ÃƒÂ±": "ñ", "ÃƒÂ‰": "É", "Ãƒâ€œ": "Ó", "ÃƒÅ¡": "Ú", "Ãƒâ€˜": "Ñ",
+        "Ã¡": "á", "Ã©": "é", "Ã­": "í", "Ã³": "ó", "Ãº": "ú", "Ã±": "ñ",
+        "Ã‰": "É", "Ã“": "Ó", "Ãš": "Ú", "Ã‘": "Ñ", "Â·": "·",
+        "â€¦": "…", "â€”": "—", "â†�": "←", "âœ“": "✓", "â”€": "─",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return text
+
+
 def _public_job(job: "DashboardJob") -> dict[str, Any]:
     data = asdict(job)
     data.pop("process", None)
@@ -71,6 +85,7 @@ class DashboardJob:
     partial_files: int = 0
     speed: str = ""
     eta: str = ""
+    log_path: str = ""
     message: str = "En cola"
     created_at: str = field(default_factory=_utc_now)
     started_at: str | None = None
@@ -116,7 +131,41 @@ class JobManager:
         self._jobs: list[DashboardJob] = []
         self._lock = Lock()
         self._queue: Queue[str] = Queue()
+        self._load_persisted_jobs()
         Thread(target=self._worker, daemon=True, name="ofd-dashboard-jobs").start()
+
+    @property
+    def _jobs_path(self) -> Path:
+        return Path(_cli().APP_DIR) / "dashboard-jobs.json"
+
+    def _persist(self) -> None:
+        try:
+            _cli().secure_write_json(self._jobs_path, {"jobs": self.snapshot()[-50:]})
+        except (OSError, _cli().UserError):
+            pass
+
+    def _load_persisted_jobs(self) -> None:
+        try:
+            payload = _cli().read_json(self._jobs_path)
+            rows = payload.get("jobs", [])
+            if not isinstance(rows, list):
+                return
+            allowed = {item.name for item in fields(DashboardJob) if item.init}
+            loaded: list[DashboardJob] = []
+            for row in rows[-50:]:
+                if not isinstance(row, dict):
+                    continue
+                values = {key: value for key, value in row.items() if key in allowed}
+                if not values.get("id") or not values.get("target"):
+                    continue
+                if values.get("status") in {"running", "paused", "queued"}:
+                    values["status"] = "error"
+                    values["message"] = "Trabajo interrumpido al cerrar el dashboard"
+                    values["finished_at"] = _utc_now()
+                loaded.append(DashboardJob(**values))
+            self._jobs = loaded
+        except (OSError, TypeError, ValueError, _cli().UserError):
+            self._jobs = []
 
     def add(self, target: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
         cli = _cli()
@@ -150,6 +199,7 @@ class JobManager:
         with self._lock:
             self._jobs.append(job)
             self._jobs = self._jobs[-50:]
+        self._persist()
         self._queue.put(job.id)
         return _public_job(job)
 
@@ -186,6 +236,7 @@ class JobManager:
         with self._lock:
             job.status = "paused"
             job.message = "Descarga pausada"
+        self._persist()
         return _public_job(job)
 
     def resume(self, job_id: str) -> dict[str, Any]:
@@ -197,6 +248,7 @@ class JobManager:
         with self._lock:
             job.status = "running"
             job.message = "Descarga reanudada"
+        self._persist()
         return _public_job(job)
 
     def cancel(self, job_id: str) -> dict[str, Any]:
@@ -207,7 +259,15 @@ class JobManager:
                 job.status = "cancelled"
                 job.message = "Cancelado antes de iniciar"
                 job.finished_at = _utc_now()
-                return _public_job(job)
+                result = _public_job(job)
+                persist_cancel = True
+            else:
+                persist_cancel = False
+                result = None
+        if persist_cancel:
+            self._persist()
+            return result
+        with self._lock:
             process = job.process
             job.cancel_requested = True
         if process and process.poll() is None:
@@ -248,6 +308,14 @@ class JobManager:
             job.status = "running"
             job.message = "Preparando descarga"
             job.started_at = _utc_now()
+            try:
+                job.log_path = str(
+                    Path(_cli().get_state()["download_dir"]).expanduser()
+                    / _cli().PUBLIC_DOWNLOAD_LOG_NAME
+                )
+            except (KeyError, OSError, _cli().UserError):
+                job.log_path = ""
+        self._persist()
         try:
             process = subprocess.Popen(
                 command,
@@ -266,10 +334,12 @@ class JobManager:
                 job.message = f"No se pudo iniciar: {exc}"
                 job.finished_at = _utc_now()
                 job.returncode = 1
+            self._persist()
             return
         with self._lock:
             job.process = process
             job.controller = PausableProcess(process.pid)
+        last_persist = time.monotonic()
         if process.stdout is not None:
             for raw_line in process.stdout:
                 line = ANSI_RE.sub("", raw_line).strip()
@@ -281,6 +351,9 @@ class JobManager:
                         job.progress = max(0, min(100, int(match.group(1))))
                     update_dashboard_job_from_line(job, line)
                     job.message = line[-220:]
+                if time.monotonic() - last_persist >= 1:
+                    self._persist()
+                    last_persist = time.monotonic()
         returncode = process.wait()
         with self._lock:
             job.returncode = returncode
@@ -298,6 +371,8 @@ class JobManager:
                 job.status = "error"
                 if not job.message:
                     job.message = f"El proceso terminó con código {returncode}"
+
+        self._persist()
 
 
 class DashboardApplication:
@@ -487,6 +562,18 @@ class DashboardApplication:
             raise RuntimeError(f"No se pudo abrir la carpeta: {exc}") from exc
         return {"ok": True, "path": str(folder)}
 
+    def set_destination(self, payload: dict[str, Any]) -> dict[str, Any]:
+        cli = _cli()
+        value = str(payload.get("path", "")).strip()
+        if not value:
+            raise cli.UserError("Escribe una carpeta de destino.")
+        folder = Path(value).expanduser().resolve()
+        folder.mkdir(parents=True, exist_ok=True)
+        state = cli.get_state()
+        state["download_dir"] = str(folder)
+        cli.save_state(state)
+        return {"ok": True, "path": str(folder)}
+
 
 class DashboardHandler(BaseHTTPRequestHandler):
     server_version = "OFDownloaderDashboard/1.0"
@@ -542,7 +629,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             if path in {"/", "/index.html"}:
-                html = self.app.index_path.read_text(encoding="utf-8")
+                html = repair_dashboard_encoding(self.app.index_path.read_text(encoding="utf-8"))
                 html = html.replace("__OFD_TOKEN__", self.app.token)
                 self._headers("text/html; charset=utf-8")
                 self.wfile.write(html.encode("utf-8"))
@@ -595,6 +682,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             if path == "/api/open-folder":
                 self._json(self.app.open_download_folder())
+                return
+            if path == "/api/settings/destination":
+                self._json(self.app.set_destination(self._read_json()))
                 return
             if path == "/api/shutdown":
                 if self.app.jobs.has_pending_work():
