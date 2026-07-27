@@ -70,6 +70,7 @@ check_repository_update() {
         if [[ ! -f "$HOST_APP_HOME/ofbackup_cli.py" ]] || \
            ! cmp -s "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py" || \
            [[ ! -f "$HOST_APP_HOME/backend/models.py" ]] || \
+           [[ ! -f "$HOST_APP_HOME/backend/queue/__init__.py" ]] || \
            [[ ! -f "$HOST_APP_HOME/frontend/progress.py" ]]; then
             printf 'available'
         else
@@ -133,12 +134,13 @@ update_application() {
     fi
     install -m 600 "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py"
     mkdir -p "$HOST_APP_HOME/backend" "$HOST_APP_HOME/frontend"
-    if ! install -m 600 "$repo/backend/"*.py "$HOST_APP_HOME/backend/" || \
-       ! install -m 600 "$repo/frontend/"*.py "$HOST_APP_HOME/frontend/"; then
+    if ! cp -R "$repo/backend/." "$HOST_APP_HOME/backend/" || \
+       ! cp -R "$repo/frontend/." "$HOST_APP_HOME/frontend/"; then
         echo "✗ No se pudieron copiar los componentes backend/frontend."
         return 2
     fi
-    if [[ ! -f "$HOST_APP_HOME/backend/models.py" || ! -f "$HOST_APP_HOME/frontend/progress.py" ]]; then
+    chmod -R u=rwX,go= "$HOST_APP_HOME/backend" "$HOST_APP_HOME/frontend"
+    if [[ ! -f "$HOST_APP_HOME/backend/models.py" || ! -f "$HOST_APP_HOME/backend/queue/__init__.py" || ! -f "$HOST_APP_HOME/frontend/progress.py" ]]; then
         echo "✗ La actualización quedó incompleta: faltan paquetes Python."
         return 2
     fi
