@@ -948,6 +948,7 @@ class SubscriptionProfileTests(unittest.TestCase):
                     "username": "creator.free",
                     "displayName": "Creator Free",
                     "isFree": True,
+                    "avatarUrl": "https://cdn.example/avatar-free.jpg",
                     "postsCount": 7,
                     "photosCount": 5,
                     "videosCount": 2,
@@ -968,6 +969,7 @@ class SubscriptionProfileTests(unittest.TestCase):
         self.assertEqual([profile.username for profile in profiles], ["creator.free", "creator.paid"])
         self.assertEqual(profiles[0].status, "gratis")
         self.assertEqual(profiles[0].photos, 5)
+        self.assertEqual(profiles[0].avatar_url, "https://cdn.example/avatar-free.jpg")
         self.assertEqual(profiles[1].status, "pagado")
 
     def test_parses_subscription_profiles_with_unicode_display_names(self):

@@ -19,7 +19,7 @@ import sys
 from threading import Lock, Thread
 import time
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 import webbrowser
 
 from backend.process import PausableProcess
@@ -28,6 +28,11 @@ from backend.process import PausableProcess
 MAX_REQUEST_SIZE = 96 * 1024
 ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 PERCENT_RE = re.compile(r"(?<!\d)(\d{1,3})%")
+PROFILE_CACHE_TTL = 15 * 60
+FILE_RE = re.compile(
+    r"(?P<file>[A-Za-z]:[\\/][^\r\n]*\.(?:jpg|jpeg|png|webp|gif|bmp|avif|mp4|m4v|mov|webm|mkv|avi|ts|part|partial|tmp)|(?<![\w/])[\w.-]+\.(?:jpg|jpeg|png|webp|gif|bmp|avif|mp4|m4v|mov|webm|mkv|avi|ts|part|partial|tmp))\b",
+    re.IGNORECASE,
+)
 
 
 def _cli():
@@ -53,8 +58,19 @@ class DashboardJob:
     id: str
     target: str
     kind: str
+    options: dict[str, Any] = field(default_factory=dict)
     status: str = "queued"
     progress: int | None = None
+    current_file: str = ""
+    detected_images: int | None = None
+    processed_images: int = 0
+    detected_videos: int | None = None
+    processed_videos: int = 0
+    skipped: int = 0
+    failed: int = 0
+    partial_files: int = 0
+    speed: str = ""
+    eta: str = ""
     message: str = "En cola"
     created_at: str = field(default_factory=_utc_now)
     started_at: str | None = None
@@ -63,6 +79,33 @@ class DashboardJob:
     process: subprocess.Popen[str] | None = field(default=None, repr=False)
     controller: PausableProcess | None = field(default=None, repr=False)
     cancel_requested: bool = field(default=False, repr=False)
+
+
+def update_dashboard_job_from_line(job: DashboardJob, line: str) -> None:
+    """Actualiza el estado visible con una línea real del motor."""
+    image = re.search(r"\b(?:Fotos|Images?)\s+(\d+)\s*/\s*(\d+)", line, re.I)
+    video = re.search(r"\b(?:Videos?|Vídeos?)\s+(\d+)\s*/\s*(\d+)", line, re.I)
+    if image:
+        job.processed_images, job.detected_images = map(int, image.groups())
+    if video:
+        job.processed_videos, job.detected_videos = map(int, video.groups())
+    for pattern, attribute in (
+        (r"\b(?:Omitidos?|Skipped)\s*[:=]?\s*(\d+)", "skipped"),
+        (r"\b(?:Fallos?|Failed)\s*[:=]?\s*(\d+)", "failed"),
+        (r"\b(?:Temporales?|Partials?)\s*[:=]?\s*(\d+)", "partial_files"),
+    ):
+        found = re.search(pattern, line, re.I)
+        if found:
+            setattr(job, attribute, int(found.group(1)))
+    speed = re.search(r"\b(?:Velocidad|Speed)\s*[:=]?\s*([\d.,]+\s*(?:KB|MB|GB)?/?s)", line, re.I)
+    eta = re.search(r"\bETA\s*[:=]?\s*([\d:]+)", line, re.I)
+    if speed:
+        job.speed = speed.group(1)
+    if eta:
+        job.eta = eta.group(1)
+    found_file = FILE_RE.search(line)
+    if found_file:
+        job.current_file = found_file.group("file").strip(" \t-·")
 
 
 class JobManager:
@@ -75,17 +118,35 @@ class JobManager:
         self._queue: Queue[str] = Queue()
         Thread(target=self._worker, daemon=True, name="ofd-dashboard-jobs").start()
 
-    def add(self, target: str) -> dict[str, Any]:
+    def add(self, target: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
         cli = _cli()
         target = target.strip()
         if not target:
             raise cli.UserError("Escribe un usuario, enlace o ID.")
         username = cli.profile_username(target)
+        requested_kind = str(options.get("kind", "auto")) if isinstance(options, dict) else "auto"
+        if requested_kind == "profile" and not username:
+            raise cli.UserError("El tipo Perfil completo necesita un usuario o enlace de perfil.")
+        if requested_kind == "post" and username:
+            raise cli.UserError("El tipo Publicación necesita un enlace o ID de publicación.")
         if username:
             normalized, kind = username, "profile"
         else:
             normalized, kind = cli.normalize_url(target), "post"
-        job = DashboardJob(id=secrets.token_hex(6), target=normalized, kind=kind)
+        options = options or {}
+        media_type = str(options.get("media_type", "images,videos"))
+        if media_type not in {"images", "videos", "images,videos"}:
+            raise cli.UserError("Tipo de contenido no válido.")
+        job = DashboardJob(
+            id=secrets.token_hex(6),
+            target=normalized,
+            kind=kind,
+            options={
+                "media_type": media_type,
+                "rescan": bool(options.get("rescan", True)),
+                "force_all": bool(options.get("force_all", True)),
+            },
+        )
         with self._lock:
             self._jobs.append(job)
             self._jobs = self._jobs[-50:]
@@ -171,7 +232,15 @@ class JobManager:
 
     def _run(self, job: DashboardJob) -> None:
         cli_path = self.project_root / "ofbackup_cli.py"
-        command = [sys.executable, str(cli_path), "descargar-web", job.target]
+        command = [
+            sys.executable,
+            str(cli_path),
+            "descargar-web",
+            job.target,
+            f"--media={job.options.get('media_type', 'images,videos')}",
+            f"--rescan={'1' if job.options.get('rescan', True) else '0'}",
+            f"--force-all={'1' if job.options.get('force_all', True) else '0'}",
+        ]
         env = os.environ.copy()
         env["OFDOWNLOADER_EXTERNAL_PAUSE"] = "1"
         env["PYTHONUNBUFFERED"] = "1"
@@ -210,6 +279,7 @@ class JobManager:
                 with self._lock:
                     if match:
                         job.progress = max(0, min(100, int(match.group(1))))
+                    update_dashboard_job_from_line(job, line)
                     job.message = line[-220:]
         returncode = process.wait()
         with self._lock:
@@ -238,6 +308,39 @@ class DashboardApplication:
         self.jobs = JobManager(project_root)
         self.server: ThreadingHTTPServer | None = None
 
+    def _profiles_cache_path(self) -> Path:
+        return Path(_cli().APP_DIR) / "dashboard-profiles.json"
+
+    @staticmethod
+    def _profile_payload(item: Any) -> dict[str, Any]:
+        return {
+            "username": item.username,
+            "display_name": item.display_name,
+            "profile_id": getattr(item, "profile_id", ""),
+            "avatar_url": getattr(item, "avatar_url", ""),
+            "status": item.status,
+            "posts": item.posts,
+            "photos": item.photos,
+            "videos": item.videos,
+            "archived": item.archived,
+        }
+
+    def _read_profiles_cache(self) -> tuple[list[dict[str, Any]], str] | None:
+        try:
+            cache = _cli().read_json(self._profiles_cache_path())
+            timestamp = float(cache.get("updated_at", 0))
+            profiles = cache.get("profiles")
+            if not isinstance(profiles, list) or not isinstance(timestamp, (int, float)):
+                return None
+            return profiles, datetime.fromtimestamp(timestamp, timezone.utc).isoformat().replace("+00:00", "Z")
+        except (OSError, TypeError, ValueError, AttributeError, _cli().UserError):
+            return None
+
+    def _write_profiles_cache(self, profiles: list[dict[str, Any]]) -> None:
+        path = self._profiles_cache_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _cli().secure_write_json(path, {"updated_at": time.time(), "profiles": profiles})
+
     def status(self) -> dict[str, Any]:
         cli = _cli()
         state = cli.get_state()
@@ -258,10 +361,18 @@ class DashboardApplication:
         except cli.UserError:
             drive_pending = 0
         jobs = self.jobs.snapshot()
+        try:
+            engine_path = str(cli.ofscraper_binary())
+            engine_available = bool(engine_path)
+        except Exception:
+            engine_path = ""
+            engine_available = False
         return {
             "version": cli.APP_VERSION,
             "platform": os.getenv("OFDOWNLOADER_PLATFORM", "WINDOWS" if os.name == "nt" else "LINUX"),
             "connected": cli.credentials_ready(),
+            "engine_available": engine_available,
+            "engine_path": engine_path,
             "username": state.get("username", ""),
             "download_dir": str(download_dir),
             "drive_enabled": bool(state.get("drive_enabled")),
@@ -290,6 +401,11 @@ class DashboardApplication:
             raise cli.UserError("Usa el archivo JSON generado por OF Downloader Exporter.") from exc
         values = cli.parse_auth_export(data)
         cli.save_credentials(values)
+        # La cuenta puede haber cambiado: no reutilizar perfiles de la sesión anterior.
+        try:
+            self._profiles_cache_path().unlink(missing_ok=True)
+        except OSError:
+            pass
         return {
             "ok": True,
             "connected": True,
@@ -314,24 +430,45 @@ class DashboardApplication:
             message = "No se pudo comprobar la cookie. Revisa el diagnóstico del programa."
         return {"ok": code == 0, "code": code, "message": message}
 
-    def profiles(self) -> dict[str, Any]:
+    def profiles(self, *, force_refresh: bool = False) -> dict[str, Any]:
         cli = _cli()
+        cached = self._read_profiles_cache()
+        if cached and not force_refresh:
+            profiles, updated_at = cached
+            try:
+                age = time.time() - datetime.fromisoformat(updated_at.replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                age = PROFILE_CACHE_TTL + 1
+            if age <= PROFILE_CACHE_TTL:
+                return {
+                    "profiles": profiles,
+                    "cached": True,
+                    "stale": False,
+                    "updated_at": updated_at,
+                    "message": f"{len(profiles)} perfiles en caché",
+                }
         output = io.StringIO()
         with redirect_stdout(output), redirect_stderr(output):
-            profiles = cli.list_subscription_profiles(timeout=90)
+            try:
+                profiles = cli.list_subscription_profiles(timeout=90)
+            except Exception:
+                if cached:
+                    old_profiles, updated_at = cached
+                    return {
+                        "profiles": old_profiles,
+                        "cached": True,
+                        "stale": True,
+                        "updated_at": updated_at,
+                        "message": "No se pudo actualizar; mostrando la última lista guardada.",
+                    }
+                raise
+        payload = [self._profile_payload(item) for item in profiles]
+        self._write_profiles_cache(payload)
         return {
-            "profiles": [
-                {
-                    "username": item.username,
-                    "display_name": item.display_name,
-                    "status": item.status,
-                    "posts": item.posts,
-                    "photos": item.photos,
-                    "videos": item.videos,
-                    "archived": item.archived,
-                }
-                for item in profiles
-            ],
+            "profiles": payload,
+            "cached": False,
+            "stale": False,
+            "updated_at": _utc_now(),
             "message": f"{len(profiles)} perfiles encontrados" if profiles else "No se encontraron perfiles.",
         }
 
@@ -370,7 +507,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+            "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
             "script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'",
         )
         self.end_headers()
@@ -420,7 +557,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._json({"jobs": self.app.jobs.snapshot()})
                 return
             if path == "/api/profiles":
-                self._json(self.app.profiles())
+                query = parse_qs(urlparse(self.path).query)
+                self._json(self.app.profiles(force_refresh=query.get("refresh") == ["1"]))
                 return
             self._json({"error": "Ruta no encontrada."}, 404)
         except Exception as exc:  # La UI recibe un error breve, nunca secretos.
@@ -438,9 +576,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if path == "/api/auth/test":
                 self._json(self.app.test_auth())
                 return
+            if path == "/api/auth/remove":
+                cli = _cli()
+                cli.AUTH_PATH.unlink(missing_ok=True)
+                self._json({"ok": True, "connected": False, "message": "Credenciales eliminadas localmente."})
+                return
             if path == "/api/jobs":
                 payload = self._read_json()
-                self._json({"job": self.app.jobs.add(str(payload.get("target", "")))}, 201)
+                raw_options = payload.get("options")
+                options = raw_options if isinstance(raw_options, dict) else {}
+                self._json({"job": self.app.jobs.add(str(payload.get("target", "")), options)}, 201)
                 return
             match = re.fullmatch(r"/api/jobs/([a-f0-9]+)/(?P<action>pause|resume|cancel)", path)
             if match:

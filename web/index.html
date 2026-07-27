@@ -222,7 +222,8 @@
     .profile-card:hover { transform:translateY(-2px); border-color:var(--border-strong); box-shadow:var(--shadow); }
     .profile-banner { height:72px; background:linear-gradient(135deg,var(--accent-soft),color-mix(in srgb,var(--accent-2) 20%,transparent)); }
     .profile-body { padding:0 16px 16px; }
-    .profile-avatar { width:54px; height:54px; margin-top:-27px; border:4px solid var(--surface); border-radius:16px; display:grid; place-items:center; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; font-weight:800; }
+    .profile-avatar { width:54px; height:54px; margin-top:-27px; border:4px solid var(--surface); border-radius:16px; display:grid; place-items:center; overflow:hidden; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; font-weight:800; }
+    .profile-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
     .profile-name { margin-top:10px; display:flex; justify-content:space-between; align-items:start; gap:10px; }
     .profile-name h3 { margin:0; font-size:15px; }
     .profile-name span { color:var(--muted); font-size:12px; }
@@ -648,8 +649,8 @@
                 <label class="field-full">Usuario, enlace o ID<input id="downloadTarget" placeholder="@usuario o https://onlyfans.com/..."></label>
                 <label>Tipo<select id="downloadType"><option>Detectar automáticamente</option><option>Perfil completo</option><option>Publicación individual</option></select></label>
                 <label>Destino<div class="static-field" id="downloadDestination">Consultando…</div></label>
-                <label>Contenido<select disabled><option>Fotos y videos</option></select></label>
-                <label>Comportamiento<select disabled><option>Omitir archivos existentes</option></select></label>
+                <label>Contenido<select id="downloadMedia"><option value="images,videos">Fotos y videos</option><option value="images">Solo fotos</option><option value="videos">Solo videos</option></select></label>
+                <label>Comportamiento<select id="downloadBehavior"><option value="skip">Omitir existentes</option><option value="rescan">Reescanear perfil</option><option value="force">Descargar todo de nuevo</option></select></label>
               </div>
               <div style="margin-top:18px">
                 <div class="switch-row"><div class="switch-copy"><strong>Subir a Google Drive</strong><small>Usa la preferencia global configurada en el CLI</small></div><label class="switch"><input type="checkbox" id="driveJobSwitch" disabled><span class="slider"></span></label></div>
@@ -772,6 +773,7 @@
       $('#pageTitle').textContent = target.dataset.title;
       $('#pageSubtitle').textContent = target.dataset.subtitle;
     }
+    if (name === 'profiles' && typeof loadProfiles === 'function') loadProfiles(false);
     body.classList.remove('menu-open');
   };
 
@@ -821,9 +823,10 @@
     const progress = activeJob?.progress ?? 0;
     $('#progressFill').style.width = `${progress}%`;
     $('#progressText').textContent = activeJob?.progress == null ? '—' : `${progress}%`;
-    $('#stageText').textContent = activeJob?.message || 'No hay una descarga activa';
-    $('#etaText').textContent = activeJob ? 'En proceso' : '—';
-    $('#speedText').textContent = activeJob?.status === 'paused' ? 'Pausada' : activeJob ? 'Motor activo' : '—';
+    const media = activeJob ? `Fotos ${activeJob.processed_images || 0}/${activeJob.detected_images ?? '—'} · Videos ${activeJob.processed_videos || 0}/${activeJob.detected_videos ?? '—'} · Omitidos ${activeJob.skipped || 0}` : '';
+    $('#stageText').textContent = activeJob ? `${activeJob.current_file || activeJob.message || 'Procesando'} · ${media}` : 'No hay una descarga activa';
+    $('#etaText').textContent = activeJob?.eta || (activeJob ? 'Calculando…' : '—');
+    $('#speedText').textContent = activeJob?.status === 'paused' ? 'Pausada' : activeJob?.speed || (activeJob ? 'Calculando…' : '—');
     target.textContent = activeJob ? `${activeJob.kind === 'profile' ? '@' : ''}${activeJob.target}` : 'Sin descarga activa';
     detail.textContent = activeJob ? (activeJob.kind === 'profile' ? 'Perfil completo' : 'Publicación individual') : 'Añade un trabajo desde Descargas';
     badge.className = `badge ${activeJob ? badgeClass(activeJob.status) : 'muted'}`;
@@ -835,7 +838,10 @@
 
   const jobRow = (job, index, compact = false) => {
     const target = `${job.kind === 'profile' ? '@' : ''}${escapeHtml(job.target)}`;
-    const detail = `${job.kind === 'profile' ? 'Perfil completo' : 'Publicación'} · ${escapeHtml(job.message || statusLabel(job.status))}`;
+    const counters = job.detected_images != null || job.detected_videos != null
+      ? `Fotos ${job.processed_images || 0}/${job.detected_images ?? '—'} · Videos ${job.processed_videos || 0}/${job.detected_videos ?? '—'} · Omitidos ${job.skipped || 0}`
+      : '';
+    const detail = `${job.kind === 'profile' ? 'Perfil completo' : 'Publicación'} · ${escapeHtml(job.current_file || job.message || statusLabel(job.status))}${counters ? ` · ${counters}` : ''}`;
     const actionable = ['queued', 'running', 'paused'].includes(job.status);
     const action = compact || !actionable ? '' : `<button class="ghost-btn job-action" data-job="${job.id}" data-action="${job.status === 'paused' ? 'resume' : job.status === 'running' ? 'pause' : 'cancel'}">${job.status === 'paused' ? 'Reanudar' : job.status === 'running' ? 'Pausar' : 'Cancelar'}</button>`;
     return `<div class="queue-item" data-job-row="${job.id}"><div class="queue-num">${String(index + 1).padStart(2, '0')}</div><div><strong>${target}</strong><small>${detail}${job.progress == null ? '' : ` · ${job.progress}%`}</small></div><div style="display:flex;gap:7px;align-items:center"><span class="badge ${badgeClass(job.status)}">${statusLabel(job.status)}</span>${action}</div></div>`;
@@ -879,7 +885,7 @@
     $('#systemStatus').textContent = data.connected ? 'Todo operativo' : 'Falta conectar la cuenta';
     $('#systemStatusNote').textContent = `Servidor local · ${data.platform}`;
     $('#accountStatus').textContent = data.connected ? 'Conectada' : 'Pendiente';
-    $('#engineStatus').textContent = 'Disponible';
+    $('#engineStatus').textContent = data.engine_available ? 'Disponible' : 'No encontrado';
     $('#driveStatus').textContent = data.drive_enabled ? 'Activado' : 'Desactivado';
     $('#accountMetric').textContent = data.connected ? 'Lista' : 'Pendiente';
     $('#accountMetricNote').textContent = data.connected ? 'Cookie guardada localmente' : 'Carga OFBackup-auth.json';
@@ -919,7 +925,14 @@
     event.currentTarget.disabled = true;
     event.currentTarget.textContent = 'Añadiendo…';
     try {
-      await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target: value }) });
+      const behavior = $('#downloadBehavior').value;
+      const selectedType = $('#downloadType').value;
+      await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target: value, options: {
+        kind: selectedType === 'Perfil completo' ? 'profile' : selectedType === 'PublicaciÃ³n individual' ? 'post' : 'auto',
+        media_type: $('#downloadMedia').value,
+        rescan: behavior !== 'skip',
+        force_all: behavior === 'force',
+      } }) });
       target.value = '';
       $('#downloadType').value = 'Detectar automáticamente';
       notify('Trabajo añadido a la cola real');
@@ -969,38 +982,46 @@
       const username = escapeHtml(profile.username);
       const name = escapeHtml(profile.display_name || profile.username);
       const initials = (profile.display_name || profile.username).split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+      const avatar = typeof profile.avatar_url === 'string' && /^https:\/\//i.test(profile.avatar_url)
+        ? `<img src="${escapeHtml(profile.avatar_url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+        : escapeHtml(initials);
       const status = escapeHtml(profile.status || 'activo');
-      return `<article class="profile-card" data-search="${(name + ' ' + username).toLowerCase()}" data-kind="all"><div class="profile-banner"></div><div class="profile-body"><div class="profile-avatar">${escapeHtml(initials)}</div><div class="profile-name"><div><h3>${name}</h3><span>@${username}</span></div><span class="badge success">${status}</span></div><div class="profile-stats"><div><strong>${profile.posts ?? '—'}</strong><span>Posts</span></div><div><strong>${profile.photos ?? '—'}</strong><span>Fotos</span></div><div><strong>${profile.videos ?? '—'}</strong><span>Videos</span></div></div><div class="profile-actions"><button class="primary-btn profile-download" data-user="@${username}">Descargar</button></div></div></article>`;
+      const kind = profile.status === 'pagado' ? 'paid' : profile.status === 'gratis' ? 'free' : 'all';
+      return `<article class="profile-card" data-search="${(name + ' ' + username).toLowerCase()}" data-kind="${kind}"><div class="profile-banner"></div><div class="profile-body"><div class="profile-avatar">${avatar}</div><div class="profile-name"><div><h3>${name}</h3><span>@${username}</span></div><span class="badge success">${status}</span></div><div class="profile-stats"><div><strong>${profile.posts ?? '—'}</strong><span>Posts</span></div><div><strong>${profile.photos ?? '—'}</strong><span>Fotos</span></div><div><strong>${profile.videos ?? '—'}</strong><span>Videos</span></div><div><strong>${profile.archived ?? '—'}</strong><span>Archivados</span></div></div><div class="profile-actions"><button class="primary-btn profile-download" data-user="@${username}">Descargar</button></div></div></article>`;
     }).join('');
     bindProfileButtons();
     filterProfiles();
   };
 
-  const filterProfiles = () => {
-    const q = $('#profileSearch').value.trim().toLowerCase();
-    $$('.profile-card').forEach(card => card.hidden = !card.dataset.search.includes(q));
-  };
-  $('#profileSearch').addEventListener('input', filterProfiles);
-  $('#profileFilter').disabled = true;
+    const filterProfiles = () => {
+      const q = $('#profileSearch').value.trim().toLowerCase();
+      const kind = $('#profileFilter').value;
+      $$('.profile-card').forEach(card => card.hidden = !card.dataset.search.includes(q) || (kind !== 'all' && card.dataset.kind !== kind));
+    };
+    $('#profileSearch').addEventListener('input', filterProfiles);
+  $('#profileFilter').addEventListener('change', filterProfiles);
 
   const bindProfileButtons = () => {
-    $$('.profile-download').forEach(button => button.addEventListener('click', () => {
-      openView('downloads');
-      target.value = button.dataset.user;
-      $('#downloadType').value = 'Perfil completo';
-      notify('Perfil preparado para descargar');
+    $$('.profile-download').forEach(button => button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target: button.dataset.user, options: { media_type: 'images,videos', rescan: true, force_all: true } }) });
+        notify('Perfil añadido directamente a la cola');
+        await loadStatus();
+      } catch (error) { notify(error.message, true); }
+      finally { button.disabled = false; }
     }));
   };
 
-  const loadProfiles = async () => {
+  const loadProfiles = async (forceRefresh = false) => {
     const button = $('#refreshProfiles');
     button.disabled = true;
     button.textContent = 'Consultando…';
     $('#profileGrid').innerHTML = '<div class="empty-state">Consultando tus suscripciones; puede tardar hasta 90 segundos…</div>';
     try {
-      const data = await api('/api/profiles');
+      const data = await api(forceRefresh ? '/api/profiles?refresh=1' : '/api/profiles');
       renderProfiles(data.profiles || []);
-      notify(data.message);
+      notify(data.stale ? `${data.message} (${data.updated_at || 'sin fecha'})` : data.message);
     } catch (error) {
       $('#profileGrid').innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
       notify(error.message, true);
@@ -1009,7 +1030,7 @@
       button.textContent = 'Actualizar perfiles';
     }
   };
-  $('#refreshProfiles').addEventListener('click', loadProfiles);
+  $('#refreshProfiles').addEventListener('click', () => loadProfiles(true));
 
   const cookieDrop = $('#cookieDrop');
   const cookieInput = $('#cookieInput');
@@ -1077,7 +1098,14 @@
   const openCookiePicker = () => cookieInput.click();
   cookieChoose.addEventListener('click', event => { event.stopPropagation(); openCookiePicker(); });
   cookieReplace.addEventListener('click', openCookiePicker);
-  cookieRemove.addEventListener('click', () => { resetCookie(); notify('Archivo quitado de la memoria'); });
+  cookieRemove.addEventListener('click', async () => {
+    try {
+      await api('/api/auth/remove', { method: 'POST', body: '{}' });
+      resetCookie();
+      notify('Credenciales eliminadas localmente');
+      await loadStatus();
+    } catch (error) { notify(error.message, true); }
+  });
   cookieDrop.addEventListener('click', event => { if (!event.target.closest('button')) openCookiePicker(); });
   cookieDrop.addEventListener('keydown', event => {
     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openCookiePicker(); }
