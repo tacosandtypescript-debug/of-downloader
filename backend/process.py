@@ -14,7 +14,12 @@ class PausableProcess:
     """Suspende y reanuda OF-Scraper junto con sus procesos hijos."""
 
     def __init__(self, pid: int):
-        self.process = psutil.Process(pid) if psutil is not None else None
+        self.process = None
+        if psutil is not None and isinstance(pid, int) and pid > 0:
+            try:
+                self.process = psutil.Process(pid)
+            except (psutil.Error, OSError, TypeError, ValueError):
+                self.process = None
         self.paused = False
 
     @property
@@ -50,6 +55,21 @@ class PausableProcess:
                 continue
         self.paused = False
         return True
+
+    def terminate(self) -> bool:
+        """Termina el proceso y sus hijos, incluso si estaban pausados."""
+        if not self.process:
+            return False
+        if self.paused:
+            self.resume()
+        terminated = False
+        for process in reversed(self._processes()):
+            try:
+                process.terminate()
+                terminated = True
+            except (psutil.Error, OSError):
+                continue
+        return terminated
 
 
 def read_process_output(stream, output: Queue[str | None]) -> None:
