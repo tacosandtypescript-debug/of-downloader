@@ -38,7 +38,12 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.17.3`
+Versión actual: `2.17.4`
+
+### Novedades de 2.17.4
+
+- El actualizador copia también subdirectorios nuevos como `backend/queue`.
+- Se valida que la instalación no quede incompleta antes de abrir el dashboard.
 
 ### Novedades de 2.17.3
 
