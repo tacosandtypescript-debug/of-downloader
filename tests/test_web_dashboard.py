@@ -88,6 +88,13 @@ class DashboardServerTests(unittest.TestCase):
         self.assertEqual(job.speed, "2.4/s")
         self.assertEqual(job.eta, "00:25")
 
+    def test_public_job_does_not_copy_process_controller_locks(self):
+        job = web_dashboard.DashboardJob(id="1", target="demo", kind="profile")
+        job.controller = mock.Mock(lock=threading.Lock())
+        public = web_dashboard._public_job(job)
+        self.assertEqual(public["id"], "1")
+        self.assertNotIn("controller", public)
+
 
 class DashboardAuthImportTests(unittest.TestCase):
     def test_import_saves_only_supported_auth_fields(self):
