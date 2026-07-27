@@ -517,6 +517,16 @@ class DashboardApplication:
     def profiles(self, *, force_refresh: bool = False) -> dict[str, Any]:
         cli = _cli()
         log_path = str(Path(cli.get_state()["download_dir"]).expanduser() / cli.SUBSCRIPTIONS_LOG_NAME)
+        if not cli.credentials_ready():
+            return {
+                "profiles": [],
+                "cached": False,
+                "stale": False,
+                "updated_at": None,
+                "log_path": log_path,
+                "needs_auth": True,
+                "message": "Carga OFBackup-auth.json y prueba el acceso antes de consultar perfiles.",
+            }
         cached = self._read_profiles_cache()
         if cached and not force_refresh:
             profiles, updated_at = cached

@@ -95,6 +95,18 @@ class DashboardServerTests(unittest.TestCase):
         self.assertEqual(public["id"], "1")
         self.assertNotIn("controller", public)
 
+    def test_profiles_does_not_open_interactive_cookie_flow(self):
+        app = web_dashboard.DashboardApplication(Path(__file__).resolve().parents[1], "token")
+        with (
+            mock.patch.object(ofbackup_cli, "credentials_ready", return_value=False),
+            mock.patch.object(ofbackup_cli, "get_state", return_value={"download_dir": "downloads"}),
+            mock.patch.object(ofbackup_cli, "list_subscription_profiles") as list_profiles,
+        ):
+            result = app.profiles()
+        self.assertTrue(result["needs_auth"])
+        self.assertEqual(result["profiles"], [])
+        list_profiles.assert_not_called()
+
 
 class DashboardAuthImportTests(unittest.TestCase):
     def test_import_saves_only_supported_auth_fields(self):
