@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import io
@@ -60,11 +60,14 @@ def repair_dashboard_encoding(text: str) -> str:
 
 
 def _public_job(job: "DashboardJob") -> dict[str, Any]:
-    data = asdict(job)
-    data.pop("process", None)
-    data.pop("controller", None)
-    data.pop("cancel_requested", None)
-    return data
+    # No usar asdict aquí: intenta hacer deepcopy de Popen/psutil.Process y
+    # en Linux termina fallando al encontrar locks internos no serializables.
+    hidden = {"process", "controller", "cancel_requested"}
+    return {
+        item.name: getattr(job, item.name)
+        for item in fields(job)
+        if item.name not in hidden
+    }
 
 
 @dataclass
