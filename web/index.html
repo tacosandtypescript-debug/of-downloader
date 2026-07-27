@@ -1050,6 +1050,9 @@
       const data = await api(forceRefresh ? '/api/profiles?refresh=1' : '/api/profiles');
       renderProfiles(data.profiles || []);
       const logHint = data.log_path ? ` · Registro: ${data.log_path}` : '';
+      if (data.needs_auth) {
+        $('#profileGrid').innerHTML = '<div class="empty-state">Carga primero OFBackup-auth.json desde Configuración y pulsa “Probar acceso”.</div>';
+      }
       notify(data.stale ? `${data.message} (${data.updated_at || 'sin fecha'})${logHint}` : `${data.message}${logHint}`);
     } catch (error) {
       $('#profileGrid').innerHTML = `<div class="empty-state">${escapeHtml(error.message)}<br><small>Revisa el registro de perfiles en la carpeta de descargas.</small></div>`;
