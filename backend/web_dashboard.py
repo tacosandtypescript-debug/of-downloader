@@ -334,6 +334,8 @@ class JobManager:
                 job.message = f"No se pudo iniciar: {exc}"
                 job.finished_at = _utc_now()
                 job.returncode = 1
+                if job.log_path:
+                    job.message = f"{job.message} · Log: {job.log_path}"
             self._persist()
             return
         with self._lock:
@@ -369,6 +371,8 @@ class JobManager:
                 job.message = "Descarga completada"
             else:
                 job.status = "error"
+                if job.log_path:
+                    job.message = f"{job.message} · Log: {job.log_path}"
                 if not job.message:
                     job.message = f"El proceso terminó con código {returncode}"
 
@@ -507,6 +511,7 @@ class DashboardApplication:
 
     def profiles(self, *, force_refresh: bool = False) -> dict[str, Any]:
         cli = _cli()
+        log_path = str(Path(cli.get_state()["download_dir"]).expanduser() / cli.SUBSCRIPTIONS_LOG_NAME)
         cached = self._read_profiles_cache()
         if cached and not force_refresh:
             profiles, updated_at = cached
@@ -520,6 +525,7 @@ class DashboardApplication:
                     "cached": True,
                     "stale": False,
                     "updated_at": updated_at,
+                    "log_path": log_path,
                     "message": f"{len(profiles)} perfiles en caché",
                 }
         output = io.StringIO()
@@ -534,6 +540,7 @@ class DashboardApplication:
                         "cached": True,
                         "stale": True,
                         "updated_at": updated_at,
+                        "log_path": log_path,
                         "message": "No se pudo actualizar; mostrando la última lista guardada.",
                     }
                 raise
@@ -544,6 +551,7 @@ class DashboardApplication:
             "cached": False,
             "stale": False,
             "updated_at": _utc_now(),
+            "log_path": log_path,
             "message": f"{len(profiles)} perfiles encontrados" if profiles else "No se encontraron perfiles.",
         }
 
