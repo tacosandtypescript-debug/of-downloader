@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, urlparse
 import webbrowser
 
 from backend.process import PausableProcess
+from backend.queue import QueueEvent, QueueEventBus, QueueStore
 
 
 MAX_REQUEST_SIZE = 96 * 1024
@@ -134,6 +135,13 @@ class JobManager:
         self._jobs: list[DashboardJob] = []
         self._lock = Lock()
         self._queue: Queue[str] = Queue()
+        self.events = QueueEventBus()
+        cli = _cli()
+        self._store = QueueStore(
+            Path(cli.APP_DIR) / "dashboard-jobs.json",
+            cli.read_json,
+            cli.secure_write_json,
+        )
         self._load_persisted_jobs()
         Thread(target=self._worker, daemon=True, name="ofd-dashboard-jobs").start()
 
@@ -143,16 +151,13 @@ class JobManager:
 
     def _persist(self) -> None:
         try:
-            _cli().secure_write_json(self._jobs_path, {"jobs": self.snapshot()[-50:]})
+            self._store.save(self.snapshot())
         except (OSError, _cli().UserError):
             pass
 
     def _load_persisted_jobs(self) -> None:
         try:
-            payload = _cli().read_json(self._jobs_path)
-            rows = payload.get("jobs", [])
-            if not isinstance(rows, list):
-                return
+            rows = self._store.load()
             allowed = {item.name for item in fields(DashboardJob) if item.init}
             loaded: list[DashboardJob] = []
             for row in rows[-50:]:
@@ -203,6 +208,7 @@ class JobManager:
             self._jobs.append(job)
             self._jobs = self._jobs[-50:]
         self._persist()
+        self.events.publish(QueueEvent("job_added", job.id, _public_job(job)))
         self._queue.put(job.id)
         return _public_job(job)
 
@@ -240,6 +246,7 @@ class JobManager:
             job.status = "paused"
             job.message = "Descarga pausada"
         self._persist()
+        self.events.publish(QueueEvent("job_updated", job.id, _public_job(job)))
         return _public_job(job)
 
     def resume(self, job_id: str) -> dict[str, Any]:

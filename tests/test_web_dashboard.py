@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 
 import ofbackup_cli
 from backend import web_dashboard
+from backend.queue import QueueEvent, QueueEventBus, QueueStore
 
 
 class DashboardAvailabilityTests(unittest.TestCase):
@@ -41,6 +42,29 @@ class DashboardAvailabilityTests(unittest.TestCase):
 
         self.assertIn("[13] Abrir dashboard", render("LINUX"))
         self.assertNotIn("[13] Abrir dashboard", render("TERMUX"))
+
+
+class QueueComponentTests(unittest.TestCase):
+    def test_store_limits_rows_and_ignores_invalid_payload(self):
+        saved = []
+        store = QueueStore(
+            Path("queue.json"),
+            lambda _path: {"jobs": [{"id": str(i)} for i in range(4)]},
+            lambda _path, payload: saved.append(payload),
+        )
+        self.assertEqual([row["id"] for row in store.load(limit=2)], ["2", "3"])
+        store.save([{"id": str(i)} for i in range(3)], limit=2)
+        self.assertEqual([row["id"] for row in saved[-1]["jobs"]], ["1", "2"])
+
+    def test_event_bus_delivers_and_unsubscribes(self):
+        bus = QueueEventBus()
+        channel = bus.subscribe()
+        event = QueueEvent("job_updated", "abc", {"status": "running"})
+        bus.publish(event)
+        self.assertEqual(bus.next(channel), event)
+        bus.unsubscribe(channel)
+        bus.publish(event)
+        self.assertIsNone(bus.next(channel))
 
 
 class DashboardServerTests(unittest.TestCase):
