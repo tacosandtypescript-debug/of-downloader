@@ -19,5 +19,5 @@ if not exist ".venv" (
 )
 .venv\Scripts\python -m pip install --upgrade pip
 .venv\Scripts\python -m pip install -r requirements.txt
-.venv\Scripts\python ofbackup_cli.py
+.venv\Scripts\python ofbackup_cli.py %*
 pause

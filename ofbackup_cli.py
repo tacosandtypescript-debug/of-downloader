@@ -42,7 +42,7 @@ from backend.progress import (
 from frontend.progress import show_download_progress as frontend_show_download_progress
 
 
-APP_VERSION = "2.16.4"
+APP_VERSION = "2.17.0"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -2879,6 +2879,32 @@ def download_cookie_extension() -> int:
     return 0
 
 
+def desktop_dashboard_available() -> bool:
+    """El dashboard solo se ofrece en Linux y Windows de escritorio."""
+    platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "").upper()
+    if platform_name in {"TERMUX", "ANDROID"}:
+        return False
+    if platform_name in {"LINUX", "WINDOWS"}:
+        return True
+    return os.name == "nt" or (sys.platform.startswith("linux") and "com.termux" not in os.getenv("PREFIX", ""))
+
+
+def open_dashboard(*, port: int = 8766, open_browser: bool = True) -> int:
+    if not desktop_dashboard_available():
+        raise UserError("El dashboard web está disponible únicamente en PC con Linux o Windows.")
+    from backend.web_dashboard import run_dashboard
+
+    return run_dashboard(port=port, open_browser=open_browser)
+
+
+def download_web_target(target: str) -> int:
+    """Ruta sin preguntas interactivas usada por la cola del dashboard."""
+    username = profile_username(target)
+    if username:
+        return download_user(username, source="selector")
+    return download_link(target)
+
+
 def menu() -> int:
     while True:
         state = get_state()
@@ -2924,6 +2950,9 @@ def menu() -> int:
         menu_option("11", "Recibir cookie desde extension")
         if extension_download_available():
             menu_option("12", "Descargar extension para cookie")
+        if desktop_dashboard_available():
+            print(styled("\n  INTERFAZ WEB", "blue", bold=True))
+            menu_option("13", "Abrir dashboard en el navegador")
         menu_option("0", "Salir")
 
         status = styled("● CONECTADA", "green", bold=True) if connected else styled(
@@ -2956,6 +2985,8 @@ def menu() -> int:
                 receive_credentials_locally(show_qr=True)
             elif choice == "12" and extension_download_available():
                 download_cookie_extension()
+            elif choice == "13" and desktop_dashboard_available():
+                open_dashboard()
             elif choice == "6":
                 change_destination()
             elif choice == "7":
@@ -2988,6 +3019,7 @@ def print_help() -> None:
   of configurar                    Guardar o renovar credenciales
   of importar                      Importar OFBackup-auth.json
   of importar RUTA                 Importar el archivo directamente
+  of dashboard                     Abrir dashboard local (solo PC)
   of recibir-cookie                Recibir acceso desde la extension en red local
   of recibir-cookie --qr           Recibir acceso y mostrar QR seguro
   of cookie ayuda                  Ver como exportar y mover OFBackup-auth.json
@@ -3093,6 +3125,13 @@ def main(argv: list[str] | None = None) -> int:
             show_qr = "--qr" in argv or "qr" in argv
             port = next((int(arg) for arg in argv[1:] if arg.isdigit()), 8765)
             return receive_credentials_locally(port=port, show_qr=show_qr)
+        if command in {"dashboard", "panel", "web"}:
+            port = next((int(arg) for arg in argv[1:] if arg.isdigit()), 8766)
+            return open_dashboard(port=port)
+        if command == "descargar-web":
+            if len(argv) != 2:
+                raise UserError("Falta el usuario, enlace o ID para la descarga web.")
+            return download_web_target(argv[1])
         if command in {"diagnostico", "diagnóstico", "status"}:
             diagnostics()
             return 0

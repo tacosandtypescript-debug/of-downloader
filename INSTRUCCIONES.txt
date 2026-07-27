@@ -88,6 +88,14 @@ Las descargas quedan en:
 
    ~/Downloads/OFDownloader
 
+Dashboard web en Linux:
+
+   of dashboard
+
+O abre el menu y elige [13] Abrir dashboard en el navegador.
+El panel escucha solo en 127.0.0.1 y permite cargar OFBackup-auth.json,
+consultar perfiles y controlar la cola de descargas.
+
 
 WINDOWS
 -------
@@ -119,6 +127,13 @@ Para importar el archivo de la extension:
 Las descargas quedan en:
 
    %USERPROFILE%\Downloads\OFDownloader
+
+Dashboard web en Windows:
+
+   of dashboard
+
+O abre el menu y elige [13] Abrir dashboard en el navegador.
+El panel no aparece en Termux y bloquea navegadores moviles/tablets.
 
 
 EXTENSIÓN DEL NAVEGADOR

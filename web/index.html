@@ -1,0 +1,1159 @@
+<!doctype html>
+<html lang="es" data-theme="dark" data-accent="violet">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>OF Downloader — Panel local para PC</title>
+  <style>
+    :root {
+      --bg: #090b10;
+      --sidebar: #0e1118;
+      --surface: #121722;
+      --surface-2: #171d29;
+      --surface-3: #1d2533;
+      --border: rgba(255,255,255,.085);
+      --border-strong: rgba(255,255,255,.15);
+      --text: #f7f8fb;
+      --muted: #919bad;
+      --subtle: #687386;
+      --accent: #8b5cf6;
+      --accent-2: #6366f1;
+      --accent-soft: rgba(139,92,246,.14);
+      --accent-glow: rgba(139,92,246,.28);
+      --success: #34d399;
+      --success-soft: rgba(52,211,153,.12);
+      --warning: #fbbf24;
+      --warning-soft: rgba(251,191,36,.12);
+      --danger: #fb7185;
+      --danger-soft: rgba(251,113,133,.12);
+      --shadow: 0 20px 50px rgba(0,0,0,.25);
+      --radius: 18px;
+      --radius-sm: 12px;
+    }
+
+    html[data-theme="light"] {
+      --bg: #f2f4f8;
+      --sidebar: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #f7f8fb;
+      --surface-3: #eef1f6;
+      --border: rgba(26,32,44,.09);
+      --border-strong: rgba(26,32,44,.16);
+      --text: #151923;
+      --muted: #667085;
+      --subtle: #98a2b3;
+      --shadow: 0 18px 45px rgba(25,32,56,.09);
+    }
+
+    html[data-accent="blue"] {
+      --accent: #3b82f6;
+      --accent-2: #06b6d4;
+      --accent-soft: rgba(59,130,246,.14);
+      --accent-glow: rgba(59,130,246,.28);
+    }
+    html[data-accent="green"] {
+      --accent: #10b981;
+      --accent-2: #22c55e;
+      --accent-soft: rgba(16,185,129,.14);
+      --accent-glow: rgba(16,185,129,.25);
+    }
+    html[data-accent="rose"] {
+      --accent: #f43f5e;
+      --accent-2: #ec4899;
+      --accent-soft: rgba(244,63,94,.14);
+      --accent-glow: rgba(244,63,94,.27);
+    }
+
+    * { box-sizing: border-box; }
+    html { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 80% -10%, var(--accent-glow), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      transition: background .2s, color .2s;
+    }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    svg { display: block; }
+    [hidden] { display: none !important; }
+
+    .app { min-height: 100vh; display: grid; grid-template-columns: 248px minmax(0,1fr); }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; padding: 24px 16px;
+      background: color-mix(in srgb, var(--sidebar) 95%, transparent);
+      border-right: 1px solid var(--border);
+      backdrop-filter: blur(18px);
+      display: flex; flex-direction: column; z-index: 10;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 22px; }
+    .brand-mark {
+      width: 42px; height: 42px; border-radius: 14px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 12px 28px var(--accent-glow);
+      font-weight: 800; letter-spacing: -.04em; color: white;
+    }
+    .brand strong { display: block; font-size: 15px; }
+    .brand span { color: var(--muted); font-size: 12px; }
+    .nav-label { padding: 0 12px; margin: 6px 0 8px; color: var(--subtle); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .nav { display: grid; gap: 5px; }
+    .nav-btn {
+      width: 100%; border: 1px solid transparent; background: transparent;
+      display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+      border-radius: 12px; cursor: pointer; color: var(--muted); text-align: left;
+      transition: .18s ease;
+    }
+    .nav-btn:hover { background: var(--surface-2); color: var(--text); }
+    .nav-btn.active { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--text); }
+    .nav-btn.active .nav-icon { color: var(--accent); }
+    .nav-icon { width: 19px; height: 19px; }
+    .sidebar-bottom { margin-top: auto; display: grid; gap: 10px; }
+    .account-mini { padding: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 14px; }
+    .account-row { display:flex; align-items:center; gap:10px; }
+    .avatar { width: 34px; height: 34px; border-radius: 11px; display:grid; place-items:center; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; font-weight:700; font-size:12px; }
+    .account-mini strong { display:block; font-size:13px; }
+    .account-mini small { color:var(--muted); }
+
+    .main { min-width: 0; padding: 0 34px 42px; }
+    .topbar {
+      height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 18px;
+      border-bottom: 1px solid var(--border); margin-bottom: 28px;
+    }
+    .top-left { display:flex; align-items:center; gap:12px; min-width:0; }
+    .mobile-menu { display:none; }
+    .page-title h1 { font-size: 20px; margin:0; letter-spacing:-.03em; }
+    .page-title p { margin:3px 0 0; color:var(--muted); font-size:13px; }
+    .top-actions { display:flex; align-items:center; gap:10px; }
+    .icon-btn, .ghost-btn, .primary-btn, .danger-btn {
+      border-radius: 12px; border: 1px solid var(--border); cursor:pointer; transition:.18s ease;
+    }
+    .icon-btn { width:40px; height:40px; display:grid; place-items:center; background:var(--surface); }
+    .icon-btn:hover, .ghost-btn:hover { border-color:var(--border-strong); background:var(--surface-2); transform:translateY(-1px); }
+    .ghost-btn { padding:10px 14px; background:var(--surface); }
+    .primary-btn { padding:10px 15px; border-color:transparent; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; font-weight:700; box-shadow:0 10px 24px var(--accent-glow); }
+    .primary-btn:hover { filter:brightness(1.08); transform:translateY(-1px); }
+    .danger-btn { padding:9px 12px; background:var(--danger-soft); color:var(--danger); border-color:color-mix(in srgb,var(--danger) 25%,transparent); }
+
+    .content { max-width: 1320px; margin: 0 auto; }
+    .hero {
+      display:grid; grid-template-columns:minmax(0,1.6fr) minmax(280px,.8fr); gap:16px; margin-bottom:16px;
+    }
+    .hero-main, .card, .metric-card {
+      border:1px solid var(--border); background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 96%,white 1%),var(--surface));
+      border-radius:var(--radius); box-shadow:var(--shadow);
+    }
+    .hero-main { padding:26px; position:relative; overflow:hidden; min-height:214px; }
+    .hero-main::after { content:""; position:absolute; width:220px; height:220px; right:-80px; top:-100px; border-radius:50%; background:var(--accent-glow); filter:blur(18px); opacity:.7; }
+    .eyebrow { color:var(--accent); font-size:12px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+    .hero h2 { position:relative; z-index:1; font-size:28px; line-height:1.12; margin:10px 0 8px; max-width:620px; letter-spacing:-.04em; }
+    .hero p { position:relative; z-index:1; color:var(--muted); margin:0; max-width:640px; line-height:1.55; }
+    .hero-actions { position:relative; z-index:1; display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
+    .status-card { padding:22px; display:flex; flex-direction:column; justify-content:space-between; }
+    .status-head { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .status-dot { width:9px; height:9px; border-radius:50%; background:var(--success); box-shadow:0 0 0 5px var(--success-soft); }
+    .status-main { margin:18px 0; }
+    .status-main strong { display:block; font-size:24px; letter-spacing:-.04em; }
+    .status-main span { color:var(--muted); font-size:13px; }
+    .status-list { display:grid; gap:9px; font-size:13px; }
+    .status-list div { display:flex; justify-content:space-between; gap:12px; }
+    .status-list span:first-child { color:var(--muted); }
+
+    .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:16px; }
+    .metric-card { padding:18px; box-shadow:none; }
+    .metric-top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .metric-label { color:var(--muted); font-size:13px; }
+    .metric-icon { width:34px; height:34px; display:grid; place-items:center; border-radius:11px; background:var(--accent-soft); color:var(--accent); }
+    .metric-value { font-size:26px; font-weight:800; letter-spacing:-.04em; margin:13px 0 3px; }
+    .metric-note { color:var(--muted); font-size:12px; }
+    .metric-note b { color:var(--success); }
+
+    .dashboard-grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(300px,.8fr); gap:16px; }
+    .card { padding:20px; box-shadow:none; }
+    .card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:18px; }
+    .card-head h3 { font-size:16px; margin:0; letter-spacing:-.02em; }
+    .card-head p { color:var(--muted); font-size:12px; margin:4px 0 0; }
+    .badge { display:inline-flex; align-items:center; gap:7px; border-radius:999px; padding:6px 9px; font-size:11px; font-weight:800; }
+    .badge.running { background:var(--accent-soft); color:var(--accent); }
+    .badge.success { background:var(--success-soft); color:var(--success); }
+    .badge.warning { background:var(--warning-soft); color:var(--warning); }
+    .badge.muted { background:var(--surface-3); color:var(--muted); }
+
+    .download-title { display:flex; align-items:center; gap:12px; }
+    .download-cover { width:46px; height:46px; flex:0 0 auto; border-radius:14px; display:grid; place-items:center; font-weight:800; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; }
+    .download-title strong { display:block; }
+    .download-title span { color:var(--muted); font-size:12px; }
+    .progress-labels { display:flex; justify-content:space-between; gap:10px; margin-top:20px; font-size:12px; }
+    .progress-track { height:10px; border-radius:999px; overflow:hidden; background:var(--surface-3); margin-top:9px; }
+    .progress-fill { height:100%; border-radius:inherit; width:38%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); box-shadow:0 0 18px var(--accent-glow); transition:width .45s ease; }
+    .download-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:18px; }
+    .stat-box { background:var(--surface-2); border:1px solid var(--border); border-radius:13px; padding:11px 12px; }
+    .stat-box span { color:var(--muted); font-size:11px; display:block; }
+    .stat-box strong { font-size:14px; display:block; margin-top:4px; }
+    .download-controls { display:flex; flex-wrap:wrap; gap:9px; margin-top:18px; }
+
+    .queue { display:grid; gap:10px; }
+    .queue-item { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:11px; padding:11px; border-radius:13px; background:var(--surface-2); border:1px solid var(--border); }
+    .queue-num { width:27px; height:27px; display:grid; place-items:center; border-radius:9px; background:var(--surface-3); color:var(--muted); font-size:11px; font-weight:800; }
+    .queue-item strong { display:block; font-size:13px; }
+    .queue-item small { color:var(--muted); }
+
+    .section-view { animation:fade .22s ease; }
+    @keyframes fade { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+    .section-heading { display:flex; justify-content:space-between; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .section-heading h2 { margin:0 0 5px; font-size:24px; letter-spacing:-.04em; }
+    .section-heading p { margin:0; color:var(--muted); }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; }
+    .search-wrap { position:relative; min-width:260px; flex:1; }
+    .search-wrap svg { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--muted); }
+    input, select {
+      width:100%; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:12px; padding:11px 12px; outline:none;
+    }
+    .search-wrap input { padding-left:41px; }
+    input:focus, select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    label { display:grid; gap:7px; font-size:12px; color:var(--muted); }
+    label input, label select { font-size:14px; }
+
+    .profile-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+    .profile-card { border:1px solid var(--border); border-radius:18px; background:var(--surface); overflow:hidden; transition:.18s ease; }
+    .profile-card:hover { transform:translateY(-2px); border-color:var(--border-strong); box-shadow:var(--shadow); }
+    .profile-banner { height:72px; background:linear-gradient(135deg,var(--accent-soft),color-mix(in srgb,var(--accent-2) 20%,transparent)); }
+    .profile-body { padding:0 16px 16px; }
+    .profile-avatar { width:54px; height:54px; margin-top:-27px; border:4px solid var(--surface); border-radius:16px; display:grid; place-items:center; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; font-weight:800; }
+    .profile-name { margin-top:10px; display:flex; justify-content:space-between; align-items:start; gap:10px; }
+    .profile-name h3 { margin:0; font-size:15px; }
+    .profile-name span { color:var(--muted); font-size:12px; }
+    .profile-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin:15px 0; }
+    .profile-stats div { background:var(--surface-2); border-radius:10px; padding:8px; text-align:center; }
+    .profile-stats strong { display:block; font-size:13px; }
+    .profile-stats span { color:var(--muted); font-size:10px; }
+    .profile-actions { display:flex; gap:8px; }
+    .profile-actions button { flex:1; }
+
+    .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .field-full { grid-column:1/-1; }
+    .switch-row { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:13px 0; border-top:1px solid var(--border); }
+    .switch-row:first-child { border-top:0; }
+    .switch-copy strong { display:block; font-size:13px; }
+    .switch-copy small { color:var(--muted); }
+    .switch { position:relative; width:44px; height:24px; flex:0 0 auto; }
+    .switch input { opacity:0; width:0; height:0; position:absolute; }
+    .slider { position:absolute; inset:0; border-radius:999px; background:var(--surface-3); cursor:pointer; transition:.2s; }
+    .slider::before { content:""; position:absolute; width:18px; height:18px; top:3px; left:3px; border-radius:50%; background:white; transition:.2s; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+    .switch input:checked + .slider { background:var(--accent); }
+    .switch input:checked + .slider::before { transform:translateX(20px); }
+
+    .appearance-row { display:flex; flex-wrap:wrap; gap:10px; }
+    .swatch { width:34px; height:34px; border-radius:11px; border:3px solid transparent; cursor:pointer; box-shadow:inset 0 0 0 1px rgba(255,255,255,.2); }
+    .swatch.active { border-color:var(--text); }
+    .swatch[data-color="violet"] { background:linear-gradient(135deg,#8b5cf6,#6366f1); }
+    .swatch[data-color="blue"] { background:linear-gradient(135deg,#3b82f6,#06b6d4); }
+    .swatch[data-color="green"] { background:linear-gradient(135deg,#10b981,#22c55e); }
+    .swatch[data-color="rose"] { background:linear-gradient(135deg,#f43f5e,#ec4899); }
+
+    .toast { position:fixed; right:22px; bottom:22px; z-index:50; background:var(--surface); color:var(--text); border:1px solid var(--border-strong); border-radius:13px; padding:12px 14px; box-shadow:var(--shadow); opacity:0; transform:translateY(12px); pointer-events:none; transition:.22s ease; }
+    .toast.show { opacity:1; transform:none; }
+    .mobile-overlay { display:none; }
+
+    @media (max-width:1080px) {
+      .metrics { grid-template-columns:repeat(2,1fr); }
+      .profile-grid { grid-template-columns:repeat(2,1fr); }
+    }
+    @media (max-width:860px) {
+      .app { grid-template-columns:1fr; }
+      .sidebar { position:fixed; left:0; top:0; width:260px; transform:translateX(-105%); transition:.22s ease; box-shadow:var(--shadow); }
+      body.menu-open .sidebar { transform:none; }
+      .mobile-overlay { display:block; position:fixed; inset:0; background:rgba(0,0,0,.52); z-index:9; opacity:0; pointer-events:none; transition:.2s; }
+      body.menu-open .mobile-overlay { opacity:1; pointer-events:auto; }
+      .mobile-menu { display:grid; }
+      .main { padding:0 20px 34px; }
+      .hero, .dashboard-grid { grid-template-columns:1fr; }
+      .profile-grid { grid-template-columns:repeat(2,1fr); }
+    }
+    @media (max-width:640px) {
+      .topbar { height:auto; padding:16px 0; align-items:flex-start; }
+      .top-actions .ghost-btn { display:none; }
+      .page-title p { display:none; }
+      .hero-main, .card { padding:17px; }
+      .hero h2 { font-size:23px; }
+      .metrics, .profile-grid, .form-grid { grid-template-columns:1fr; }
+      .download-stats { grid-template-columns:repeat(2,1fr); }
+      .section-heading { align-items:flex-start; flex-direction:column; }
+      .search-wrap { min-width:0; width:100%; }
+      .toolbar { width:100%; }
+      .toolbar select { width:100%; }
+      .field-full { grid-column:auto; }
+    }
+
+
+    /* V3: escritorio exclusivo, movimiento y carga segura de cookies */
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 420px;
+      height: 420px;
+      border-radius: 999px;
+      pointer-events: none;
+      z-index: -1;
+      filter: blur(90px);
+      opacity: .17;
+      animation: ambient-drift 14s ease-in-out infinite alternate;
+    }
+    body::before { right: -150px; top: 8%; background: var(--accent); }
+    body::after { left: 16%; bottom: -260px; background: var(--accent-2); animation-delay: -6s; }
+
+    .app { opacity: 0; transform: scale(.994); }
+    body.is-ready .app { opacity: 1; transform: none; transition: opacity .55s ease, transform .55s cubic-bezier(.2,.8,.2,1); }
+    body.is-ready .sidebar { animation: sidebar-enter .65s cubic-bezier(.2,.8,.2,1) both; }
+    body.is-ready .topbar { animation: topbar-enter .55s .08s cubic-bezier(.2,.8,.2,1) both; }
+    body.is-ready [data-section="dashboard"] > * { animation: rise-in .55s cubic-bezier(.2,.8,.2,1) both; }
+    body.is-ready [data-section="dashboard"] > *:nth-child(2) { animation-delay: .08s; }
+    body.is-ready [data-section="dashboard"] > *:nth-child(3) { animation-delay: .15s; }
+
+    .hero-main::before {
+      content: "";
+      position: absolute;
+      inset: -40% auto auto -20%;
+      width: 55%;
+      height: 190%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.045), transparent);
+      transform: rotate(18deg) translateX(-140%);
+      animation: hero-sheen 7s 1.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .brand-mark { animation: brand-float 4.6s ease-in-out infinite; }
+    .status-dot { animation: status-pulse 2.2s ease-out infinite; }
+    .progress-fill { position: relative; overflow: hidden; }
+    .progress-fill::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.38) 48%, transparent 76%);
+      transform: translateX(-110%);
+      animation: progress-shine 2.1s linear infinite;
+    }
+
+    .card, .metric-card, .profile-card, .queue-item {
+      transition: transform .24s cubic-bezier(.2,.8,.2,1), border-color .24s ease, box-shadow .24s ease, background .24s ease;
+    }
+    .card:hover, .metric-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 24%, var(--border)); }
+    .metric-card:hover .metric-icon { transform: rotate(-5deg) scale(1.08); }
+    .metric-icon { transition: transform .24s cubic-bezier(.2,.8,.2,1); }
+    .nav-btn:active, .icon-btn:active, .ghost-btn:active, .primary-btn:active, .danger-btn:active { transform: scale(.97); }
+    .primary-btn, .ghost-btn, .icon-btn, .danger-btn, .nav-btn { position: relative; overflow: hidden; isolation: isolate; }
+    .ripple {
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(255,255,255,.28);
+      pointer-events: none;
+      transform: translate(-50%,-50%) scale(0);
+      animation: ripple .58s ease-out forwards;
+      z-index: -1;
+    }
+
+    .section-view:not([hidden]) { animation: section-enter .38s cubic-bezier(.2,.8,.2,1); }
+    .section-view:not([hidden]) > * { animation: content-enter .42s cubic-bezier(.2,.8,.2,1) both; }
+    .section-view:not([hidden]) > *:nth-child(2) { animation-delay: .045s; }
+    .section-view:not([hidden]) > *:nth-child(3) { animation-delay: .09s; }
+
+    .desktop-gate {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 50% 0%, var(--accent-glow), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+    }
+    .desktop-gate-card {
+      width: min(100%, 480px);
+      padding: 32px;
+      border: 1px solid var(--border-strong);
+      border-radius: 24px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      text-align: center;
+      animation: gate-enter .45s cubic-bezier(.2,.8,.2,1);
+    }
+    .desktop-gate-icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      display: grid;
+      place-items: center;
+      border-radius: 22px;
+      color: white;
+      background: linear-gradient(135deg,var(--accent),var(--accent-2));
+      box-shadow: 0 18px 40px var(--accent-glow);
+    }
+    .desktop-gate h1 { margin: 0 0 10px; font-size: 25px; letter-spacing: -.04em; }
+    .desktop-gate p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .desktop-gate small { display: block; margin-top: 16px; color: var(--subtle); }
+    body.blocked-device .desktop-gate { display: grid; }
+    body.blocked-device .app,
+    body.blocked-device .toast,
+    body.blocked-device .mobile-overlay { display: none !important; }
+
+    .cookie-card { grid-column: 1 / -1; }
+    .cookie-layout { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(260px,.8fr); gap: 18px; align-items: stretch; }
+    .cookie-drop {
+      position: relative;
+      min-height: 216px;
+      border: 1.5px dashed color-mix(in srgb,var(--accent) 42%,var(--border));
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 50% 15%, var(--accent-soft), transparent 70%),
+        var(--surface-2);
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      text-align: center;
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform .25s cubic-bezier(.2,.8,.2,1), border-color .25s ease, background .25s ease, box-shadow .25s ease;
+    }
+    .cookie-drop::before,
+    .cookie-drop::after {
+      content: "";
+      position: absolute;
+      border: 1px solid color-mix(in srgb,var(--accent) 24%,transparent);
+      border-radius: 999px;
+      width: 115px;
+      height: 115px;
+      opacity: 0;
+      transform: scale(.45);
+      pointer-events: none;
+    }
+    .cookie-drop.dragging {
+      transform: translateY(-3px) scale(1.005);
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: 0 18px 42px var(--accent-glow);
+    }
+    .cookie-drop.dragging::before { animation: drop-wave 1.25s ease-out infinite; }
+    .cookie-drop.dragging::after { animation: drop-wave 1.25s .42s ease-out infinite; }
+    .cookie-drop.loaded { border-style: solid; border-color: color-mix(in srgb,var(--success) 58%,var(--border)); background: var(--success-soft); }
+    .cookie-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .drop-content { position: relative; z-index: 1; }
+    .drop-icon {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 14px;
+      border-radius: 18px;
+      color: var(--accent);
+      background: var(--accent-soft);
+      transition: transform .25s cubic-bezier(.2,.8,.2,1), color .25s ease, background .25s ease;
+    }
+    .cookie-drop.dragging .drop-icon { transform: translateY(-4px) scale(1.08); }
+    .cookie-drop.loaded .drop-icon { color: var(--success); background: var(--success-soft); animation: loaded-pop .5s cubic-bezier(.2,.8,.2,1); }
+    .cookie-drop h4 { margin: 0 0 7px; font-size: 16px; }
+    .cookie-drop p { margin: 0 0 15px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .cookie-file-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cookie-info {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      background: var(--surface-2);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .cookie-info-grid { display: grid; gap: 10px; }
+    .cookie-info-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .cookie-info-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .cookie-info-row span { color: var(--muted); }
+    .cookie-info-row strong { text-align: right; overflow-wrap: anywhere; }
+    .security-note { display: flex; gap: 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .security-note svg { flex: 0 0 auto; color: var(--success); margin-top: 2px; }
+    .cookie-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+    .cookie-actions button { flex: 1; min-width: 120px; }
+
+    @keyframes ambient-drift { from { transform: translate3d(-10px,-15px,0) scale(.95); } to { transform: translate3d(28px,22px,0) scale(1.08); } }
+    @keyframes sidebar-enter { from { opacity:0; transform:translateX(-26px); } to { opacity:1; transform:none; } }
+    @keyframes topbar-enter { from { opacity:0; transform:translateY(-14px); } to { opacity:1; transform:none; } }
+    @keyframes rise-in { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
+    @keyframes section-enter { from { opacity:0; transform:translateY(9px) scale(.995); } to { opacity:1; transform:none; } }
+    @keyframes content-enter { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+    @keyframes hero-sheen { 0%,68% { transform:rotate(18deg) translateX(-140%); } 88%,100% { transform:rotate(18deg) translateX(360%); } }
+    @keyframes brand-float { 0%,100% { transform:translateY(0) rotate(0); } 50% { transform:translateY(-3px) rotate(-2deg); } }
+    @keyframes status-pulse { 0% { box-shadow:0 0 0 0 var(--success-soft); } 60% { box-shadow:0 0 0 9px transparent; } 100% { box-shadow:0 0 0 0 transparent; } }
+    @keyframes progress-shine { to { transform:translateX(110%); } }
+    @keyframes ripple { to { transform:translate(-50%,-50%) scale(1); opacity:0; } }
+    @keyframes gate-enter { from { opacity:0; transform:translateY(18px) scale(.97); } to { opacity:1; transform:none; } }
+    @keyframes drop-wave { 0% { opacity:.7; transform:scale(.35); } 100% { opacity:0; transform:scale(2.25); } }
+    @keyframes loaded-pop { 0% { transform:scale(.7) rotate(-8deg); } 70% { transform:scale(1.12) rotate(3deg); } 100% { transform:none; } }
+
+    @media (max-width: 899px) {
+      .desktop-gate { display: grid; }
+      .app, .toast, .mobile-overlay { display: none !important; }
+    }
+    @media (max-width: 1080px) and (min-width: 900px) {
+      .cookie-layout { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+
+  
+    .empty-state { padding: 22px; border: 1px dashed var(--border-strong); border-radius: 13px; color: var(--muted); text-align: center; grid-column: 1 / -1; }
+    .static-field { width:100%; min-height:42px; display:flex; align-items:center; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:12px; padding:10px 12px; overflow-wrap:anywhere; }
+    .job-action { padding:7px 9px; font-size:11px; }
+</style>
+</head>
+<body>
+
+  <div class="desktop-gate" id="desktopGate" role="alert">
+    <div class="desktop-gate-card">
+      <div class="desktop-gate-icon" aria-hidden="true">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+      </div>
+      <h1>Disponible únicamente en PC</h1>
+      <p>Este panel administra archivos locales, cookies y procesos del descargador. Ábrelo desde una computadora con una ventana de al menos 900 px.</p>
+      <small>Compatible con Linux, Windows y macOS.</small>
+    </div>
+  </div>
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">OF</div>
+        <div><strong>Downloader</strong><span><span id="appVersion">Panel local v2.17.0</span></span></div>
+      </div>
+
+      <div class="nav-label">Principal</div>
+      <nav class="nav">
+        <button class="nav-btn active" data-view="dashboard" data-title="Resumen" data-subtitle="Actividad, descargas y estado del sistema">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 13h6V4H4v9Zm10 7h6V11h-6v9ZM4 20h6v-3H4v3Zm10-13h6V4h-6v3Z"/></svg>Resumen
+        </button>
+        <button class="nav-btn" data-view="profiles" data-title="Perfiles" data-subtitle="Explora y selecciona tus suscripciones">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Perfiles
+        </button>
+        <button class="nav-btn" data-view="downloads" data-title="Descargas" data-subtitle="Añade trabajos y controla la cola">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>Descargas
+        </button>
+      </nav>
+
+      <div class="nav-label" style="margin-top:20px">Sistema</div>
+      <nav class="nav">
+        <button class="nav-btn" data-view="drive" data-title="Google Drive" data-subtitle="Sincronización y archivos pendientes">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 5 8.5H7L12 2Zm-5 8.5L2 19h10l5-8.5H7ZM12 19h10l-5-8.5L12 19Z"/></svg>Google Drive
+        </button>
+        <button class="nav-btn" data-view="settings" data-title="Configuración" data-subtitle="Apariencia, cuenta y comportamiento">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2.83 2.83-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.4 1V21h-4v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06-2.83-2.83.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1-.4H3v-4h.09A1.65 1.65 0 0 0 4.6 8.52a1.65 1.65 0 0 0-.33-1.82l-.06-.06 2.83-2.83.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .4-1V3h4v.09A1.65 1.65 0 0 0 15.48 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06 2.83 2.83-.06.06A1.65 1.65 0 0 0 19.4 9c.12.37.34.7.6 1 .27.29.62.43 1 .4H21v4h-.09A1.65 1.65 0 0 0 19.4 15Z"/></svg>Configuración
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="account-mini">
+          <div class="account-row">
+            <div class="avatar">KT</div>
+            <div><strong id="accountMiniTitle">Comprobando cuenta</strong><small id="cookieSidebarStatus">Consultando servidor…</small></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="top-left">
+          <button class="icon-btn mobile-menu" id="menuButton" aria-label="Abrir menú">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+          <div class="page-title"><h1 id="pageTitle">Resumen</h1><p id="pageSubtitle">Actividad, descargas y estado del sistema</p></div>
+        </div>
+        <div class="top-actions">
+          <button class="ghost-btn" id="openFolder">Abrir carpeta</button><button class="danger-btn" id="shutdownDashboard">Cerrar panel</button>
+          <button class="icon-btn" id="themeToggle" aria-label="Cambiar tema">
+            <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+          </button>
+          <button class="primary-btn go-downloads">+ Nueva descarga</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="section-view" data-section="dashboard">
+          <div class="hero">
+            <div class="hero-main">
+              <div class="eyebrow">Panel local listo</div>
+              <h2>Descarga, organiza y sincroniza desde una sola interfaz.</h2>
+              <p>Dashboard conectado al motor local de OF Downloader. Las credenciales y descargas permanecen en este PC.</p>
+              <div class="hero-actions">
+                <button class="primary-btn go-downloads">Crear descarga</button>
+                <button class="ghost-btn go-profiles">Ver perfiles</button>
+              </div>
+            </div>
+            <div class="status-card card">
+              <div class="status-head"><span style="color:var(--muted);font-size:13px">Estado general</span><span class="status-dot"></span></div>
+              <div class="status-main"><strong id="systemStatus">Conectando…</strong><span id="systemStatusNote">Servidor local en 127.0.0.1</span></div>
+              <div class="status-list">
+                <div><span>Cuenta</span><strong id="accountStatus">Comprobando</strong></div>
+                <div><span>Motor</span><strong id="engineStatus">Comprobando</strong></div>
+                <div><span>Drive</span><strong id="driveStatus">Comprobando</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="metrics">
+            <div class="metric-card"><div class="metric-top"><span class="metric-label">Cuenta</span><div class="metric-icon">●</div></div><div class="metric-value" id="accountMetric">—</div><div class="metric-note" id="accountMetricNote">Consultando credenciales</div></div>
+            <div class="metric-card"><div class="metric-top"><span class="metric-label">En cola</span><div class="metric-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div></div><div class="metric-value" id="queueMetric">2</div><div class="metric-note">Procesamiento secuencial</div></div>
+            <div class="metric-card"><div class="metric-top"><span class="metric-label">Almacenamiento</span><div class="metric-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg></div></div><div class="metric-value" id="storageMetric">—</div><div class="metric-note" id="storageNote">Consultando disco</div></div>
+            <div class="metric-card"><div class="metric-top"><span class="metric-label">Drive pendiente</span><div class="metric-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 5 8.5H7L12 2Zm-5 8.5L2 19h10l5-8.5H7ZM12 19h10l-5-8.5L12 19Z"/></svg></div></div><div class="metric-value" id="driveMetric">—</div><div class="metric-note" id="driveMetricNote">Consultando Drive</div></div>
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="card">
+              <div class="card-head">
+                <div class="download-title"><div class="download-cover">OF</div><div><strong id="activeTarget">Sin descarga activa</strong><span id="activeDetail">Añade un trabajo desde Descargas</span></div></div>
+                <span class="badge running" id="runningBadge">Descargando</span>
+              </div>
+              <div class="progress-labels"><span id="stageText">Esperando trabajos</span><strong id="progressText">—</strong></div>
+              <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0"></div></div>
+              <div class="download-stats">
+                <div class="stat-box"><span>Velocidad</span><strong id="speedText">2.4 archivos/s</strong></div>
+                <div class="stat-box"><span>Tiempo restante</span><strong id="etaText">00:25</strong></div>
+                <div class="stat-box"><span>Omitidos</span><strong>4</strong></div>
+                <div class="stat-box"><span>Fallos</span><strong>0</strong></div>
+              </div>
+              <div class="download-controls"><button class="ghost-btn" id="pauseButton">Pausar</button><button class="ghost-btn go-downloads">Ver cola</button><button class="danger-btn" id="cancelButton">Cancelar</button></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><h3>Siguiente en la cola</h3><p>Trabajos pendientes</p></div><span class="badge muted" id="miniQueueBadge">0 pendientes</span></div>
+              <div class="queue" id="miniQueue"><div class="empty-state">Cargando cola…</div></div></div></div></section>
+
+        <section class="section-view" data-section="profiles" hidden>
+          <div class="section-heading"><div><h2>Perfiles</h2><p>Selecciona una suscripción y revisa el contenido disponible.</p></div><button class="primary-btn" id="refreshProfiles">Actualizar perfiles</button></div>
+          <div class="toolbar" style="margin-bottom:16px">
+            <div class="search-wrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="search" id="profileSearch" placeholder="Buscar por nombre o usuario"></div>
+            <select id="profileFilter" style="width:auto;min-width:170px"><option value="all">Todos los perfiles</option><option value="paid">Suscripciones pagadas</option><option value="free">Suscripciones gratis</option></select>
+          </div>
+          <div class="profile-grid" id="profileGrid"><div class="empty-state">Pulsa “Actualizar perfiles” para consultar tus suscripciones reales.</div></div></section>
+
+        <section class="section-view" data-section="downloads" hidden>
+          <div class="section-heading"><div><h2>Descargas</h2><p>Añade un perfil, publicación o identificador a la cola.</p></div><span class="badge muted">Cola local</span></div>
+          <div class="dashboard-grid">
+            <div class="card">
+              <div class="card-head"><div><h3>Nueva descarga</h3><p>La interfaz detecta automáticamente el tipo de enlace.</p></div></div>
+              <div class="form-grid">
+                <label class="field-full">Usuario, enlace o ID<input id="downloadTarget" placeholder="@usuario o https://onlyfans.com/..."></label>
+                <label>Tipo<select id="downloadType"><option>Detectar automáticamente</option><option>Perfil completo</option><option>Publicación individual</option></select></label>
+                <label>Destino<div class="static-field" id="downloadDestination">Consultando…</div></label>
+                <label>Contenido<select disabled><option>Fotos y videos</option></select></label>
+                <label>Comportamiento<select disabled><option>Omitir archivos existentes</option></select></label>
+              </div>
+              <div style="margin-top:18px">
+                <div class="switch-row"><div class="switch-copy"><strong>Subir a Google Drive</strong><small>Usa la preferencia global configurada en el CLI</small></div><label class="switch"><input type="checkbox" id="driveJobSwitch" disabled><span class="slider"></span></label></div>
+                <div class="switch-row"><div class="switch-copy"><strong>Incluir contenido archivado</strong><small>Siempre incluido por el motor para perfiles completos</small></div><label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label></div>
+              </div>
+              <button class="primary-btn" id="addDownload" style="margin-top:18px">Añadir a la cola</button>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><h3>Cola de trabajos</h3><p>Orden de ejecución actual</p></div><button class="ghost-btn" id="clearQueue">Actualizar</button></div>
+              <div class="queue" id="fullQueue"><div class="empty-state">Cargando trabajos…</div></div></div></div></section>
+
+        <section class="section-view" data-section="drive" hidden>
+          <div class="section-heading"><div><h2>Google Drive</h2><p>Estado de sincronización del almacenamiento remoto.</p></div><button class="primary-btn" id="syncNow">Actualizar estado</button></div>
+          <div class="metrics">
+            <div class="metric-card"><div class="metric-label">Conexión</div><div class="metric-value" id="driveConnectionMetric" style="font-size:20px;color:var(--success)">—</div><div class="metric-note">Configuración actual</div></div>
+            <div class="metric-card"><div class="metric-label">Pendientes</div><div class="metric-value" id="drivePendingMetric">—</div><div class="metric-note">Archivos en cola</div></div>
+            <div class="metric-card"><div class="metric-label">Servidor</div><div class="metric-value" style="font-size:20px">127.0.0.1</div><div class="metric-note">No acepta conexiones externas</div></div>
+            <div class="metric-card"><div class="metric-label">Acceso</div><div class="metric-value" style="font-size:20px">Solo PC</div><div class="metric-note">Móviles y tablets bloqueados</div></div>
+          </div>
+          <div class="card"><div class="card-head"><div><h3>Destino remoto</h3><p>Configuración leída del programa</p></div><span class="badge muted">Solo lectura</span></div><div class="form-grid"><label>Remote<div class="static-field" id="driveRemote">—</div></label><label>Carpeta<div class="static-field" id="driveFolder">—</div></label><label class="field-full">Ruta final<div class="static-field" id="driveFinalPath">—</div></label></div></div>
+        </section>
+
+        <section class="section-view" data-section="settings" hidden>
+          <div class="section-heading"><div><h2>Configuración</h2><p>Personaliza la apariencia del panel y su comportamiento.</p></div></div>
+          <div class="dashboard-grid">
+            <div class="card">
+              <div class="card-head"><div><h3>Apariencia</h3><p>Los cambios se aplican inmediatamente.</p></div></div>
+              <div class="switch-row"><div class="switch-copy"><strong>Tema oscuro</strong><small>Alterna entre modo oscuro y claro</small></div><label class="switch"><input type="checkbox" id="darkSwitch" checked><span class="slider"></span></label></div>
+              <div style="padding-top:17px;border-top:1px solid var(--border)"><div style="font-size:13px;font-weight:700;margin-bottom:10px">Color principal</div><div class="appearance-row"><button class="swatch active" data-color="violet" aria-label="Violeta"></button><button class="swatch" data-color="blue" aria-label="Azul"></button><button class="swatch" data-color="green" aria-label="Verde"></button><button class="swatch" data-color="rose" aria-label="Rosa"></button></div></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><h3>Seguridad local</h3><p>Protecciones activas del dashboard</p></div><span class="badge success">Activas</span></div>
+              <div class="switch-row"><div class="switch-copy"><strong>Solo 127.0.0.1</strong><small>El servidor no escucha en la red local ni en Internet.</small></div><span class="badge success">Sí</span></div>
+              <div class="switch-row"><div class="switch-copy"><strong>Token por sesión</strong><small>Las acciones de escritura requieren una clave aleatoria temporal.</small></div><span class="badge success">Sí</span></div>
+              <div class="switch-row"><div class="switch-copy"><strong>Credenciales privadas</strong><small>El navegador nunca vuelve a recibir los valores guardados.</small></div><span class="badge success">Sí</span></div>
+            </div>
+
+            <div class="card cookie-card">
+              <div class="card-head">
+                <div><h3>Cookie de sesión</h3><p>Arrastra el archivo exportado o selecciónalo desde tu PC.</p></div>
+                <span class="badge muted" id="cookieBadge">Sin cargar</span>
+              </div>
+              <div class="cookie-layout">
+                <div class="cookie-drop" id="cookieDrop" role="button" tabindex="0" aria-label="Cargar archivo de cookies">
+                  <input id="cookieInput" type="file" accept=".json,application/json">
+                  <div class="drop-content">
+                    <div class="drop-icon" id="cookieDropIcon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0-12 4 4m-4-4L8 7M5 15v4h14v-4"/></svg>
+                    </div>
+                    <h4 id="cookieDropTitle">Suelta aquí tu cookie</h4>
+                    <p id="cookieDropText">Archivo OFBackup-auth.json · máximo 64 KB<br>Los valores sensibles nunca se muestran.</p>
+                    <button class="primary-btn" type="button" id="cookieChoose">Seleccionar archivo</button>
+                  </div>
+                </div>
+                <div class="cookie-info">
+                  <div>
+                    <div class="cookie-info-grid">
+                      <div class="cookie-info-row"><span>Archivo</span><strong class="cookie-file-name" id="cookieFileName">Ninguno</strong></div>
+                      <div class="cookie-info-row"><span>Formato</span><strong id="cookieFormat">—</strong></div>
+                      <div class="cookie-info-row"><span>Cookies válidas</span><strong id="cookieCount">0</strong></div>
+                      <div class="cookie-info-row"><span>Tamaño</span><strong id="cookieSize">—</strong></div>
+                    </div>
+                  </div>
+                  <div class="security-note">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 6v5c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-5"/></svg>
+                    <span>Al guardar, el archivo se envía únicamente a 127.0.0.1. OF Downloader conserva solo sess, auth_id, x-bc y User-Agent en su configuración privada.</span>
+                  </div>
+                  <div class="cookie-actions"><button class="primary-btn" type="button" id="cookieImport" disabled>Guardar en OF Downloader</button><button class="ghost-btn" type="button" id="cookieTest">Probar acceso</button><button class="ghost-btn" type="button" id="cookieReplace">Reemplazar</button><button class="danger-btn" type="button" id="cookieRemove" disabled>Quitar archivo</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+(() => {
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const TOKEN = '__OFD_TOKEN__';
+  const html = document.documentElement;
+  const body = document.body;
+  const toast = $('#toast');
+  let toastTimer;
+  let jobs = [];
+  let activeJob = null;
+  let cookiePayload = null;
+
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  })[char]);
+
+  const notify = (message, long = false) => {
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), long ? 5200 : 2600);
+  };
+
+  const api = async (path, options = {}) => {
+    const method = options.method || 'GET';
+    const headers = { ...(options.headers || {}) };
+    headers['X-OFD-Token'] = TOKEN;
+    if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+    const response = await fetch(path, { ...options, method, headers });
+    const data = await response.json().catch(() => ({ error: 'Respuesta inválida del servidor.' }));
+    if (!response.ok) throw new Error(data.error || `Error HTTP ${response.status}`);
+    return data;
+  };
+
+  const openView = (name, button) => {
+    $$('[data-section]').forEach(section => section.hidden = section.dataset.section !== name);
+    $$('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    const target = button || $(`.nav-btn[data-view="${name}"]`);
+    if (target) {
+      target.classList.add('active');
+      $('#pageTitle').textContent = target.dataset.title;
+      $('#pageSubtitle').textContent = target.dataset.subtitle;
+    }
+    body.classList.remove('menu-open');
+  };
+
+  $$('.nav-btn').forEach(btn => btn.addEventListener('click', () => openView(btn.dataset.view, btn)));
+  $$('.go-downloads').forEach(btn => btn.addEventListener('click', () => openView('downloads')));
+  $$('.go-profiles').forEach(btn => btn.addEventListener('click', () => openView('profiles')));
+  $('#menuButton')?.addEventListener('click', () => body.classList.add('menu-open'));
+  $('#mobileOverlay')?.addEventListener('click', () => body.classList.remove('menu-open'));
+
+  const setTheme = dark => {
+    html.dataset.theme = dark ? 'dark' : 'light';
+    $('#darkSwitch').checked = dark;
+    $('#themeIcon').innerHTML = dark
+      ? '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>'
+      : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+  };
+  $('#themeToggle').addEventListener('click', () => setTheme(html.dataset.theme === 'light'));
+  $('#darkSwitch').addEventListener('change', event => setTheme(event.target.checked));
+  $$('.swatch').forEach(button => button.addEventListener('click', () => {
+    html.dataset.accent = button.dataset.color;
+    $$('.swatch').forEach(item => item.classList.toggle('active', item === button));
+    notify('Color principal actualizado');
+  }));
+
+  const humanBytes = bytes => {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+    return `${(bytes / (1024 ** index)).toFixed(index > 1 ? 1 : 0)} ${units[index]}`;
+  };
+
+  const statusLabel = status => ({
+    queued: 'En cola', running: 'Activo', paused: 'Pausado', completed: 'Completado',
+    error: 'Error', cancelled: 'Cancelado'
+  })[status] || status;
+
+  const badgeClass = status => ({
+    queued: 'warning', running: 'running', paused: 'warning', completed: 'success',
+    error: 'muted', cancelled: 'muted'
+  })[status] || 'muted';
+
+  const renderActiveJob = () => {
+    activeJob = jobs.find(job => ['running', 'paused'].includes(job.status)) || null;
+    const target = $('#activeTarget');
+    const detail = $('#activeDetail');
+    const badge = $('#runningBadge');
+    const progress = activeJob?.progress ?? 0;
+    $('#progressFill').style.width = `${progress}%`;
+    $('#progressText').textContent = activeJob?.progress == null ? '—' : `${progress}%`;
+    $('#stageText').textContent = activeJob?.message || 'No hay una descarga activa';
+    $('#etaText').textContent = activeJob ? 'En proceso' : '—';
+    $('#speedText').textContent = activeJob?.status === 'paused' ? 'Pausada' : activeJob ? 'Motor activo' : '—';
+    target.textContent = activeJob ? `${activeJob.kind === 'profile' ? '@' : ''}${activeJob.target}` : 'Sin descarga activa';
+    detail.textContent = activeJob ? (activeJob.kind === 'profile' ? 'Perfil completo' : 'Publicación individual') : 'Añade un trabajo desde Descargas';
+    badge.className = `badge ${activeJob ? badgeClass(activeJob.status) : 'muted'}`;
+    badge.textContent = activeJob ? statusLabel(activeJob.status) : 'Inactivo';
+    $('#pauseButton').disabled = !activeJob;
+    $('#cancelButton').disabled = !activeJob;
+    $('#pauseButton').textContent = activeJob?.status === 'paused' ? 'Reanudar' : 'Pausar';
+  };
+
+  const jobRow = (job, index, compact = false) => {
+    const target = `${job.kind === 'profile' ? '@' : ''}${escapeHtml(job.target)}`;
+    const detail = `${job.kind === 'profile' ? 'Perfil completo' : 'Publicación'} · ${escapeHtml(job.message || statusLabel(job.status))}`;
+    const actionable = ['queued', 'running', 'paused'].includes(job.status);
+    const action = compact || !actionable ? '' : `<button class="ghost-btn job-action" data-job="${job.id}" data-action="${job.status === 'paused' ? 'resume' : job.status === 'running' ? 'pause' : 'cancel'}">${job.status === 'paused' ? 'Reanudar' : job.status === 'running' ? 'Pausar' : 'Cancelar'}</button>`;
+    return `<div class="queue-item" data-job-row="${job.id}"><div class="queue-num">${String(index + 1).padStart(2, '0')}</div><div><strong>${target}</strong><small>${detail}${job.progress == null ? '' : ` · ${job.progress}%`}</small></div><div style="display:flex;gap:7px;align-items:center"><span class="badge ${badgeClass(job.status)}">${statusLabel(job.status)}</span>${action}</div></div>`;
+  };
+
+  const bindJobActions = () => {
+    $$('.job-action').forEach(button => button.addEventListener('click', async () => {
+      const row = button.closest('[data-job-row]');
+      const job = jobs.find(item => item.id === button.dataset.job);
+      if (!job) return;
+      if (['completed', 'error', 'cancelled'].includes(job.status)) {
+        row?.remove();
+        return;
+      }
+      button.disabled = true;
+      try {
+        await api(`/api/jobs/${job.id}/${button.dataset.action}`, { method: 'POST' });
+        await loadStatus();
+      } catch (error) {
+        notify(error.message, true);
+      } finally {
+        button.disabled = false;
+      }
+    }));
+  };
+
+  const renderJobs = () => {
+    const fullQueue = $('#fullQueue');
+    fullQueue.innerHTML = jobs.length ? jobs.map((job, index) => jobRow(job, index)).join('') : '<div class="empty-state">No hay trabajos. Añade un usuario, enlace o ID.</div>';
+    const pending = jobs.filter(job => job.status === 'queued').slice(0, 3);
+    $('#miniQueue').innerHTML = pending.length ? pending.map((job, index) => jobRow(job, index, true)).join('') : '<div class="empty-state">La cola está vacía.</div>';
+    $('#miniQueueBadge').textContent = `${pending.length} pendiente${pending.length === 1 ? '' : 's'}`;
+    $('#queueMetric').textContent = String(jobs.filter(job => job.status === 'queued').length);
+    renderActiveJob();
+    bindJobActions();
+  };
+
+  const applyStatus = data => {
+    jobs = data.jobs || [];
+    $('#appVersion').textContent = `Panel local v${data.version}`;
+    $('#systemStatus').textContent = data.connected ? 'Todo operativo' : 'Falta conectar la cuenta';
+    $('#systemStatusNote').textContent = `Servidor local · ${data.platform}`;
+    $('#accountStatus').textContent = data.connected ? 'Conectada' : 'Pendiente';
+    $('#engineStatus').textContent = 'Disponible';
+    $('#driveStatus').textContent = data.drive_enabled ? 'Activado' : 'Desactivado';
+    $('#accountMetric').textContent = data.connected ? 'Lista' : 'Pendiente';
+    $('#accountMetricNote').textContent = data.connected ? 'Cookie guardada localmente' : 'Carga OFBackup-auth.json';
+    $('#storageMetric').textContent = humanBytes(data.disk?.used || 0);
+    $('#storageNote').textContent = `${data.disk?.percent || 0}% del disco utilizado`;
+    $('#driveMetric').textContent = String(data.drive_pending || 0);
+    $('#driveMetricNote').textContent = data.drive_enabled ? 'archivos pendientes' : 'Drive desactivado';
+    $('#downloadDestination').textContent = data.download_dir;
+    $('#cookieSidebarStatus').textContent = data.connected ? 'Credenciales guardadas' : 'Cookie no cargada';
+    $('#accountMiniTitle').textContent = data.connected ? 'Cuenta conectada' : 'Sin conectar';
+    $('#driveConnectionMetric').textContent = data.drive_enabled ? 'Activado' : 'Desactivado';
+    $('#drivePendingMetric').textContent = String(data.drive_pending || 0);
+    $('#driveRemote').textContent = data.drive_remote || 'gdrive';
+    $('#driveFolder').textContent = data.drive_folder || 'OFDownloader';
+    $('#driveFinalPath').textContent = `${data.drive_remote || 'gdrive'}:/${data.drive_folder || 'OFDownloader'}`;
+    $('#driveJobSwitch').checked = Boolean(data.drive_enabled && data.drive_upload_after_download);
+    renderJobs();
+  };
+
+  const loadStatus = async (silent = true) => {
+    try {
+      applyStatus(await api('/api/status'));
+    } catch (error) {
+      if (!silent) notify(error.message, true);
+      $('#systemStatus').textContent = 'Servidor no disponible';
+    }
+  };
+
+  const target = $('#downloadTarget');
+  target.addEventListener('input', () => {
+    const value = target.value.trim();
+    $('#downloadType').value = !value ? 'Detectar automáticamente' : (/^\d+$/.test(value) || /\/\d+(?:\/|$)/.test(value) ? 'Publicación individual' : 'Perfil completo');
+  });
+  $('#addDownload').addEventListener('click', async event => {
+    const value = target.value.trim();
+    if (!value) { target.focus(); notify('Escribe un usuario, enlace o ID'); return; }
+    event.currentTarget.disabled = true;
+    event.currentTarget.textContent = 'Añadiendo…';
+    try {
+      await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target: value }) });
+      target.value = '';
+      $('#downloadType').value = 'Detectar automáticamente';
+      notify('Trabajo añadido a la cola real');
+      await loadStatus();
+    } catch (error) {
+      notify(error.message, true);
+    } finally {
+      event.currentTarget.disabled = false;
+      event.currentTarget.textContent = 'Añadir a la cola';
+    }
+  });
+  $('#clearQueue').addEventListener('click', () => loadStatus(false));
+
+  $('#pauseButton').addEventListener('click', async event => {
+    if (!activeJob) return;
+    event.currentTarget.disabled = true;
+    const action = activeJob.status === 'paused' ? 'resume' : 'pause';
+    try {
+      await api(`/api/jobs/${activeJob.id}/${action}`, { method: 'POST' });
+      await loadStatus();
+    } catch (error) { notify(error.message, true); }
+  });
+  $('#cancelButton').addEventListener('click', async () => {
+    if (!activeJob) return;
+    try {
+      await api(`/api/jobs/${activeJob.id}/cancel`, { method: 'POST' });
+      notify('Cancelación solicitada');
+      await loadStatus();
+    } catch (error) { notify(error.message, true); }
+  });
+
+  $('#openFolder').addEventListener('click', async () => {
+    try {
+      const data = await api('/api/open-folder', { method: 'POST' });
+      notify(`Carpeta abierta: ${data.path}`);
+    } catch (error) { notify(error.message, true); }
+  });
+  $('#syncNow').addEventListener('click', () => loadStatus(false));
+
+  const renderProfiles = profiles => {
+    const grid = $('#profileGrid');
+    if (!profiles.length) {
+      grid.innerHTML = '<div class="empty-state">No se encontraron perfiles. Comprueba la cookie y vuelve a intentar.</div>';
+      return;
+    }
+    grid.innerHTML = profiles.map(profile => {
+      const username = escapeHtml(profile.username);
+      const name = escapeHtml(profile.display_name || profile.username);
+      const initials = (profile.display_name || profile.username).split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+      const status = escapeHtml(profile.status || 'activo');
+      return `<article class="profile-card" data-search="${(name + ' ' + username).toLowerCase()}" data-kind="all"><div class="profile-banner"></div><div class="profile-body"><div class="profile-avatar">${escapeHtml(initials)}</div><div class="profile-name"><div><h3>${name}</h3><span>@${username}</span></div><span class="badge success">${status}</span></div><div class="profile-stats"><div><strong>${profile.posts ?? '—'}</strong><span>Posts</span></div><div><strong>${profile.photos ?? '—'}</strong><span>Fotos</span></div><div><strong>${profile.videos ?? '—'}</strong><span>Videos</span></div></div><div class="profile-actions"><button class="primary-btn profile-download" data-user="@${username}">Descargar</button></div></div></article>`;
+    }).join('');
+    bindProfileButtons();
+    filterProfiles();
+  };
+
+  const filterProfiles = () => {
+    const q = $('#profileSearch').value.trim().toLowerCase();
+    $$('.profile-card').forEach(card => card.hidden = !card.dataset.search.includes(q));
+  };
+  $('#profileSearch').addEventListener('input', filterProfiles);
+  $('#profileFilter').disabled = true;
+
+  const bindProfileButtons = () => {
+    $$('.profile-download').forEach(button => button.addEventListener('click', () => {
+      openView('downloads');
+      target.value = button.dataset.user;
+      $('#downloadType').value = 'Perfil completo';
+      notify('Perfil preparado para descargar');
+    }));
+  };
+
+  const loadProfiles = async () => {
+    const button = $('#refreshProfiles');
+    button.disabled = true;
+    button.textContent = 'Consultando…';
+    $('#profileGrid').innerHTML = '<div class="empty-state">Consultando tus suscripciones; puede tardar hasta 90 segundos…</div>';
+    try {
+      const data = await api('/api/profiles');
+      renderProfiles(data.profiles || []);
+      notify(data.message);
+    } catch (error) {
+      $('#profileGrid').innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+      notify(error.message, true);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Actualizar perfiles';
+    }
+  };
+  $('#refreshProfiles').addEventListener('click', loadProfiles);
+
+  const cookieDrop = $('#cookieDrop');
+  const cookieInput = $('#cookieInput');
+  const cookieChoose = $('#cookieChoose');
+  const cookieReplace = $('#cookieReplace');
+  const cookieRemove = $('#cookieRemove');
+  const cookieImport = $('#cookieImport');
+  const cookieTest = $('#cookieTest');
+
+  const humanSize = bytes => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
+  const resetCookie = () => {
+    cookiePayload = null;
+    cookieInput.value = '';
+    cookieDrop.classList.remove('loaded', 'dragging');
+    $('#cookieDropTitle').textContent = 'Suelta OFBackup-auth.json';
+    $('#cookieDropText').innerHTML = 'Archivo JSON exportado por la extensión · máximo 64 KB<br>Los valores sensibles nunca se muestran.';
+    $('#cookieFileName').textContent = 'Ninguno';
+    $('#cookieFormat').textContent = '—';
+    $('#cookieCount').textContent = '0';
+    $('#cookieSize').textContent = '—';
+    $('#cookieBadge').className = 'badge muted';
+    $('#cookieBadge').textContent = 'Sin cargar';
+    cookieRemove.disabled = true;
+    cookieImport.disabled = true;
+  };
+
+  const validateAuthFile = text => {
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error('El archivo debe ser JSON válido.'); }
+    const auth = data?.auth || data;
+    const hasCookieString = typeof auth?.cookie === 'string';
+    const fields = ['sess', 'auth_id', 'x-bc', 'user_agent'];
+    const direct = fields.filter(field => typeof auth?.[field] === 'string' && auth[field].trim());
+    if (!hasCookieString && direct.length < 4 && !Array.isArray(data)) {
+      throw new Error('No parece un archivo generado por OF Downloader Exporter.');
+    }
+    return { format: data?.format === 'ofbackup-auth' ? 'OFBackup Auth' : 'JSON compatible', count: Math.max(direct.length, hasCookieString ? 4 : 0) };
+  };
+
+  const loadCookieFile = async file => {
+    if (!file) return;
+    if (file.size > 64 * 1024) { notify('El archivo supera el límite de 64 KB'); return; }
+    try {
+      const text = await file.text();
+      const parsed = validateAuthFile(text);
+      cookiePayload = { filename: file.name, content: text };
+      cookieDrop.classList.add('loaded');
+      $('#cookieDropTitle').textContent = 'Archivo preparado';
+      $('#cookieDropText').textContent = 'Pulsa Guardar para importarlo en OF Downloader.';
+      $('#cookieFileName').textContent = file.name;
+      $('#cookieFormat').textContent = parsed.format;
+      $('#cookieCount').textContent = String(parsed.count);
+      $('#cookieSize').textContent = humanSize(file.size);
+      $('#cookieBadge').className = 'badge warning';
+      $('#cookieBadge').textContent = 'Preparado';
+      cookieRemove.disabled = false;
+      cookieImport.disabled = false;
+      notify('Archivo validado localmente');
+    } catch (error) {
+      resetCookie();
+      notify(error.message, true);
+    }
+  };
+
+  const openCookiePicker = () => cookieInput.click();
+  cookieChoose.addEventListener('click', event => { event.stopPropagation(); openCookiePicker(); });
+  cookieReplace.addEventListener('click', openCookiePicker);
+  cookieRemove.addEventListener('click', () => { resetCookie(); notify('Archivo quitado de la memoria'); });
+  cookieDrop.addEventListener('click', event => { if (!event.target.closest('button')) openCookiePicker(); });
+  cookieDrop.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openCookiePicker(); }
+  });
+  cookieInput.addEventListener('change', () => loadCookieFile(cookieInput.files[0]));
+  ['dragenter', 'dragover'].forEach(type => cookieDrop.addEventListener(type, event => {
+    event.preventDefault(); event.stopPropagation(); cookieDrop.classList.add('dragging');
+  }));
+  ['dragleave', 'drop'].forEach(type => cookieDrop.addEventListener(type, event => {
+    event.preventDefault(); event.stopPropagation(); cookieDrop.classList.remove('dragging');
+  }));
+  cookieDrop.addEventListener('drop', event => loadCookieFile(event.dataTransfer.files[0]));
+
+  cookieImport.addEventListener('click', async () => {
+    if (!cookiePayload) return;
+    cookieImport.disabled = true;
+    cookieImport.textContent = 'Guardando…';
+    try {
+      const data = await api('/api/auth/import', { method: 'POST', body: JSON.stringify(cookiePayload) });
+      $('#cookieBadge').className = 'badge success';
+      $('#cookieBadge').textContent = 'Guardada';
+      notify(data.message, true);
+      await loadStatus();
+    } catch (error) {
+      $('#cookieBadge').className = 'badge muted';
+      $('#cookieBadge').textContent = 'Error';
+      notify(error.message, true);
+    } finally {
+      cookieImport.disabled = false;
+      cookieImport.textContent = 'Guardar en OF Downloader';
+    }
+  });
+
+  cookieTest.addEventListener('click', async () => {
+    cookieTest.disabled = true;
+    cookieTest.textContent = 'Probando…';
+    notify('Consultando la sesión; puede tardar hasta 60 segundos');
+    try {
+      const data = await api('/api/auth/test', { method: 'POST' });
+      notify(data.message, true);
+    } catch (error) { notify(error.message, true); }
+    finally { cookieTest.disabled = false; cookieTest.textContent = 'Probar acceso'; }
+  });
+
+  $('#shutdownDashboard').addEventListener('click', async () => {
+    try {
+      await api('/api/shutdown', { method: 'POST' });
+      body.innerHTML = '<div class="desktop-only"><div class="desktop-only-card"><h1>Dashboard cerrado</h1><p>Ya puedes volver al menú de OF Downloader en la terminal.</p></div></div>';
+    } catch (error) { notify(error.message, true); }
+  });
+
+  const mobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (mobileOrTablet) body.classList.add('blocked-device');
+  requestAnimationFrame(() => body.classList.add('is-ready'));
+
+  document.addEventListener('pointerdown', event => {
+    const button = event.target.closest('button');
+    if (!button || button.disabled) return;
+    const rect = button.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height) * 1.65;
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.width = ripple.style.height = `${size}px`;
+    ripple.style.left = `${event.clientX - rect.left}px`;
+    ripple.style.top = `${event.clientY - rect.top}px`;
+    button.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+  });
+
+  resetCookie();
+  bindProfileButtons();
+  loadStatus(false);
+  setInterval(() => loadStatus(true), 2200);
+})();
+</script>
+
+</body>
+</html>

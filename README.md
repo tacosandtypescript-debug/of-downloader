@@ -9,6 +9,8 @@
 <p align="center">
   <a href="#instalación-rápida">Instalación</a>
   ·
+  <a href="#dashboard-web-solo-pc">Dashboard</a>
+  ·
   <a href="#extensión-del-navegador">Extensión</a>
   ·
   <a href="#conectar-la-cuenta">Conectar cuenta</a>
@@ -27,6 +29,7 @@
 
 - Abre un menú simple con el comando `of`.
 - Funciona en Termux, Linux y Windows.
+- En Linux y Windows incluye un dashboard local para el navegador.
 - Conecta la cuenta usando la extensión `OF Downloader Exporter`.
 - Puede recibir la cookie desde la extensión por red local.
 - Lista perfiles suscritos activos cuando OnlyFans los devuelve.
@@ -35,7 +38,19 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.16.4`
+Versión actual: `2.17.0`
+
+### Novedades de 2.17.0
+
+- Dashboard web integrado para Linux y Windows con la opción `[13]` del menú.
+- Servidor ligado exclusivamente a `127.0.0.1`, token temporal por sesión y
+  protección contra peticiones externas.
+- Importación real de `OFBackup-auth.json` mediante selección o arrastrar y soltar.
+- Prueba de sesión, estado de cuenta, perfiles suscritos y carpeta de descargas
+  conectados al backend existente.
+- Cola secuencial de descargas desde el navegador con pausa, reanudación y
+  cancelación del proceso activo.
+- El dashboard no aparece en Termux y bloquea navegadores móviles o tablets.
 
 ### Novedades de 2.16.4
 
@@ -116,6 +131,40 @@ of
 
 El instalador de Windows intenta preparar Python 3.12, FFmpeg y rclone con
 `winget`. No uses Python 3.13 para esta app en Windows.
+
+## Dashboard web (solo PC)
+
+El dashboard está disponible únicamente en Linux y Windows. No se muestra en
+Termux y el frontend bloquea navegadores móviles o tablets.
+
+Desde el menú ejecuta `of` y elige:
+
+```text
+[13] Abrir dashboard en el navegador
+```
+
+También puede abrirse directamente:
+
+```bash
+of dashboard
+```
+
+El servidor escucha solo en `127.0.0.1` y abre una dirección similar a
+`http://127.0.0.1:8766`. Si ese puerto está ocupado, prueba automáticamente los
+siguientes. El terminal debe permanecer abierto mientras se usa el panel.
+
+Desde el dashboard se puede:
+
+- Cargar y guardar `OFBackup-auth.json` con arrastrar y soltar.
+- Probar la sesión sin mostrar los valores privados.
+- Consultar las suscripciones activas.
+- Añadir perfiles, enlaces o IDs a una cola secuencial.
+- Pausar, reanudar o cancelar la descarga activa.
+- Abrir la carpeta configurada y consultar el estado de Google Drive.
+
+Las credenciales nunca se devuelven al navegador después de guardarlas. El
+servidor conserva únicamente `sess`, `auth_id`, `x-bc` y `User-Agent` en la
+configuración privada que ya usa OF-Scraper.
 
 ## Descargar un perfil completo
 
