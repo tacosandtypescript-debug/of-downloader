@@ -542,6 +542,9 @@
         <button class="nav-btn" data-view="downloads" data-title="Descargas" data-subtitle="Añade trabajos y controla la cola">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>Descargas
         </button>
+        <button class="nav-btn" data-view="queue" data-title="Cola" data-subtitle="Controla tus trabajos de descarga">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Cola
+        </button>
       </nav>
 
       <div class="nav-label" style="margin-top:20px">Sistema</div>
@@ -661,6 +664,19 @@
             <div class="card">
               <div class="card-head"><div><h3>Cola de trabajos</h3><p>Orden de ejecución actual</p></div><button class="ghost-btn" id="clearQueue">Actualizar</button></div>
               <div class="queue" id="fullQueue"><div class="empty-state">Cargando trabajos…</div></div></div></div></section>
+
+        <section class="section-view" data-section="queue" hidden>
+          <div class="section-heading"><div><h2>Cola de trabajos</h2><p>Estado real de cada descarga y orden de ejecución.</p></div><button class="ghost-btn" id="clearQueue">Actualizar cola</button></div>
+          <div class="metrics">
+            <div class="metric-card"><div class="metric-label">Pendientes</div><div class="metric-value" id="queuePendingMetric">0</div><div class="metric-note">Esperando turno</div></div>
+            <div class="metric-card"><div class="metric-label">Activos</div><div class="metric-value" id="queueActiveMetric">0</div><div class="metric-note">Procesándose ahora</div></div>
+            <div class="metric-card"><div class="metric-label">Completados</div><div class="metric-value" id="queueCompletedMetric">0</div><div class="metric-note">Historial local</div></div>
+            <div class="metric-card"><div class="metric-label">Errores</div><div class="metric-value" id="queueErrorMetric">0</div><div class="metric-note">Revisar log</div></div>
+          </div>
+          <div class="card"><div class="card-head"><div><h3>Trabajos</h3><p>Actualización desde la cola local</p></div><span class="badge muted">En vivo</span></div>
+            <div class="queue" id="queuePanel"><div class="empty-state">Cargando trabajos...</div></div>
+          </div>
+        </section>
 
         <section class="section-view" data-section="drive" hidden>
           <div class="section-heading"><div><h2>Google Drive</h2><p>Estado de sincronización del almacenamiento remoto.</p></div><button class="primary-btn" id="syncNow">Actualizar estado</button></div>
@@ -873,11 +889,17 @@
 
   const renderJobs = () => {
     const fullQueue = $('#fullQueue');
+    const queuePanel = $('#queuePanel');
     fullQueue.innerHTML = jobs.length ? jobs.map((job, index) => jobRow(job, index)).join('') : '<div class="empty-state">No hay trabajos. Añade un usuario, enlace o ID.</div>';
+    if (queuePanel) queuePanel.innerHTML = fullQueue.innerHTML;
     const pending = jobs.filter(job => job.status === 'queued').slice(0, 3);
     $('#miniQueue').innerHTML = pending.length ? pending.map((job, index) => jobRow(job, index, true)).join('') : '<div class="empty-state">La cola está vacía.</div>';
     $('#miniQueueBadge').textContent = `${pending.length} pendiente${pending.length === 1 ? '' : 's'}`;
     $('#queueMetric').textContent = String(jobs.filter(job => job.status === 'queued').length);
+    $('#queuePendingMetric').textContent = String(jobs.filter(job => job.status === 'queued').length);
+    $('#queueActiveMetric').textContent = String(jobs.filter(job => ['running', 'paused'].includes(job.status)).length);
+    $('#queueCompletedMetric').textContent = String(jobs.filter(job => job.status === 'completed').length);
+    $('#queueErrorMetric').textContent = String(jobs.filter(job => job.status === 'error').length);
     renderActiveJob();
     bindJobActions();
   };

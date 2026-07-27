@@ -38,7 +38,12 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.17.1`
+Versión actual: `2.17.2`
+
+### Novedades de 2.17.2
+
+- Cola del dashboard separada visualmente de la creación de descargas.
+- Persistencia y eventos de cola preparados para progreso en vivo.
 
 ### Novedades de 2.17.1
 
