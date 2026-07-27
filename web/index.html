@@ -915,9 +915,17 @@
   };
 
   const target = $('#downloadTarget');
+  const downloadType = $('#downloadType');
+  downloadType.options[0].value = 'auto';
+  downloadType.options[1].value = 'profile';
+  downloadType.options[2].value = 'post';
   target.addEventListener('input', () => {
     const value = target.value.trim();
     $('#downloadType').value = !value ? 'Detectar automáticamente' : (/^\d+$/.test(value) || /\/\d+(?:\/|$)/.test(value) ? 'Publicación individual' : 'Perfil completo');
+  });
+  target.addEventListener('input', () => {
+    const value = target.value.trim();
+    downloadType.value = !value ? 'auto' : (/^\d+$/.test(value) || /\/\d+(?:\/|$)/.test(value) ? 'post' : 'profile');
   });
   $('#addDownload').addEventListener('click', async event => {
     const value = target.value.trim();
@@ -929,11 +937,13 @@
       const selectedType = $('#downloadType').value;
       await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target: value, options: {
         kind: selectedType === 'Perfil completo' ? 'profile' : selectedType === 'PublicaciÃ³n individual' ? 'post' : 'auto',
+        kind: selectedType,
         media_type: $('#downloadMedia').value,
         rescan: behavior !== 'skip',
         force_all: behavior === 'force',
       } }) });
       target.value = '';
+      downloadType.value = 'auto';
       $('#downloadType').value = 'Detectar automáticamente';
       notify('Trabajo añadido a la cola real');
       await loadStatus();
@@ -968,6 +978,16 @@
     try {
       const data = await api('/api/open-folder', { method: 'POST' });
       notify(`Carpeta abierta: ${data.path}`);
+    } catch (error) { notify(error.message, true); }
+  });
+  $('#downloadDestination').addEventListener('click', async () => {
+    const current = $('#downloadDestination').textContent.trim();
+    const value = window.prompt('Nueva carpeta de descargas:', current);
+    if (!value || value.trim() === current) return;
+    try {
+      const data = await api('/api/settings/destination', { method: 'POST', body: JSON.stringify({ path: value.trim() }) });
+      $('#downloadDestination').textContent = data.path;
+      notify('Destino actualizado');
     } catch (error) { notify(error.message, true); }
   });
   $('#syncNow').addEventListener('click', () => loadStatus(false));
@@ -1006,8 +1026,9 @@
       button.disabled = true;
       try {
         await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target: button.dataset.user, options: { media_type: 'images,videos', rescan: true, force_all: true } }) });
+        openView('downloads');
         notify('Perfil añadido directamente a la cola');
-        await loadStatus();
+        await loadStatus(false);
       } catch (error) { notify(error.message, true); }
       finally { button.disabled = false; }
     }));
