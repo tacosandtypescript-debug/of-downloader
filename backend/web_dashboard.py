@@ -307,6 +307,8 @@ class JobManager:
         env = os.environ.copy()
         env["OFDOWNLOADER_EXTERNAL_PAUSE"] = "1"
         env["PYTHONUNBUFFERED"] = "1"
+        # Windows puede heredar cp1252/charmap y fallar al imprimir ✓, · o emojis.
+        env["PYTHONIOENCODING"] = "utf-8"
         with self._lock:
             job.status = "running"
             job.message = "Preparando descarga"
