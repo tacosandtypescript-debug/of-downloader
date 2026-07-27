@@ -38,7 +38,12 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.17.2`
+Versión actual: `2.17.3`
+
+### Novedades de 2.17.3
+
+- Progreso de la cola conectado al dashboard mediante eventos SSE.
+- Actualizaciones en vivo de estados sin depender únicamente del sondeo.
 
 ### Novedades de 2.17.2
 
