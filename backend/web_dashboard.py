@@ -91,6 +91,7 @@ class DashboardJob:
     eta: str = ""
     log_path: str = ""
     message: str = "En cola"
+    stage: str = "En cola"
     created_at: str = field(default_factory=_utc_now)
     started_at: str | None = None
     finished_at: str | None = None
@@ -102,6 +103,13 @@ class DashboardJob:
 
 def update_dashboard_job_from_line(job: DashboardJob, line: str) -> None:
     """Actualiza el estado visible con una línea real del motor."""
+    lowered = line.lower()
+    if any(word in lowered for word in ("detect", "buscando", "search")):
+        job.stage = "Detectando contenido"
+    elif any(word in lowered for word in ("descarg", "download", "foto", "video", "videos")):
+        job.stage = "Descargando archivos"
+    elif any(word in lowered for word in ("iniciando", "preparando", "preparing")):
+        job.stage = "Iniciando descarga"
     image = re.search(r"\b(?:Fotos|Images?)\s+(\d+)\s*/\s*(\d+)", line, re.I)
     video = re.search(r"\b(?:Videos?|Vídeos?)\s+(\d+)\s*/\s*(\d+)", line, re.I)
     if image:
@@ -320,6 +328,7 @@ class JobManager:
         with self._lock:
             job.status = "running"
             job.message = "Preparando descarga"
+            job.stage = "Iniciando descarga"
             job.started_at = _utc_now()
             try:
                 job.log_path = str(
@@ -380,10 +389,12 @@ class JobManager:
                 job.message = "Descarga cancelada"
             elif returncode == 0:
                 job.status = "completed"
+                job.stage = "Descarga completada"
                 job.progress = 100
                 job.message = "Descarga completada"
             else:
                 job.status = "error"
+                job.stage = "Error en la descarga"
                 if job.log_path:
                     job.message = f"{job.message} · Log: {job.log_path}"
                 if not job.message:
