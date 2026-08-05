@@ -579,7 +579,7 @@ def credentials_payload(values: dict[str, str]) -> dict[str, str]:
     return {
         "sess": values["sess"],
         "auth_id": values["auth_id"],
-        "auth_uid": "",
+        "auth_uid": values["auth_id"],
         "user_agent": values["user_agent"],
         "x-bc": values["x-bc"],
         "app-token": DEFAULT_APP_TOKEN,

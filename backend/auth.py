@@ -236,7 +236,7 @@ except Exception as exc:
         return {
             "sess": values["sess"],
             "auth_id": values["auth_id"],
-            "auth_uid": "",
+            "auth_uid": values["auth_id"],
             "user_agent": values["user_agent"],
             "x-bc": values["x-bc"],
             "app-token": self.DEFAULT_APP_TOKEN,
