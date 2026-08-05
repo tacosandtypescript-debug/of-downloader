@@ -94,7 +94,7 @@ PROFILE_DOWNLOAD_AREAS = (
 )
 
 AUTH_TEST_SCRIPT = r"""
-import sys
+import sys, traceback
 
 try:
     from ofscraper.main.open import load
@@ -116,7 +116,8 @@ try:
 except SystemExit:
     raise
 except Exception as exc:
-    print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}", file=sys.stderr)
+    print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}: {exc}", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
     raise SystemExit(4)
 """
 
@@ -1129,12 +1130,24 @@ def test_credentials(timeout: int = 60) -> int:
         return 1
 
     print(_status_text("\n✗ NO SE PUDO COMPROBAR LA COOKIE", "red"))
-    error_type = "desconocido"
+    error_detail = "desconocido"
     marker = "OFBACKUP_AUTH_ERROR:"
     if marker in output:
-        error_type = output.split(marker, 1)[1].splitlines()[0].strip()
-    print(f"La cookie está cargada, pero falló el motor de prueba ({error_type}).")
-    print("Ejecuta 'of diagnostico' y vuelve a intentar 'of probar'.")
+        error_detail = output.split(marker, 1)[1].splitlines()[0].strip()
+    print(f"Error: {error_detail}")
+    # Mostrar stderr completo si hay traceback
+    stderr_lines = [l for l in output.splitlines() if l.strip() and "Traceback" not in output.split(output.split(marker)[0] if marker in output else "", 1)[-1]]
+    if "Traceback" in output:
+        print("\n--- Traceback del motor ---")
+        for line in output.splitlines():
+            if "Traceback" in line or "File " in line or "Error" in line or line.strip().startswith("    "):
+                print(line)
+        print("--- Fin traceback ---")
+    print("\nPosibles causas:")
+    print("  - OF-Scraper no está instalado o versión incompatible")
+    print("  - La cookie expiró (genera un nuevo OFBackup-auth.json)")
+    print("  - Problema de conexión a Internet")
+    print("Ejecuta 'of diagnostico' para más detalles.")
     return 1
 
 
