@@ -120,8 +120,14 @@ try:
 except SystemExit:
     raise
 except Exception as exc:
-    print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}: {exc}", file=sys.stderr)
-    traceback.print_exc(file=sys.stderr)
+    # Detectar errores HTTP como cookie inválida
+    http_status = getattr(getattr(exc, 'response', None), 'status_code', None)
+    if http_status in (400, 401, 403):
+        print(f"OFBACKUP_AUTH_REJECTED", file=sys.stderr)
+        print(f"HTTP {http_status}: {exc}", file=sys.stderr)
+    else:
+        print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}: {exc}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
     raise SystemExit(4)
 """
 
