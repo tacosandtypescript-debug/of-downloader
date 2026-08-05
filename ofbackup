@@ -21,10 +21,20 @@ trap cleanup_temp EXIT
 trap 'cleanup_temp; exit 130' INT TERM
 
 run_ofbackup() {
+    local stderr_temp
+    stderr_temp="$(mktemp "$HOST_CACHE/ofbackup-stderr.XXXXXX")"
     proot-distro login --shared-home ofbackup-debian -- \
         env "OFDOWNLOADER_PLATFORM=TERMUX" \
         "OFDOWNLOADER_UPDATE_STATUS=$UPDATE_STATUS" \
-        "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@"
+        "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@" 2>"$stderr_temp"
+    local status=$?
+    if [[ -s "$stderr_temp" ]]; then
+        echo "--- DIAGNÓSTICO (stderr) ---" >&2
+        cat "$stderr_temp" >&2
+        echo "--- FIN DIAGNÓSTICO ---" >&2
+    fi
+    rm -f "$stderr_temp"
+    return "$status"
 }
 
 find_repo_dir() {
@@ -254,6 +264,11 @@ select_and_import() {
 
     run_selected_temp "$selected"
     local status=$?
+    if [[ "$status" -ne 0 ]]; then
+        echo "✗ Error al importar las credenciales (código $status)."
+        echo "  Revisa que el archivo OFBackup-auth.json sea válido y reciente."
+        echo "  Si el problema persiste, ejecuta: of diagnostico"
+    fi
     rm -f "$selected"
     SELECTED_TEMP=""
     return "$status"

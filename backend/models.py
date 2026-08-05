@@ -6,6 +6,10 @@ from dataclasses import dataclass, field
 import time
 
 
+class UserError(RuntimeError):
+    """Error que se puede mostrar directamente al usuario."""
+
+
 @dataclass
 class MediaCounts:
     images: int = 0
@@ -88,3 +92,31 @@ class DownloadStats:
             self.partial_files
             or (self.detected_total and self.accounted_total < self.detected_total)
         )
+
+
+@dataclass
+class ProfileDetection:
+    username: str
+    profile_id: str = ""
+    posts: int | None = None
+    photos: int | None = None
+    videos: int | None = None
+    archived: int | None = None
+    counted: int | None = None
+    declared: int | None = None
+    accessible: int | None = None
+    blocked: int | None = None
+    partial: bool = False
+
+
+@dataclass
+class SubscriptionProfile:
+    username: str
+    display_name: str = ""
+    profile_id: str = ""
+    avatar_url: str = ""
+    status: str = "activo"
+    posts: int | None = None
+    photos: int | None = None
+    videos: int | None = None
+    archived: int | None = None

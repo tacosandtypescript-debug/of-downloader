@@ -20,16 +20,20 @@ import urllib.request
 import webbrowser
 from queue import Empty, Queue
 from threading import Event, Thread
-from dataclasses import dataclass, field
 from datetime import datetime
 from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlparse
 
 from backend.models import (
-    DownloadStats as BackendDownloadStats,
-    MediaCounts as BackendMediaCounts,
+    DownloadStats,
+    MediaCounts,
+    ProfileDetection,
+    SubscriptionProfile,
+    UserError,
 )
+BackendDownloadStats = DownloadStats
+BackendMediaCounts = MediaCounts
 from backend.process import (
     PausableProcess as BackendPausableProcess,
     read_process_output as backend_read_process_output,
@@ -40,6 +44,13 @@ from backend.progress import (
     update_download_stats_from_line as backend_update_download_stats_from_line,
 )
 from frontend.progress import show_download_progress as frontend_show_download_progress
+
+# ── Servicios (arquitectura refactorizada) ───────────────────────────────
+from backend.auth import get_auth_service
+from backend.downloads import get_download_service
+from backend.drive import get_drive_service
+from backend.profiles import get_profile_service
+from frontend.terminal import get_terminal_service
 
 
 APP_VERSION = "2.17.6"
@@ -302,10 +313,6 @@ except Exception as exc:
 """
 
 
-class UserError(RuntimeError):
-    """Error que se puede mostrar directamente al usuario."""
-
-
 def _chmod(path: Path, mode: int) -> None:
     if os.name != "nt":
         path.chmod(mode)
@@ -355,6 +362,38 @@ def default_auth_export_path() -> Path:
 
 EXPORTED_AUTH_PATH = default_auth_export_path()
 
+# ── Instancias de servicio a nivel módulo ────────────────────────────────
+_auth_svc = None
+_download_svc = None
+_drive_svc = None
+_profile_svc = None
+_terminal_svc = None
+
+def _auth():  # lazy init para evitar imports circulares
+    global _auth_svc
+    if _auth_svc is None: _auth_svc = get_auth_service()
+    return _auth_svc
+
+def _dl():
+    global _download_svc
+    if _download_svc is None: _download_svc = get_download_service()
+    return _download_svc
+
+def _drv():
+    global _drive_svc
+    if _drive_svc is None: _drive_svc = get_drive_service()
+    return _drive_svc
+
+def _prof():
+    global _profile_svc
+    if _profile_svc is None: _profile_svc = get_profile_service()
+    return _profile_svc
+
+def _term():
+    global _terminal_svc
+    if _terminal_svc is None: _terminal_svc = get_terminal_service()
+    return _terminal_svc
+
 
 def get_state() -> dict:
     state = read_json(STATE_PATH)
@@ -371,6 +410,9 @@ def get_state() -> dict:
 def save_state(state: dict) -> None:
     secure_write_json(STATE_PATH, state)
 
+
+# ═══ AuthService: parseo de cookies ═══════════════════════════════════════
+# Migrado a: backend.auth.AuthService.parse_cookie_header()
 
 def parse_cookie_header(raw: str) -> dict[str, str]:
     raw = raw.strip()
@@ -445,6 +487,9 @@ def _clean_auth_value(name: str, value: object, max_length: int) -> str:
         raise UserError(f"El campo {name} no tiene un formato válido.")
     return value
 
+
+# ═══ AuthService: validación ══════════════════════════════════════════════
+# Migrado a: backend.auth.AuthService.validate_auth_values()
 
 def validate_auth_values(values: dict[str, str]) -> dict[str, str]:
     required = ("sess", "auth_id", "x-bc", "user_agent")
@@ -907,6 +952,9 @@ def _status_text(message: str, color: str) -> str:
     return styled(message, color)
 
 
+# ═══ TerminalService: colores y UI ════════════════════════════════════════
+# Migrado a: frontend.terminal.TerminalService
+
 PALETTE = {
     "cyan": "38;2;0;175;240",
     "blue": "38;2;0;140;207",
@@ -1006,6 +1054,9 @@ def update_notification(status: str | None = None) -> str | None:
     return None
 
 
+# ═══ AuthService: verificación ════════════════════════════════════════════
+# Migrado a: backend.auth.AuthService.test_credentials()
+
 def test_credentials(timeout: int = 60) -> int:
     """Comprueba la sesión con una consulta mínima y sin descargar contenido."""
     if not credentials_ready():
@@ -1086,6 +1137,9 @@ def test_credentials(timeout: int = 60) -> int:
     print("Ejecuta 'of diagnostico' y vuelve a intentar 'of probar'.")
     return 1
 
+
+# ═══ DownloadService: binarios ════════════════════════════════════════════
+# Migrado a: backend.downloads.DownloadService.find_ofscraper()
 
 def find_ofscraper_binary() -> str | None:
     configured = os.getenv("OFSCRAPER_BIN")
@@ -1195,163 +1249,8 @@ def ofscraper_environment() -> dict[str, str]:
     return environment
 
 
-def extract_download_percent(line: str) -> int | None:
-    matches = re.findall(r"(?<!\d)(\d{1,3})(?:\.\d+)?%", line)
-    if not matches:
-        return None
-    return min(100, max(0, int(matches[-1])))
-
-
-@dataclass
-class MediaCounts:
-    images: int = 0
-    videos: int = 0
-    other: int = 0
-
-    @property
-    def total(self) -> int:
-        return self.images + self.videos + self.other
-
-
-@dataclass
-class DownloadStats:
-    detected_images: int | None = None
-    detected_videos: int | None = None
-    downloaded: MediaCounts = field(default_factory=MediaCounts)
-    failed: int = 0
-    skipped: int = 0
-    seen_events: set[str] = field(default_factory=set, repr=False)
-
-    def label(self, stage: str) -> str:
-        parts: list[str] = []
-        if self.detected_images is not None or self.downloaded.images:
-            if self.detected_images is None:
-                parts.append(f"Fotos {self.downloaded.images}")
-            else:
-                parts.append(f"Fotos {self.downloaded.images}/{self.detected_images}")
-        if self.detected_videos is not None or self.downloaded.videos:
-            if self.detected_videos is None:
-                parts.append(f"Videos {self.downloaded.videos}")
-            else:
-                parts.append(f"Videos {self.downloaded.videos}/{self.detected_videos}")
-        if self.failed:
-            parts.append(f"Fallos {self.failed}")
-        if self.skipped:
-            parts.append(f"Omitidos {self.skipped}")
-        total_detected = (self.detected_images or 0) + (self.detected_videos or 0)
-        if total_detected:
-            accounted = self.accounted_total
-            remaining = max(0, total_detected - accounted)
-            parts.append(
-                f"Total {accounted}/{total_detected} | Restan {remaining}"
-            )
-        elif self.downloaded.total:
-            parts.append(f"Total descargado {self.downloaded.total}")
-        parts.append(stage)
-        return " · ".join(parts)
-
-    @property
-    def detected_total(self) -> int:
-        return (self.detected_images or 0) + (self.detected_videos or 0)
-
-    @property
-    def accounted_total(self) -> int:
-        return self.downloaded.total + self.skipped
-
-    @property
-    def has_unaccounted_detected_media(self) -> bool:
-        return bool(self.detected_total and self.accounted_total < self.detected_total)
-
-
-class PausableProcess:
-    """Suspende y reanuda un proceso junto con sus hijos (OF-Scraper/FFmpeg)."""
-
-    def __init__(self, pid: int):
-        self.process = psutil.Process(pid) if psutil is not None else None
-        self.paused = False
-
-    @property
-    def available(self) -> bool:
-        return self.process is not None
-
-    def _processes(self):
-        if not self.process:
-            return []
-        try:
-            return [self.process, *self.process.children(recursive=True)]
-        except (psutil.Error, OSError):
-            return [self.process]
-
-    def pause(self) -> bool:
-        if not self.process or self.paused:
-            return False
-        for process in self._processes():
-            try:
-                process.suspend()
-            except (psutil.Error, OSError):
-                continue
-        self.paused = True
-        return True
-
-    def resume(self) -> bool:
-        if not self.process or not self.paused:
-            return False
-        for process in reversed(self._processes()):
-            try:
-                process.resume()
-            except (psutil.Error, OSError):
-                continue
-        self.paused = False
-        return True
-
-
-def read_process_output(stream, output: Queue[str | None]) -> None:
-    """Entrega cada actualización separada por salto de línea o retorno de carro."""
-    buffer: list[str] = []
-    try:
-        while True:
-            char = stream.read(1)
-            if not char:
-                break
-            if char in "\r\n":
-                if buffer:
-                    output.put("".join(buffer))
-                    buffer.clear()
-            else:
-                buffer.append(char)
-        if buffer:
-            output.put("".join(buffer))
-    finally:
-        output.put(None)
-
-
-@dataclass
-class ProfileDetection:
-    username: str
-    profile_id: str = ""
-    posts: int | None = None
-    photos: int | None = None
-    videos: int | None = None
-    archived: int | None = None
-    counted: int | None = None
-    declared: int | None = None
-    accessible: int | None = None
-    blocked: int | None = None
-    partial: bool = False
-
-
-@dataclass
-class SubscriptionProfile:
-    username: str
-    display_name: str = ""
-    profile_id: str = ""
-    avatar_url: str = ""
-    status: str = "activo"
-    posts: int | None = None
-    photos: int | None = None
-    videos: int | None = None
-    archived: int | None = None
-
+# ═══ DownloadService: medios en disco ═════════════════════════════════════
+# Migrado a: backend.downloads.DownloadService.media_kind()
 
 def media_kind(path: Path) -> str | None:
     suffix = path.suffix.lower()
@@ -1431,58 +1330,10 @@ def changed_media_files(
     return sorted(files, key=lambda path: str(path).lower())
 
 
-def extract_media_totals(line: str) -> tuple[int | None, int | None]:
-    image_patterns = (
-        r"\b(?:images?|photos?|fotos?)\b\s*[:=]\s*(\d+)",
-        r"\b(\d+)\s*(?:images?|photos?|fotos?)\b",
-    )
-    video_patterns = (
-        r"\b(?:videos?|v[ií]deos?)\b\s*[:=]\s*(\d+)",
-        r"\b(\d+)\s*(?:videos?|v[ií]deos?)\b",
-    )
 
-    def first_match(patterns: tuple[str, ...]) -> int | None:
-        for pattern in patterns:
-            match = re.search(pattern, line, flags=re.IGNORECASE)
-            if match:
-                return int(match.group(1))
-        return None
-
-    return first_match(image_patterns), first_match(video_patterns)
-
-
-def update_download_stats_from_line(stats: DownloadStats, line: str) -> bool:
-    changed = False
-    images, videos = extract_media_totals(line)
-    if images is not None and images > (stats.detected_images or 0):
-        stats.detected_images = images
-        changed = True
-    if videos is not None and videos > (stats.detected_videos or 0):
-        stats.detected_videos = videos
-        changed = True
-
-    lowered = line.lower()
-    event_key = lowered.strip()
-    if not event_key or event_key in stats.seen_events:
-        return changed
-    stats.seen_events.add(event_key)
-
-    if "download" in lowered and any(
-        phrase in lowered
-        for phrase in (
-            "failed to download",
-            "download failed",
-            "error downloading",
-            "download error",
-            "could not download",
-        )
-    ):
-        stats.failed += 1
-        changed = True
-    elif any(phrase in lowered for phrase in ("already downloaded", "skipped", "skip media")):
-        stats.skipped += 1
-        changed = True
-    return changed
+# ═══ DownloadService: progreso ════════════════════════════════════════════
+# Migrado a: backend.downloads.DownloadService.extract_media_totals()
+# (redefinido más abajo desde backend.progress)
 
 
 def print_download_summary(
@@ -1919,6 +1770,9 @@ def drive_command(args: list[str]) -> int:
         "Uso: of drive instalar|configurar|activar|desactivar|subir|pendientes|limpiar|estado"
     )
 
+
+# ═══ ProfileService: utilidades ═══════════════════════════════════════════
+# Migrado a: backend.profiles.ProfileService
 
 def optional_int(value: object) -> int | None:
     if value is None or value == "":
@@ -2539,6 +2393,9 @@ def normalize_url(value: str) -> str:
     return extracted
 
 
+# ═══ DownloadService: URLs ════════════════════════════════════════════════
+# Migrado a: backend.downloads.DownloadService.extract_of_url()
+
 def extract_onlyfans_url(value: str) -> str | None:
     """Extrae el primer enlace de OnlyFans aunque venga embebido en Markdown o texto extra."""
     value = value.strip()
@@ -2755,13 +2612,37 @@ def diagnostics() -> None:
     executable = find_ofscraper_binary()
     print("\nDIAGNÓSTICO")
     print(f"OF Downloader:   {APP_VERSION}")
-    print(f"Python:          {sys.version.split()[0]}")
+    print(f"Plataforma:      {os.getenv('OFDOWNLOADER_PLATFORM', 'desconocida')}")
+    print(f"Python:          {sys.version.split()[0]} ({sys.executable})")
+    print(f"HOME:            {HOME}")
     print(f"OF-Scraper:      {executable or 'NO ENCONTRADO'}")
     print(f"FFmpeg:          {find_ffmpeg_binary() or 'NO ENCONTRADO'}")
     print(f"Google Drive:    {drive_status_text(state)}")
     print(f"Credenciales:    {'configuradas' if credentials_ready() else 'pendientes'}")
+    if credentials_ready():
+        try:
+            auth_data = read_json(AUTH_PATH)
+            print(f"  auth_id:       {auth_data.get('auth_id', '?' )}")
+            print(f"  sess:          {'presente' if auth_data.get('sess') else 'falta'}")
+            print(f"  x-bc:          {'presente' if auth_data.get('x-bc') else 'falta'}")
+            print(f"  user_agent:    {'presente' if auth_data.get('user_agent') else 'falta'}")
+        except Exception:
+            pass
+    print(f"Auth path:       {AUTH_PATH}")
     print(f"Descargas:       {state['download_dir']}")
     print(f"Config privada:  {APP_DIR}")
+
+    # Verificar archivos de backend necesarios
+    script_dir = Path(__file__).parent
+    backend_ok = (script_dir / "backend" / "models.py").is_file()
+    auth_ok = (script_dir / "backend" / "auth.py").is_file()
+    downloads_ok = (script_dir / "backend" / "downloads.py").is_file()
+    frontend_ok = (script_dir / "frontend" / "terminal.py").is_file()
+    print(f"Módulos backend: {script_dir / 'backend'}")
+    print(f"  models.py:      {'✓' if backend_ok else '✗ FALTA'}")
+    print(f"  auth.py:        {'✓' if auth_ok else '✗ FALTA (requiere actualizar)'}"  )
+    print(f"  downloads.py:   {'✓' if downloads_ok else '✗ FALTA (requiere actualizar)'}"  )
+    print(f"  frontend/terminal.py: {'✓' if frontend_ok else '✗ FALTA (requiere actualizar)'}"  )
 
     version = sys.version_info
     if not ((3, 11) <= version[:2] < (3, 14)):
@@ -3235,6 +3116,16 @@ def main(argv: list[str] | None = None) -> int:
     except UserError as exc:
         print(f"✗ {exc}", file=sys.stderr)
         return 2
+    except (OSError, PermissionError, FileNotFoundError) as exc:
+        print(f"✗ Error del sistema: {exc}", file=sys.stderr)
+        import traceback as _tb
+        _tb.print_exc(file=sys.stderr)
+        return 3
+    except Exception as exc:
+        print(f"✗ Error inesperado: {type(exc).__name__}: {exc}", file=sys.stderr)
+        import traceback as _tb
+        _tb.print_exc(file=sys.stderr)
+        return 4
     except KeyboardInterrupt:
         print("\nOperación cancelada.", file=sys.stderr)
         return 130
