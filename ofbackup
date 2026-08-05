@@ -167,7 +167,7 @@ update_application() {
 run_selected_temp() {
     local selected="$1"
     local container_path
-    container_path="/root/.cache/ofbackup/$(basename "$selected")"
+    container_path="$HOST_CACHE/$(basename "$selected")"
     run_ofbackup importar-archivo "$container_path"
 }
 
