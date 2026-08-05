@@ -94,7 +94,11 @@ PROFILE_DOWNLOAD_AREAS = (
 )
 
 AUTH_TEST_SCRIPT = r"""
-import sys, traceback
+import sys, traceback, logging
+
+# OF-Scraper 3.14.7 usa Logger.traceback_ que no existe en Python 3.13+
+if not hasattr(logging.Logger, "traceback_"):
+    logging.Logger.traceback_ = logging.Logger.debug
 
 try:
     from ofscraper.main.open import load
