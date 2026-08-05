@@ -25,6 +25,7 @@ cookies.txt
 cookies-*.txt
 OFBackup-auth*.json
 OFDownloader-auth*.json
+auth-import.*.json
 /auth.json
 /settings.json
 *.pem
