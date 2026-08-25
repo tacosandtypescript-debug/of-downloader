@@ -66,6 +66,7 @@ Thumbs.db
 *.rej
 
 # Empaquetado
+.gradle/
 build/
 dist/
 artifacts/

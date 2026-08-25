@@ -410,6 +410,40 @@ git pull --ff-only origin main
 bash instalar-termux.sh
 ```
 
+### Aplicación Android Companion
+
+El módulo `android/` contiene una aplicación Android independiente para iniciar
+sesión dentro de su propio WebView y exportar manualmente un
+`OFBackup-auth.json` compatible con OF Downloader. La aplicación no lee las
+cookies privadas de Chrome ni de otras aplicaciones.
+
+Para compilar el APK de prueba desde un entorno con Android SDK y Gradle:
+
+```bash
+gradle :android:assembleDebug
+```
+
+Después instala `android/build/outputs/apk/debug/android-debug.apk`, inicia
+sesión, pulsa **Generar archivo**, guarda el JSON mediante el selector de
+Android e impórtalo con `of importar`.
+
+Para enviarlo mediante un bot de Telegram, crea el bot en `@BotFather`, inicia
+una conversación con él y ejecuta el script sin poner el token en el historial
+del shell:
+
+```bash
+export TELEGRAM_BOT_TOKEN='TOKEN_NUEVO_DEL_BOT'
+export TELEGRAM_CHAT_ID='TU_CHAT_ID'
+python3 scripts/send_apk_telegram.py
+unset TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID
+```
+
+También puedes pedirlos de forma interactiva; el token se escribe oculto:
+
+```bash
+python3 scripts/send_apk_telegram.py --interactive
+```
+
 En Linux cambia el último comando por:
 
 ```bash

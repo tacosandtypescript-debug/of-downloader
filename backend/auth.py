@@ -114,7 +114,7 @@ except Exception as exc:
         return values
 
     def _parse_list_export(self, exported: list) -> dict[str, str]:
-        allowed = {"sess", "auth_id"}
+        allowed = {"sess", "auth_id", "x-bc", "x_bc", "user_agent", "userAgent", "User-Agent"}
         values: dict[str, str] = {}
         for item in exported:
             if not isinstance(item, dict):
@@ -122,8 +122,21 @@ except Exception as exc:
             domain = str(item.get("domain", "")).lower().lstrip(".")
             name = str(item.get("name", ""))
             value = item.get("value")
-            if domain == "onlyfans.com" and name in allowed and isinstance(value, str):
-                values[name] = value
+            # Cookie-Editor y exportadores móviles pueden usar un subdominio
+            # de OnlyFans en vez del dominio raíz (por ejemplo, cdn.onlyfans.com).
+            # Nunca aceptamos cookies de dominios ajenos.
+            is_onlyfans_domain = domain == "onlyfans.com" or domain.endswith(".onlyfans.com")
+            if is_onlyfans_domain and name in allowed and isinstance(value, str):
+                target_name = "x-bc" if name == "x_bc" else "user_agent" if name in {"userAgent", "User-Agent"} else name
+                values[target_name] = value
+            for source_key, target_key in (
+                ("user_agent", "user_agent"),
+                ("userAgent", "user_agent"),
+                ("User-Agent", "user_agent"),
+            ):
+                user_agent = item.get(source_key)
+                if isinstance(user_agent, str) and user_agent.strip():
+                    values[target_key] = user_agent.strip()
         return values
 
     @staticmethod

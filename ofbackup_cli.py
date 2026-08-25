@@ -456,7 +456,7 @@ def parse_cookie_header(raw: str) -> dict[str, str]:
         return values
 
     if isinstance(exported, list):
-        allowed_names = {"sess", "auth_id"}
+        allowed_names = {"sess", "auth_id", "x-bc", "x_bc", "user_agent", "userAgent", "User-Agent"}
         values = {}
         for item in exported:
             if not isinstance(item, dict):
@@ -464,8 +464,18 @@ def parse_cookie_header(raw: str) -> dict[str, str]:
             domain = str(item.get("domain", "")).lower().lstrip(".")
             name = str(item.get("name", ""))
             value = item.get("value")
-            if domain == "onlyfans.com" and name in allowed_names and isinstance(value, str):
-                values[name] = value
+            is_onlyfans_domain = domain == "onlyfans.com" or domain.endswith(".onlyfans.com")
+            if is_onlyfans_domain and name in allowed_names and isinstance(value, str):
+                target_name = "x-bc" if name == "x_bc" else "user_agent" if name in {"userAgent", "User-Agent"} else name
+                values[target_name] = value
+            for source_key, target_key in (
+                ("user_agent", "user_agent"),
+                ("userAgent", "user_agent"),
+                ("User-Agent", "user_agent"),
+            ):
+                user_agent = item.get(source_key)
+                if isinstance(user_agent, str) and user_agent.strip():
+                    values[target_key] = user_agent.strip()
         return values
 
     raw = re.sub(r"^cookie\s*:\s*", "", raw, flags=re.IGNORECASE)

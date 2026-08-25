@@ -37,6 +37,25 @@ class CookieTests(unittest.TestCase):
         )
         self.assertEqual(ofbackup_cli.parse_cookie_header(exported), {})
 
+    def test_extracts_complete_android_cookie_list_from_subdomain(self):
+        exported = json.dumps(
+            [
+                {"domain": ".onlyfans.com", "name": "sess", "value": "fake-session"},
+                {"domain": "api.onlyfans.com", "name": "auth_id", "value": "12345"},
+                {"domain": ".onlyfans.com", "name": "x-bc", "value": "fake-xbc"},
+                {"domain": ".onlyfans.com", "name": "user_agent", "value": "Android UA"},
+            ]
+        )
+        self.assertEqual(
+            ofbackup_cli.parse_cookie_header(exported),
+            {
+                "sess": "fake-session",
+                "auth_id": "12345",
+                "x-bc": "fake-xbc",
+                "user_agent": "Android UA",
+            },
+        )
+
     def test_extracts_complete_cookie_helper_json(self):
         exported = json.dumps(
             {

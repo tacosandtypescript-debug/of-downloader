@@ -1,0 +1,16 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.tacosandtypescript.ofdownloader"
+    compileSdk 37
+
+    defaultConfig {
+        applicationId "com.tacosandtypescript.ofdownloader"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "0.1.0"
+    }
+}
