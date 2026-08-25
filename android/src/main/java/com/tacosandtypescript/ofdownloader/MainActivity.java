@@ -99,8 +99,16 @@ public final class MainActivity extends Activity {
         return root;
     }
 
+    public final class AndroidAuthBridge {
+        @android.webkit.JavascriptInterface
+        public void onExportData(String jsonString) {
+            runOnUiThread(() -> processExport(jsonString));
+        }
+    }
+
     private void configureWebView() {
         configureWebSettings(webView.getSettings());
+        webView.addJavascriptInterface(new AndroidAuthBridge(), "AndroidAuthBridge");
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
@@ -209,8 +217,8 @@ public final class MainActivity extends Activity {
         CookieManager cookies = CookieManager.getInstance();
         cookies.flush();
 
-        String script = "(function(){"
-                + "var out = {cookie: '', storage: {}};"
+        String script = "(async function(){"
+                + "var out = {cookie: '', storage: {}, me: null, error: null};"
                 + "try { out.cookie = document.cookie || ''; } catch(e) {}"
                 + "try {"
                 + "  for (var i = 0; i < localStorage.length; i++) {"
@@ -224,10 +232,24 @@ public final class MainActivity extends Activity {
                 + "    if (sk) out.storage[sk] = sessionStorage.getItem(sk);"
                 + "  }"
                 + "} catch(e) {}"
-                + "return JSON.stringify(out);"
+                + "try {"
+                + "  var resp = await fetch('https://onlyfans.com/api2/v2/users/me', {"
+                + "    headers: {'Accept': 'application/json, text/plain, */*', 'App-Token': '33d57ade8c02dbc5a333db99ff9ae26a'}"
+                + "  });"
+                + "  if (resp.ok) {"
+                + "    out.me = await resp.json();"
+                + "  } else {"
+                + "    out.error = 'Status ' + resp.status;"
+                + "  }"
+                + "} catch(e) {"
+                + "  out.error = e.toString();"
+                + "}"
+                + "if (window.AndroidAuthBridge && window.AndroidAuthBridge.onExportData) {"
+                + "  window.AndroidAuthBridge.onExportData(JSON.stringify(out));"
+                + "}"
                 + "})()";
 
-        webView.evaluateJavascript(script, result -> processExport(result));
+        webView.evaluateJavascript(script, null);
     }
 
     private void processExport(String jsResult) {
@@ -253,10 +275,9 @@ public final class MainActivity extends Activity {
             addCookies(values, cookies.getCookie(url));
         }
 
-        // 2. Parse JS document.cookie and storage from DOM
+        // 2. Parse JS document.cookie, storage and me API response
         if (jsResult != null && !jsResult.isEmpty() && !"null".equals(jsResult)) {
             try {
-                // If wrapped in string quotes from evaluateJavascript
                 String unquoted = jsResult;
                 if (unquoted.startsWith("\"") && unquoted.endsWith("\"")) {
                     JSONObject wrapper = new JSONObject("{\"val\":" + unquoted + "}");
@@ -269,6 +290,15 @@ public final class MainActivity extends Activity {
                 JSONObject storage = dom.optJSONObject("storage");
                 if (storage != null) {
                     addStorageValues(values, storage);
+                }
+
+                // If /api2/v2/users/me was successfully queried from inside the authenticated WebView
+                JSONObject me = dom.optJSONObject("me");
+                if (me != null && me.has("id")) {
+                    long uid = me.optLong("id", 0);
+                    if (uid > 0) {
+                        values.put("auth_id", String.valueOf(uid));
+                    }
                 }
             } catch (Exception ignored) {
             }
@@ -436,8 +466,10 @@ public final class MainActivity extends Activity {
         CookieManager.getInstance().removeAllCookies(ignored -> {
             CookieManager.getInstance().flush();
             webView.clearCache(true);
-            webView.loadUrl(LOGIN_URL);
-            showMessage("Sesión eliminada de esta app.");
+            webView.evaluateJavascript("try { localStorage.clear(); sessionStorage.clear(); } catch(e){}", res -> {
+                webView.loadUrl(LOGIN_URL);
+                showMessage("Sesión eliminada de esta app.");
+            });
         });
     }
 
