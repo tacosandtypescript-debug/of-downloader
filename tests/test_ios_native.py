@@ -91,6 +91,11 @@ class IOSNativeTests(unittest.TestCase):
             self.assertEqual(main(["https://onlyfans.com/creator/42"]), 0)
         publication.assert_called_once_with("https://onlyfans.com/creator/42")
 
+    def test_profiles_command_keeps_selection_download_flow(self):
+        with mock.patch("of_ios.cli.cmd_choose_profile", return_value=0) as chooser:
+            self.assertEqual(main(["perfiles"]), 0)
+        chooser.assert_called_once_with()
+
     def test_post_id_extraction_accepts_onlyfans_url(self):
         self.assertEqual(
             OnlyFansApi.extract_post_id("https://onlyfans.com/creator/42"), "42"

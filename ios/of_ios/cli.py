@@ -59,6 +59,11 @@ def print_profiles(profiles: list[dict[str, Any]]) -> None:
 
 
 def cmd_profiles() -> int:
+    """Reproduce el flujo original: elegir una suscripción y descargarla."""
+    return cmd_choose_profile()
+
+
+def cmd_list_profiles() -> int:
     profiles = fetch_profiles(OnlyFansApi())
     print_profiles(profiles)
     return 0
@@ -218,7 +223,9 @@ def build_parser() -> argparse.ArgumentParser:
     for name in ("probar", "test", "comprobar"):
         sub.add_parser(name, help="Probar la sesión sin descargar")
     for name in ("perfiles", "suscripciones", "subs"):
-        sub.add_parser(name, help="Listar suscripciones activas")
+        sub.add_parser(name, help="Elegir una suscripción y descargarla")
+    for name in ("listar-perfiles", "lista-perfiles"):
+        sub.add_parser(name, help="Listar suscripciones sin descargar")
     for name in ("usuario", "perfil", "descargar-perfil"):
         user = sub.add_parser(name, help="Descargar un perfil")
         user.add_argument("value")
@@ -248,6 +255,8 @@ def main(argv: list[str] | None = None) -> int:
             "perfiles",
             "suscripciones",
             "subs",
+            "listar-perfiles",
+            "lista-perfiles",
             "usuario",
             "perfil",
             "descargar-perfil",
@@ -287,6 +296,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_test()
         if args.command in {"perfiles", "suscripciones", "subs"}:
             return cmd_profiles()
+        if args.command in {"listar-perfiles", "lista-perfiles"}:
+            return cmd_list_profiles()
         if args.command in {"usuario", "perfil", "descargar-perfil"}:
             return cmd_user(args.value)
         if args.command in {"publicacion", "post", "descargar-publicacion"}:

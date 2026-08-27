@@ -36,11 +36,15 @@ importarlo.
 
 ```sh
 of perfiles
+of listar-perfiles
 of usuario NOMBRE
 of publicacion https://onlyfans.com/usuario/123456789
 of "https://onlyfans.com/usuario/123456789"
 of probar-perfil NOMBRE
 ```
+
+`of perfiles` conserva el flujo original: muestra tus suscripciones, eliges una
+y empieza su descarga. `of listar-perfiles` solo muestra la lista.
 
 Los medios quedan en `~/OFDownloader/Descargas/NOMBRE/`. La descarga es
 secuencial para respetar la memoria y el modelo de ejecución de iOS.
