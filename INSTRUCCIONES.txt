@@ -60,8 +60,9 @@ no significa que el perfil este vacio.
 
 En Linux y Termux los controles se ejecutan dentro de la CLI y solo aparecen
 durante la descarga, para no interferir con el menú. a-Shell no es compatible con OF-Scraper porque no ofrece el
-entorno de sockets/procesos que necesita el motor; puede usarse para conectarse
-por SSH a un Linux o Termux donde este instalado OF Downloader.
+entorno de sockets/procesos que necesita el motor principal. El repositorio
+incluye ahora un motor nativo reducido en ios/ que usa Python estandar y descarga
+secuencialmente sin SSH ni Termux remoto. Consulta ios/README.md.
 
 Logs visibles:
 

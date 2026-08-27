@@ -28,7 +28,7 @@ class AuthService:
     """Gestiona credenciales de OnlyFans: importación, validación y persistencia."""
 
     # ── Constantes ────────────────────────────────────────────────────────
-    APP_VERSION = "2.17.6"
+    APP_VERSION = "2.17.7"
     DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
     AUTH_EXPORT_FORMAT = "ofbackup-auth"
     AUTH_EXPORT_VERSION = 1

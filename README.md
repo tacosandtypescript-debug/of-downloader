@@ -38,7 +38,15 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.17.6`
+Versión actual: `2.17.7`
+
+### Novedades de 2.17.7
+
+- Nueva variante nativa para a-Shell en iOS, sin SSH ni Termux remoto.
+- Cliente Python estándar con importación segura, firma de API, perfiles y descarga secuencial.
+- El contenido bloqueado o DRM se detecta y se omite.
+
+Consulta [`ios/README.md`](ios/README.md) para instalarla y conocer sus límites.
 
 ### Novedades de 2.17.6
 
@@ -212,10 +220,10 @@ reanudar. Si el motor no informa un total, se muestra el total descargado sin
 inventar una cantidad restante.
 
 Estos controles funcionan dentro de la CLI en Linux y Termux; el lanzador deja
-el teclado al menú y Python toma el control solo durante la descarga. a-Shell no es un entorno compatible
-con este descargador: OF-Scraper necesita sockets, procesos hijos y dependencias
-que no son puramente Python. Desde a-Shell se puede controlar un equipo Linux o
-Termux remoto mediante SSH, pero no ejecutar el motor completo localmente.
+el teclado al menú y Python toma el control solo durante la descarga. OF-Scraper
+no puede ejecutarse dentro de a-Shell, pero el repositorio incluye un motor iOS
+nativo y reducido en `ios/`, basado únicamente en Python estándar. Ese motor no
+usa SSH ni Termux y descarga secuencialmente los medios directos accesibles.
 
 Desde el menú elige `[2] Descargar perfil por usuario o enlace`, o ejecuta:
 

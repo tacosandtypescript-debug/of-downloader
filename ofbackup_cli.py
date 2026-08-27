@@ -53,7 +53,7 @@ from backend.profiles import get_profile_service
 from frontend.terminal import get_terminal_service
 
 
-APP_VERSION = "2.17.6"
+APP_VERSION = "2.17.7"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -858,12 +858,19 @@ def import_default_auth_export(*, prompt_if_missing: bool = True) -> None:
         import_credentials_file(default_path)
         return
 
+    # En ejecuciones no interactivas (por ejemplo, pruebas o un lanzador que ya
+    # dejó el archivo en Downloads), usa primero el archivo predeterminado. Así
+    # no se bloquea esperando stdin cuando la ruta ya es inequívoca.
+    if default_path.is_file():
+        import_credentials_file(default_path)
+        return
+
     print("Arrastra aqui OFBackup-auth.json y pulsa Enter.")
     print("Si dejas vacio, se abrira el selector de archivos del sistema.")
     print(r"Ejemplo Windows: C:\Users\TU_USUARIO\Downloads\OFBackup-auth.json")
     try:
         value = input("Archivo: ").strip()
-    except EOFError:
+    except (EOFError, OSError):
         value = ""
     if value:
         import_credentials_file(user_supplied_path(value))
@@ -872,10 +879,6 @@ def import_default_auth_export(*, prompt_if_missing: bool = True) -> None:
     selected = select_auth_export_file()
     if selected is not None:
         import_credentials_file(selected)
-        return
-
-    if default_path.is_file():
-        import_credentials_file(default_path)
         return
 
     print(f"No encontre el archivo en: {default_path}")
