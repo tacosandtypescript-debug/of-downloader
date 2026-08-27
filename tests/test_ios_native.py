@@ -1,17 +1,19 @@
-import json
 import os
+import sys
 import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
 IOS_ROOT = ROOT / "ios"
-os.sys.path.insert(0, str(IOS_ROOT))
+sys.path.insert(0, str(IOS_ROOT))
 
 from of_ios.api import ApiError, OnlyFansApi, SigningRules, signed_headers  # noqa: E402
+from of_ios.cli import build_parser, main  # noqa: E402
 from of_ios.config import ConfigError, parse_auth_export  # noqa: E402
 from of_ios.media import download_url, iter_direct_media, safe_name  # noqa: E402
 
@@ -58,10 +60,11 @@ class IOSNativeTests(unittest.TestCase):
                 {"id": 1, "files": {"full": {"url": "https://cdn/x.jpg"}}},
                 {"id": 2, "files": {"drm": {"manifest": "x"}}},
                 {"id": 3, "canView": False},
+                {"id": 4, "files": {"full": {"url": "https://cdn/x.m3u8"}}},
             ]
         }
         statuses = [status for _, _, status in iter_direct_media(post)]
-        self.assertEqual(statuses, ["direct", "drm", "locked"])
+        self.assertEqual(statuses, ["direct", "drm", "locked", "unsupported"])
 
     def test_safe_name_removes_path_characters(self):
         self.assertEqual(safe_name("../a/b", "x"), "a_b")
@@ -70,6 +73,30 @@ class IOSNativeTests(unittest.TestCase):
         api = object.__new__(OnlyFansApi)
         with self.assertRaises(ApiError):
             api.profile("https://example.invalid/person")
+
+    def test_cli_exposes_android_like_commands_without_android_runtime(self):
+        parser = build_parser()
+        self.assertEqual(parser.parse_args(["importar"]).command, "importar")
+        self.assertEqual(parser.parse_args(["probar"]).command, "probar")
+        self.assertEqual(parser.parse_args(["perfiles"]).command, "perfiles")
+        self.assertEqual(parser.parse_args(["usuario", "creator"]).value, "creator")
+        self.assertEqual(
+            parser.parse_args(["publicacion", "https://onlyfans.com/creator/42"]).value,
+            "https://onlyfans.com/creator/42",
+        )
+        self.assertEqual(parser.parse_args(["probar-perfil", "creator"]).value, "creator")
+
+    def test_direct_onlyfans_url_keeps_original_shortcut(self):
+        with mock.patch("of_ios.cli.cmd_publication", return_value=0) as publication:
+            self.assertEqual(main(["https://onlyfans.com/creator/42"]), 0)
+        publication.assert_called_once_with("https://onlyfans.com/creator/42")
+
+    def test_post_id_extraction_accepts_onlyfans_url(self):
+        self.assertEqual(
+            OnlyFansApi.extract_post_id("https://onlyfans.com/creator/42"), "42"
+        )
+        with self.assertRaises(ApiError):
+            OnlyFansApi.extract_post_id("https://example.invalid/creator/42")
 
     def test_download_writes_atomic_file_and_reuses_existing(self):
         payload = b"native-ios-test-media"

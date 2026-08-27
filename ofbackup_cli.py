@@ -53,7 +53,7 @@ from backend.profiles import get_profile_service
 from frontend.terminal import get_terminal_service
 
 
-APP_VERSION = "2.17.7"
+APP_VERSION = "2.17.8"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"

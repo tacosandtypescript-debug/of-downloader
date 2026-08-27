@@ -21,6 +21,7 @@ class DownloadStats:
     existing: int = 0
     locked: int = 0
     drm: int = 0
+    unsupported: int = 0
     failed: int = 0
 
 
@@ -54,12 +55,15 @@ def iter_direct_media(post: dict[str, Any]) -> Iterable[tuple[dict[str, Any], st
     for media in media_list:
         if not isinstance(media, dict):
             continue
-        if media.get("canView") is False:
+        if media.get("canView") is False or media.get("isBlocked") is True:
             yield media, None, "locked"
             continue
         url = _direct_url(media)
         if not url and isinstance(media.get("files"), dict) and media["files"].get("drm"):
             yield media, None, "drm"
+            continue
+        if url and urlsplit(url).path.lower().endswith((".m3u8", ".mpd")):
+            yield media, None, "unsupported"
             continue
         yield media, url, "direct" if url else "missing"
 
@@ -122,6 +126,9 @@ def download_posts(
                 continue
             if status == "drm":
                 stats.drm += 1
+                continue
+            if status == "unsupported":
+                stats.unsupported += 1
                 continue
             if not url:
                 stats.failed += 1

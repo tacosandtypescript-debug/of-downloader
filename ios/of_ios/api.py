@@ -185,6 +185,30 @@ class OnlyFansApi:
             raise ApiError("OnlyFans no devolvió ese perfil.")
         return data
 
+    def post(self, post_id: int | str) -> dict[str, Any]:
+        """Obtiene una publicación individual para el comando `of publicacion`."""
+        clean = str(post_id).strip()
+        if not clean.isdigit():
+            raise ApiError("El ID de publicación debe contener únicamente números.")
+        data = self.get_json(f"{API_ROOT}/posts/{clean}?skip_users=all")
+        if not isinstance(data, dict) or not data.get("id"):
+            raise ApiError("OnlyFans no devolvió esa publicación.")
+        return data
+
+    @staticmethod
+    def extract_post_id(value: str) -> str:
+        """Extrae un ID numérico de una URL oficial o de un argumento directo."""
+        raw = value.strip()
+        if raw.isdigit():
+            return raw
+        parsed = urlsplit(raw)
+        if parsed.netloc.lower() not in {"onlyfans.com", "www.onlyfans.com"}:
+            raise ApiError("Solo se admiten enlaces de onlyfans.com.")
+        parts = [part for part in parsed.path.split("/") if part]
+        if not parts or not parts[-1].isdigit():
+            raise ApiError("No se encontró un ID de publicación en el enlace.")
+        return parts[-1]
+
     def iter_posts(self, model_id: int | str) -> Iterator[tuple[str, dict[str, Any]]]:
         categories = {
             "timeline": f"{API_ROOT}/users/{model_id}/posts",

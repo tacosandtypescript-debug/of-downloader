@@ -17,12 +17,14 @@ for file in __init__.py config.py api.py media.py cli.py; do
 done
 curl -fsSL "${BASE_URL}/of-ios.py" -o "${APP_DIR}/of-ios.py"
 
-cat > "${BIN_DIR}/of-ios" <<EOF
+for launcher in of-ios of; do
+    cat > "${BIN_DIR}/${launcher}" <<EOF
 #!/bin/sh
 exec python3 "${APP_DIR}/of-ios.py" "\$@"
 EOF
-chmod 700 "${BIN_DIR}/of-ios"
+    chmod 700 "${BIN_DIR}/${launcher}"
+done
 
 echo "✓ OF Downloader iOS nativo instalado."
-echo "Ejecuta: of-ios"
+echo "Ejecuta: of (también disponible como of-ios)"
 echo "Los archivos se guardarán dentro de Documents/OFDownloader."

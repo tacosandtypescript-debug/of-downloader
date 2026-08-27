@@ -38,12 +38,18 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.17.7`
+Versión actual: `2.17.8`
+
+### Novedades de 2.17.8
+
+- CLI nativa iOS creada desde cero con comando principal `of` y alias `of-ios`.
+- Menú de descargas, selección de suscripciones y descarga por publicación.
+- Importación automática de `OFBackup-auth.json` desde las rutas habituales de a-Shell.
 
 ### Novedades de 2.17.7
 
 - Nueva variante nativa para a-Shell en iOS, sin SSH ni Termux remoto.
-- Cliente Python estándar con importación segura, firma de API, perfiles y descarga secuencial.
+- CLI Python estándar desde cero con `of`, importación segura, firma de API, perfiles y descarga secuencial.
 - El contenido bloqueado o DRM se detecta y se omite.
 
 Consulta [`ios/README.md`](ios/README.md) para instalarla y conocer sus límites.
