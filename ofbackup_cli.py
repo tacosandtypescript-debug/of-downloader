@@ -53,6 +53,28 @@ from backend.profiles import get_profile_service
 from frontend.terminal import get_terminal_service
 
 
+def _configure_windows_stdio() -> None:
+    """Evita que la consola Windows falle al imprimir Unicode del CLI.
+
+    PowerShell clásico y cmd pueden exponer ``cp1252`` aunque el programa
+    necesite mostrar estados como ✓, · o caracteres acentuados. La salida se
+    mantiene UTF-8 con reemplazo para que una consola heredada nunca aborte
+    una operación después de guardar credenciales o terminar una descarga.
+    """
+    if os.name != "nt":
+        return
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, ValueError):
+            # Capturadores de pruebas y terminales embebidas pueden no
+            # exponer reconfigure(); en ese caso se conserva su configuración.
+            continue
+
+
+_configure_windows_stdio()
+
+
 APP_VERSION = "2.17.8"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"

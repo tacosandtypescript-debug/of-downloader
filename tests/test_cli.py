@@ -9,6 +9,16 @@ import ofbackup_cli
 
 
 class CookieTests(unittest.TestCase):
+    def test_windows_stdio_reconfigures_when_supported(self):
+        stdout = mock.Mock()
+        stderr = mock.Mock()
+        with mock.patch.object(ofbackup_cli.os, "name", "nt"), mock.patch.object(
+            ofbackup_cli.sys, "stdout", stdout
+        ), mock.patch.object(ofbackup_cli.sys, "stderr", stderr):
+            ofbackup_cli._configure_windows_stdio()
+        stdout.reconfigure.assert_called_once_with(encoding="utf-8", errors="replace")
+        stderr.reconfigure.assert_called_once_with(encoding="utf-8", errors="replace")
+
     def test_version_flag_does_not_become_a_profile(self):
         output = io.StringIO()
         with mock.patch.object(ofbackup_cli.sys, "stdout", output):
