@@ -206,7 +206,6 @@ complete_task() {
 }
 
 prepare_ofbackup_files() {
-    ensure_source_dir
     mkdir -p "$APP_HOME"
     install -m 600 "$SOURCE_DIR/ofbackup_cli.py" "$APP_HOME/ofbackup_cli.py"
     mkdir -p "$APP_HOME/backend" "$APP_HOME/frontend"
@@ -297,6 +296,15 @@ run_task 48 77 "Preparando Python 3.13, FFmpeg y librerías" \
 if ! proot-distro login --shared-home "$CONTAINER" -- bash -lc \
     'apt-get install -y --no-install-recommends qrencode >/dev/null 2>&1'; then
     echo "AVISO: qrencode no esta disponible dentro de Debian. El QR es opcional."
+fi
+
+if ! source_has_required_files "$SOURCE_DIR"; then
+    draw_progress 77 "Descargando código de OF Downloader" "|"
+    printf '\n--- Descargando código de OF Downloader ---\n' >>"$LOG_FILE"
+    if ! ensure_source_dir >>"$LOG_FILE" 2>&1; then
+        fail_install "Descargando código de OF Downloader" 1
+    fi
+    complete_task 77 "Código de OF Downloader listo"
 fi
 
 run_task 77 80 "Preparando y copiando archivos de OF Downloader" prepare_ofbackup_files
