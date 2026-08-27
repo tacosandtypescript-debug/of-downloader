@@ -1,7 +1,32 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -euo pipefail
 
-SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
+SOURCE_DIR=""
+SOURCE_TEMP_DIR=""
+REPOSITORY_URL="${OFBACKUP_REPOSITORY_URL:-https://github.com/tacosandtypescript-debug/of-downloader.git}"
+REPOSITORY_BRANCH="${OFBACKUP_REPOSITORY_BRANCH:-main}"
+
+source_has_required_files() {
+    local candidate="${1:-}"
+    [[ -n "$candidate" \
+        && -f "$candidate/ofbackup_cli.py" \
+        && -d "$candidate/backend" \
+        && -d "$candidate/frontend" \
+        && -f "$candidate/requirements-termux.txt" \
+        && -f "$candidate/ofbackup" ]]
+}
+
+# When this file is executed from a checkout, use that checkout directly.  A
+# command such as `curl .../instalar-termux.sh | bash` has no filesystem path
+# for BASH_SOURCE[0], so SOURCE_DIR is resolved later by cloning the same
+# branch into a temporary directory after Git has been installed.
+if [[ -n "${OFBACKUP_SOURCE_DIR:-}" && -d "${OFBACKUP_SOURCE_DIR}" ]]; then
+    SOURCE_DIR="$(cd -- "${OFBACKUP_SOURCE_DIR}" && pwd)"
+elif [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
+    SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+elif [[ -f "$PWD/ofbackup_cli.py" ]]; then
+    SOURCE_DIR="$PWD"
+fi
 APP_HOME="$HOME/.local/share/ofbackup"
 CONTAINER="ofbackup-debian"
 CONTAINER_DIR="${PREFIX:-}/var/lib/proot-distro/containers/$CONTAINER/rootfs"
@@ -60,6 +85,8 @@ suggest_fix() {
         echo "La instalación de Debian quedó incompleta. Vuelve a ejecutar este mismo script."
     elif grep -Eqi 'Failed building wheel|failed-wheel-build|Python.h: No such file' "$LOG_FILE"; then
         echo "Falló un paquete de Python. Actualiza el repositorio y ejecuta de nuevo el instalador."
+    elif grep -Eqi 'cannot stat .*ofbackup_cli|No se pudo obtener el código' "$LOG_FILE"; then
+        echo "No se encontró el código del proyecto. Ejecuta el instalador con Bash o vuelve a descargar el repositorio."
     else
         echo "Vuelve a ejecutar el instalador. Si se repite, comparte las últimas líneas del registro."
     fi
@@ -90,6 +117,39 @@ interrupt_install() {
     if [[ -t 1 ]]; then printf '\n'; fi
     echo "${RED}✗ Instalación cancelada. Puedes ejecutar el script otra vez para continuar.${RESET}"
     exit 130
+}
+
+cleanup_source_temp() {
+    if [[ -n "$SOURCE_TEMP_DIR" && -d "$SOURCE_TEMP_DIR" ]]; then
+        rm -rf -- "$SOURCE_TEMP_DIR"
+    fi
+}
+
+ensure_source_dir() {
+    if source_has_required_files "$SOURCE_DIR"; then
+        return 0
+    fi
+
+    # A piped invocation (curl | bash) does not have the repository files next
+    # to the installer.  Fetch the matching branch after the base Termux
+    # packages (including git) are available, then use that checkout for the
+    # normal copy step below.
+    mkdir -p "$HOME/.cache"
+    if ! SOURCE_TEMP_DIR="$(mktemp -d "$HOME/.cache/of-downloader-source.XXXXXX")"; then
+        echo "No se pudo crear el directorio temporal para descargar el proyecto." >&2
+        return 1
+    fi
+
+    if ! git clone --depth 1 --branch "$REPOSITORY_BRANCH" "$REPOSITORY_URL" "$SOURCE_TEMP_DIR/repo"; then
+        echo "No se pudo descargar el código de OF Downloader desde GitHub." >&2
+        return 1
+    fi
+
+    SOURCE_DIR="$SOURCE_TEMP_DIR/repo"
+    if ! source_has_required_files "$SOURCE_DIR"; then
+        echo "El repositorio descargado no contiene los archivos requeridos por Termux." >&2
+        return 1
+    fi
 }
 
 run_task() {
@@ -146,6 +206,7 @@ complete_task() {
 }
 
 prepare_ofbackup_files() {
+    ensure_source_dir
     mkdir -p "$APP_HOME"
     install -m 600 "$SOURCE_DIR/ofbackup_cli.py" "$APP_HOME/ofbackup_cli.py"
     mkdir -p "$APP_HOME/backend" "$APP_HOME/frontend"
@@ -165,6 +226,7 @@ install_ofbackup_commands() {
     mkdir -p "$HOME/storage/downloads/OFDownloader" 2>/dev/null || mkdir -p "$HOME/OFDownloader"
 }
 
+trap cleanup_source_temp EXIT
 trap interrupt_install INT TERM
 
 if [[ "${PREFIX:-}" != *"com.termux"* ]]; then
@@ -237,7 +299,7 @@ if ! proot-distro login --shared-home "$CONTAINER" -- bash -lc \
     echo "AVISO: qrencode no esta disponible dentro de Debian. El QR es opcional."
 fi
 
-run_task 77 80 "Copiando archivos de OF Downloader" prepare_ofbackup_files
+run_task 77 80 "Preparando y copiando archivos de OF Downloader" prepare_ofbackup_files
 
 run_task 80 94 "Instalando OF Downloader y OF-Scraper" \
     proot-distro login --shared-home "$CONTAINER" -- bash -lc '
@@ -257,5 +319,6 @@ echo
 echo "${GREEN}✓ Instalación terminada correctamente.${RESET}"
 echo "Registro guardado en: $LOG_FILE"
 echo "Abriendo el menú…"
+cleanup_source_temp
 trap - INT TERM
 exec of
