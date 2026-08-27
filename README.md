@@ -34,17 +34,26 @@
 - Puede recibir la cookie desde la extensión por red local.
 - Lista perfiles suscritos activos cuando OnlyFans los devuelve.
 - Descarga perfiles completos por usuario/enlace y publicaciones por enlace.
+- Incluye una variante nativa para a-Shell/iOS basada únicamente en Python
+  estándar, con menú interactivo y preparación local del motor.
 - Muestra progreso, resumen y logs visibles.
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual: `2.17.8`
+Versión actual del CLI multiplataforma: `2.17.8`
+Motor nativo para a-Shell/iOS: `2.18.0`
+
+### Novedades de 2.18.0 (iOS/a-Shell)
+
+- El menú iOS permanece abierto entre operaciones y añade `of compilar` para
+  preparar el bytecode y comprobar el almacenamiento local.
+- El instalador iOS usa descargas temporales, valida cada archivo y ejecuta una
+  comprobación de compilación dentro de a-Shell.
 
 ### Novedades de 2.17.8
 
-- CLI nativa iOS creada desde cero con comando principal `of` y alias `of-ios`.
-- Menú de descargas, selección de suscripciones y descarga por publicación.
-- Importación automática de `OFBackup-auth.json` desde las rutas habituales de a-Shell.
+- CLI multiplataforma con menú de descargas y selección de suscripciones.
+- Importación automática de `OFBackup-auth.json` desde las rutas habituales.
 
 ### Novedades de 2.17.7
 

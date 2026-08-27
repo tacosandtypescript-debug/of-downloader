@@ -34,6 +34,7 @@ class SigningRules:
     format: str
     checksum_indexes: tuple[int, ...]
     checksum_constant: int
+    app_token: str = APP_TOKEN
 
 
 def _read_json_url(url: str, headers: dict[str, str], timeout: int = 30) -> Any:
@@ -46,20 +47,25 @@ def _parse_rules(data: Any) -> SigningRules:
     if not isinstance(data, dict):
         raise ApiError("Las reglas de firma no tienen el formato esperado.")
     try:
-        fmt = str(data["format"])
         if data.get("suffix"):
-            fmt = f"{data['prefix']}:{{}}:{{:x}}:{data['suffix']}"
+            prefix = str(data["prefix"])
+            fmt = f"{prefix}:{{}}:{{:x}}:{data['suffix']}"
+        else:
+            fmt = str(data["format"])
         indexes = tuple(int(value) for value in data["checksum_indexes"])
         rules = SigningRules(
             static_param=str(data["static_param"]),
             format=fmt,
             checksum_indexes=indexes,
             checksum_constant=int(data["checksum_constant"]),
+            app_token=str(data.get("app-token") or data.get("app_token") or APP_TOKEN),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ApiError("Las reglas de firma están incompletas.") from exc
     if not rules.static_param or not rules.format or not rules.checksum_indexes:
         raise ApiError("Las reglas de firma están vacías.")
+    if not rules.app_token or len(rules.app_token) > 128:
+        raise ApiError("Las reglas de firma no contienen un app-token válido.")
     return rules
 
 
@@ -106,7 +112,7 @@ def signed_headers(
     signature = rules.format.format(digest, abs(checksum))
     return {
         "accept": "application/json, text/plain, */*",
-        "app-token": APP_TOKEN,
+        "app-token": rules.app_token,
         "user-id": auth["auth_id"],
         "x-bc": auth["x-bc"],
         "referer": "https://onlyfans.com/",
@@ -160,14 +166,14 @@ class OnlyFansApi:
                 "&limit=10&type=active&format=infinite"
             )
             data = self.get_json(url)
-            batch = data.get("list", []) if isinstance(data, dict) else []
+            batch, has_more = _items_and_more(data)
             if not isinstance(batch, list) or not batch:
                 break
             for profile in batch:
                 if isinstance(profile, dict) and profile.get("id") not in seen:
                     seen.add(profile.get("id"))
                     profiles.append(profile)
-            if data.get("hasMore") is not True:
+            if has_more is not True:
                 break
             offset += len(batch)
         return profiles
@@ -228,7 +234,7 @@ class OnlyFansApi:
                 if after is not None:
                     query += f"&afterPublishTime={after}"
                 data = self.get_json(f"{base}?{query}")
-                batch = data.get("list", []) if isinstance(data, dict) else []
+                batch, has_more = _items_and_more(data)
                 if not isinstance(batch, list) or not batch:
                     break
                 max_time = after or 0.0
@@ -236,13 +242,50 @@ class OnlyFansApi:
                     if not isinstance(post, dict):
                         continue
                     post_id = post.get("id")
-                    if post_id not in seen:
+                    if post_id is not None and post_id not in seen:
                         seen.add(post_id)
                         yield category, post
-                    try:
-                        max_time = max(max_time, float(post.get("postedAtPrecise", 0)))
-                    except (TypeError, ValueError):
-                        pass
-                if data.get("hasMore") is not True or max_time == after:
+                    for cursor_key in (
+                        "postedAtPrecise",
+                        "postedAt",
+                        "publishDate",
+                        "createdAt",
+                    ):
+                        try:
+                            candidate = float(post.get(cursor_key, 0))
+                        except (TypeError, ValueError):
+                            continue
+                        if candidate > max_time:
+                            max_time = candidate
+                        break
+                if has_more is not True or max_time == after:
                     break
                 after = max_time
+
+
+def _items_and_more(data: Any) -> tuple[list[dict[str, Any]], bool | None]:
+    """Normaliza respuestas de listas de OnlyFans sin asumir un solo envoltorio."""
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)], None
+    if not isinstance(data, dict):
+        return [], False
+
+    batch: Any = None
+    for key in ("list", "posts", "items"):
+        if isinstance(data.get(key), list):
+            batch = data[key]
+            break
+    if batch is None and isinstance(data.get("data"), list):
+        batch = data["data"]
+    if batch is None and isinstance(data.get("data"), dict):
+        return _items_and_more(data["data"])
+    normalized = [item for item in (batch or []) if isinstance(item, dict)]
+
+    more: bool | None = None
+    for key in ("hasMore", "has_more", "hasNext", "has_next"):
+        if key in data:
+            more = data[key] is True
+            break
+    if more is None and len(normalized) >= 100:
+        more = True
+    return normalized, more

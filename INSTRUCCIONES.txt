@@ -64,6 +64,23 @@ entorno de sockets/procesos que necesita el motor principal. El repositorio
 incluye ahora un motor nativo reducido en ios/ que usa Python estandar y descarga
 secuencialmente sin SSH ni Termux remoto. Consulta ios/README.md.
 
+
+a-SHELL / iOS NATIVO
+--------------------
+En a-Shell completo (no a-Shell mini) instala la variante local con:
+
+   curl -fsSL https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloader/main/instalar-ios.sh | sh
+
+Después prepara el motor y abre el menú:
+
+   of compilar
+   of
+
+El motor iOS usa Python estándar y se compila localmente a bytecode; no intenta
+compilar OF-Scraper ni instalar extensiones C. Guarda los archivos dentro de
+Documents/OFDownloader y omite contenido bloqueado, DRM o formatos HLS/DASH.
+Mantén a-Shell abierto durante descargas largas.
+
 Logs visibles:
 
    /root/storage/downloads/OFBackup/ultima-descarga.log

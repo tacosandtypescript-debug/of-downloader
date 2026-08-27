@@ -12,13 +12,34 @@ ROOT = Path(__file__).resolve().parents[1]
 IOS_ROOT = ROOT / "ios"
 sys.path.insert(0, str(IOS_ROOT))
 
-from of_ios.api import ApiError, OnlyFansApi, SigningRules, signed_headers  # noqa: E402
-from of_ios.cli import build_parser, main  # noqa: E402
+from of_ios.api import (  # noqa: E402
+    ApiError,
+    OnlyFansApi,
+    SigningRules,
+    _items_and_more,
+    _parse_rules,
+    signed_headers,
+)
+from of_ios.build import prepare_engine  # noqa: E402
+from of_ios.cli import build_parser, interactive, main  # noqa: E402
 from of_ios.config import ConfigError, parse_auth_export  # noqa: E402
 from of_ios.media import download_url, iter_direct_media, safe_name  # noqa: E402
 
 
 class IOSNativeTests(unittest.TestCase):
+    def test_prepare_engine_compiles_and_checks_local_storage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "source"
+            app_home = Path(directory) / "app"
+            downloads = app_home / "Descargas"
+            root.mkdir()
+            (root / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+            report = prepare_engine(root, app_home, downloads)
+            self.assertTrue(report.ok)
+            self.assertTrue((root / "__pycache__").is_dir())
+            self.assertFalse((app_home / ".of-ios-write-test").exists())
+            self.assertFalse((downloads / ".of-ios-write-test").exists())
+
     def test_nested_auth_export_is_accepted(self):
         values = parse_auth_export(
             {
@@ -54,6 +75,41 @@ class IOSNativeTests(unittest.TestCase):
         self.assertTrue(headers["sign"])
         self.assertNotIn("secret", headers["sign"])
 
+    def test_signing_uses_dynamic_app_token_when_rules_provide_one(self):
+        rules = SigningRules("static", "{}:{}", (0, 2, 4), -10, "dynamic-token")
+        auth = {
+            "sess": "secret",
+            "auth_id": "123",
+            "x-bc": "xbc",
+            "user_agent": "agent",
+        }
+        headers = signed_headers(
+            "https://onlyfans.com/api2/v2/users/me", auth, rules, now_ms=1000
+        )
+        self.assertEqual(headers["app-token"], "dynamic-token")
+
+    def test_prefix_suffix_signing_rules_are_supported(self):
+        rules = _parse_rules(
+            {
+                "static_param": "static",
+                "prefix": "prefix",
+                "suffix": "suffix",
+                "checksum_indexes": [0, 1],
+                "checksum_constant": 0,
+                "app-token": "dynamic-token",
+            }
+        )
+        self.assertEqual(rules.format, "prefix:{}:{:x}:suffix")
+        self.assertEqual(rules.app_token, "dynamic-token")
+
+    def test_list_response_shapes_are_normalized(self):
+        batch, more = _items_and_more({"data": {"posts": [{"id": 1}], "hasNext": True}})
+        self.assertEqual(batch, [{"id": 1}])
+        self.assertTrue(more)
+        batch, more = _items_and_more([{"id": 2}])
+        self.assertEqual(batch, [{"id": 2}])
+        self.assertIsNone(more)
+
     def test_direct_and_drm_media_are_classified(self):
         post = {
             "media": [
@@ -61,10 +117,14 @@ class IOSNativeTests(unittest.TestCase):
                 {"id": 2, "files": {"drm": {"manifest": "x"}}},
                 {"id": 3, "canView": False},
                 {"id": 4, "files": {"full": {"url": "https://cdn/x.m3u8"}}},
+                {"id": 5, "source": {"source": "https://cdn/y.mp4"}},
+                {"id": 6, "isDrm": True},
             ]
         }
         statuses = [status for _, _, status in iter_direct_media(post)]
-        self.assertEqual(statuses, ["direct", "drm", "locked", "unsupported"])
+        self.assertEqual(
+            statuses, ["direct", "drm", "locked", "unsupported", "direct", "drm"]
+        )
 
     def test_safe_name_removes_path_characters(self):
         self.assertEqual(safe_name("../a/b", "x"), "a_b")
@@ -85,6 +145,12 @@ class IOSNativeTests(unittest.TestCase):
             "https://onlyfans.com/creator/42",
         )
         self.assertEqual(parser.parse_args(["probar-perfil", "creator"]).value, "creator")
+        self.assertEqual(parser.parse_args(["compilar"]).command, "compilar")
+
+    def test_compile_command_dispatches_to_native_builder(self):
+        with mock.patch("of_ios.cli.cmd_build", return_value=0) as builder:
+            self.assertEqual(main(["compilar"]), 0)
+        builder.assert_called_once_with()
 
     def test_direct_onlyfans_url_keeps_original_shortcut(self):
         with mock.patch("of_ios.cli.cmd_publication", return_value=0) as publication:
@@ -95,6 +161,13 @@ class IOSNativeTests(unittest.TestCase):
         with mock.patch("of_ios.cli.cmd_choose_profile", return_value=0) as chooser:
             self.assertEqual(main(["perfiles"]), 0)
         chooser.assert_called_once_with()
+
+    def test_interactive_menu_returns_to_menu_after_an_action(self):
+        with mock.patch(
+            "of_ios.cli._prompt", side_effect=["7", "", "0"]
+        ), mock.patch("of_ios.cli.cmd_build", return_value=0) as builder:
+            self.assertEqual(interactive(), 0)
+        builder.assert_called_once_with()
 
     def test_post_id_extraction_accepts_onlyfans_url(self):
         self.assertEqual(

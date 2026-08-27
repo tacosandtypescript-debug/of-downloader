@@ -31,20 +31,36 @@ def safe_name(value: object, fallback: str) -> str:
 
 
 def _direct_url(media: dict[str, Any]) -> str | None:
+    def candidate(value: Any, depth: int = 0) -> str | None:
+        if depth > 3:
+            return None
+        if isinstance(value, str):
+            parsed = urlsplit(value)
+            if parsed.scheme == "https" and parsed.netloc:
+                return value
+            return None
+        if isinstance(value, dict):
+            for key in ("url", "src", "download", "source", "original", "full", "preview", "thumb"):
+                found = candidate(value.get(key), depth + 1)
+                if found:
+                    return found
+        if isinstance(value, list):
+            for item in value:
+                found = candidate(item, depth + 1)
+                if found:
+                    return found
+        return None
+
     files = media.get("files")
     if isinstance(files, dict):
         for quality in ("full", "preview", "thumb"):
-            item = files.get(quality)
-            if isinstance(item, dict) and isinstance(item.get("url"), str):
-                return item["url"]
-            if isinstance(item, str) and item.startswith("https://"):
-                return item
-    source = media.get("source")
-    if isinstance(source, dict):
-        source = source.get("source") or source.get("url")
-    for candidate in (media.get("url"), media.get("src"), source):
-        if isinstance(candidate, str) and candidate.startswith("https://"):
-            return candidate
+            found = candidate(files.get(quality))
+            if found:
+                return found
+    for value in (media.get("url"), media.get("src"), media.get("source"), media.get("download")):
+        found = candidate(value)
+        if found:
+            return found
     return None
 
 
@@ -55,11 +71,22 @@ def iter_direct_media(post: dict[str, Any]) -> Iterable[tuple[dict[str, Any], st
     for media in media_list:
         if not isinstance(media, dict):
             continue
-        if media.get("canView") is False or media.get("isBlocked") is True:
+        if (
+            media.get("canView") is False
+            or media.get("isBlocked") is True
+            or media.get("isLocked") is True
+            or media.get("locked") is True
+        ):
             yield media, None, "locked"
             continue
         url = _direct_url(media)
-        if not url and isinstance(media.get("files"), dict) and media["files"].get("drm"):
+        files = media.get("files")
+        drm_flag = (
+            media.get("isDrm") is True
+            or media.get("drm") is True
+            or (isinstance(files, dict) and bool(files.get("drm")))
+        )
+        if not url and drm_flag:
             yield media, None, "drm"
             continue
         if url and urlsplit(url).path.lower().endswith((".m3u8", ".mpd")):
@@ -85,6 +112,9 @@ def download_url(url: str, target: Path, user_agent: str, cookie: str) -> bool:
         return False
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".part")
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ApiError("La URL del medio no es válida.")
     request = Request(
         url,
         headers={"User-Agent": user_agent, "Cookie": cookie, "Referer": "https://onlyfans.com/"},
@@ -101,6 +131,12 @@ def download_url(url: str, target: Path, user_agent: str, cookie: str) -> bool:
             raise ApiError("El servidor devolvió un archivo vacío.")
         os.replace(partial, target)
         return True
+    except ApiError:
+        try:
+            partial.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     except (HTTPError, URLError, TimeoutError, OSError) as exc:
         try:
             partial.unlink(missing_ok=True)

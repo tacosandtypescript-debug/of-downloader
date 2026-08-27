@@ -1,4 +1,4 @@
-# OF Downloader nativo para a-Shell (iOS)
+# OF Downloader nativo para a-Shell (iOS) · motor 2.18.0
 
 Esta variante ejecuta autenticación, consultas y descargas dentro de a-Shell.
 No usa SSH, Termux, Linux remoto, `proot` ni OF-Scraper.
@@ -18,6 +18,10 @@ of
 ```
 
 El instalador crea `of` como comando principal y `of-ios` como alias.
+
+El instalador descarga los módulos desde `main`, comprueba que no estén vacíos
+y ejecuta `python3 -m compileall` dentro de la carpeta de a-Shell. No instala
+OF-Scraper, módulos C ni un backend remoto.
 
 ## Importar el acceso
 
@@ -46,6 +50,17 @@ of probar-perfil NOMBRE
 `of perfiles` conserva el flujo original: muestra tus suscripciones, eliges una
 y empieza su descarga. `of listar-perfiles` solo muestra la lista.
 
+El menú permanece abierto después de cada operación. Para preparar el motor de
+forma explícita usa:
+
+```sh
+of compilar
+```
+
+Ese comando compila el bytecode Python disponible en a-Shell y comprueba que
+`~/OFDownloader` y `~/OFDownloader/Descargas` sean escribibles. También aparece
+como `[7] Preparar/compilar motor iOS` dentro del menú.
+
 Los medios quedan en `~/OFDownloader/Descargas/NOMBRE/`. La descarga es
 secuencial para respetar la memoria y el modelo de ejecución de iOS.
 
@@ -59,4 +74,5 @@ secuencial para respetar la memoria y el modelo de ejecución de iOS.
   argumento se interpreta como publicación (si termina en un ID) o perfil.
 - Omite contenido bloqueado y DRM; no intenta eludir protecciones.
 - No depende de módulos Python con extensiones C ni de procesos hijos.
+- Las descargas largas deben mantenerse en primer plano dentro de a-Shell.
 - La comprobación final debe realizarse físicamente en a-Shell sobre iOS.

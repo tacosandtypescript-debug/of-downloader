@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .api import ApiError, OnlyFansApi
+from .build import engine_source_root, prepare_engine
 from .config import (
     APP_HOME,
     AUTH_PATH,
@@ -20,6 +21,18 @@ from .config import (
     import_auth,
 )
 from .media import DownloadStats, download_posts
+
+
+def _configure_output() -> None:
+    """Mantiene mensajes Unicode seguros en a-Shell y consolas de prueba."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, ValueError):
+            continue
+
+
+_configure_output()
 
 
 def _prompt(label: str) -> str:
@@ -181,35 +194,77 @@ def cmd_diagnostic() -> int:
     return 0
 
 
-def interactive() -> int:
-    print(f"OF DOWNLOADER · iOS NATIVO · v{__version__}")
-    print("\nDESCARGAS")
-    print("[1] Elegir perfil de mis suscripciones")
-    print("[2] Descargar perfil por usuario o enlace")
-    print("[3] Descargar publicación por enlace")
-    print("\nMI CUENTA")
-    print("[4] Importar OFBackup-auth.json")
-    print("[5] Probar acceso")
-    print("\nHERRAMIENTAS")
-    print("[6] Ver diagnóstico")
-    print("[0] Salir")
-    choice = _prompt("Opción: ")
-    if choice == "1":
-        return cmd_choose_profile()
-    if choice == "2":
-        value = _prompt("Usuario o enlace: ")
-        return cmd_user(value) if value else 130
-    if choice == "3":
-        value = _prompt("Enlace o ID de publicación: ")
-        return cmd_publication(value) if value else 130
-    if choice == "4":
-        path = _prompt("Ruta del JSON (Enter busca automáticamente): ")
-        return cmd_import(path or None)
-    if choice == "5":
-        return cmd_test()
-    if choice == "6":
-        return cmd_diagnostic()
+def cmd_build() -> int:
+    """Prepara el motor dentro de las rutas permitidas por a-Shell."""
+    report = prepare_engine(engine_source_root(), APP_HOME, DOWNLOAD_DIR)
+    print(f"Motor: {report.source_root}")
+    print(f"Bytecode Python: {'listo' if report.compiled else 'falló'}")
+    print(f"Almacenamiento local: {'escribible' if report.writable else 'no escribible'}")
+    if not report.ok:
+        print("✗ No se pudo preparar el motor. Revisa permisos y espacio en Archivos.")
+        return 1
+    print("✓ Motor iOS preparado y verificado localmente.")
+    print("No se instalaron paquetes externos ni se usó un backend remoto.")
     return 0
+
+
+def _pause() -> None:
+    """Deja que a-Shell muestre el resultado antes de redibujar el menú."""
+    _prompt("Pulsa Enter para volver al menú: ")
+
+
+def interactive() -> int:
+    while True:
+        print(f"\nOF DOWNLOADER · iOS NATIVO · v{__version__}")
+        print("\nDESCARGAS")
+        print("[1] Elegir perfil de mis suscripciones")
+        print("[2] Descargar perfil por usuario o enlace")
+        print("[3] Descargar publicación por enlace")
+        print("\nMI CUENTA")
+        print("[4] Importar OFBackup-auth.json")
+        print("[5] Probar acceso")
+        print("\nHERRAMIENTAS")
+        print("[6] Ver diagnóstico")
+        print("[7] Preparar/compilar motor iOS")
+        print("[0] Salir")
+        choice = _prompt("Opción: ")
+        if not choice:
+            print("Hasta luego.")
+            return 0
+        if choice == "0":
+            print("Hasta luego.")
+            return 0
+
+        try:
+            if choice == "1":
+                result = cmd_choose_profile()
+            elif choice == "2":
+                value = _prompt("Usuario o enlace: ")
+                result = cmd_user(value) if value else 130
+            elif choice == "3":
+                value = _prompt("Enlace o ID de publicación: ")
+                result = cmd_publication(value) if value else 130
+            elif choice == "4":
+                path = _prompt("Ruta del JSON (Enter busca automáticamente): ")
+                result = cmd_import(path or None)
+            elif choice == "5":
+                result = cmd_test()
+            elif choice == "6":
+                result = cmd_diagnostic()
+            elif choice == "7":
+                result = cmd_build()
+            else:
+                print("Opción no válida.")
+                continue
+        except (ConfigError, ApiError) as exc:
+            print(f"✗ {exc}")
+            result = 1
+        except KeyboardInterrupt:
+            print("\nOperación cancelada.")
+            result = 130
+
+        if result != 130:
+            _pause()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -237,6 +292,8 @@ def build_parser() -> argparse.ArgumentParser:
         profile_test.add_argument("value")
     for name in ("diagnostico", "diagnóstico", "status"):
         sub.add_parser(name, help="Mostrar diagnóstico local")
+    for name in ("compilar", "build", "preparar", "verificar-motor"):
+        sub.add_parser(name, help="Preparar y compilar el motor iOS")
     sub.add_parser("menu", help="Abrir el menú interactivo")
     return parser
 
@@ -269,6 +326,10 @@ def main(argv: list[str] | None = None) -> int:
             "diagnostico",
             "diagnóstico",
             "status",
+            "compilar",
+            "build",
+            "preparar",
+            "verificar-motor",
             "menu",
             "ayuda",
             "help",
@@ -306,6 +367,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_profile_test(args.value)
         if args.command in {"diagnostico", "diagnóstico", "status"}:
             return cmd_diagnostic()
+        if args.command in {"compilar", "build", "preparar", "verificar-motor"}:
+            return cmd_build()
         return interactive()
     except (ConfigError, ApiError) as exc:
         print(f"✗ {exc}", file=sys.stderr)
