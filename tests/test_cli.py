@@ -9,6 +9,12 @@ import ofbackup_cli
 
 
 class CookieTests(unittest.TestCase):
+    def test_version_flag_does_not_become_a_profile(self):
+        output = io.StringIO()
+        with mock.patch.object(ofbackup_cli.sys, "stdout", output):
+            self.assertEqual(ofbackup_cli.main(["--version"]), 0)
+        self.assertEqual(output.getvalue().strip(), ofbackup_cli.APP_VERSION)
+
     def test_extracts_required_values(self):
         result = ofbackup_cli.parse_cookie_header(
             "Cookie: sess=abc123; auth_id=456; other=value"

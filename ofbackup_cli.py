@@ -3083,6 +3083,9 @@ def main(argv: list[str] | None = None) -> int:
         if not argv or argv[0] == "menu":
             return menu()
         command = argv[0].lower()
+        if command in {"-v", "--version", "version"}:
+            print(APP_VERSION)
+            return 0
         if command in {"-h", "--help", "ayuda"}:
             print_help()
             return 0
