@@ -158,6 +158,10 @@ prepare_ofbackup_files() {
 install_ofbackup_commands() {
     install -m 755 "$SOURCE_DIR/ofbackup" "$PREFIX/bin/of"
     install -m 755 "$SOURCE_DIR/ofbackup" "$PREFIX/bin/ofbackup"
+    # Keep the launcher usable immediately after a clean installation.  The
+    # launcher also creates this directory defensively for existing installs.
+    mkdir -p "$HOME/.cache/ofbackup"
+    chmod 700 "$HOME/.cache/ofbackup" 2>/dev/null || true
     mkdir -p "$HOME/storage/downloads/OFDownloader" 2>/dev/null || mkdir -p "$HOME/OFDownloader"
 }
 

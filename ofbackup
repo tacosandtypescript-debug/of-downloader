@@ -22,6 +22,13 @@ trap 'cleanup_temp; exit 130' INT TERM
 
 run_ofbackup() {
     local stderr_temp
+    # The cache is not guaranteed to exist on a clean Termux install.  Create
+    # it before mktemp so the first invocation can open the menu successfully.
+    if ! mkdir -p "$HOST_CACHE"; then
+        echo "✗ No se pudo crear la caché temporal de OF Downloader: $HOST_CACHE" >&2
+        return 2
+    fi
+    chmod 700 "$HOST_CACHE" 2>/dev/null || true
     stderr_temp="$(mktemp "$HOST_CACHE/ofbackup-stderr.XXXXXX")"
     proot-distro login --shared-home ofbackup-debian -- \
         env "OFDOWNLOADER_PLATFORM=TERMUX" \
