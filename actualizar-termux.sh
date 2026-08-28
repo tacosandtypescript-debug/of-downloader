@@ -9,7 +9,30 @@ CONTAINER_APP_HOME="/root/.local/share/ofbackup"
 CONTAINER="ofbackup-debian"
 CACHE_DIR="${HOME}/.cache/ofbackup"
 PREFIX_BIN="${PREFIX:-}/bin"
+LOG_FILE="${HOME}/ofbackup-actualizacion.log"
 TEMP_DIR=""
+
+mkdir -p "$(dirname "$LOG_FILE")"
+touch "$LOG_FILE" || {
+    echo "✗ No se pudo crear el registro: $LOG_FILE" >&2
+    exit 1
+}
+chmod 600 "$LOG_FILE" 2>/dev/null || true
+
+# Conserva la salida visible y una copia completa para diagnosticar errores.
+# Nunca se imprimen aquí los contenidos del JSON de autenticación.
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+on_error() {
+    local code="$?"
+    local line="$1"
+    trap - ERR
+    echo "✗ Falló la actualización en la línea $line (código $code)." >&2
+    echo "Registro completo: $LOG_FILE" >&2
+    exit "$code"
+}
+
+trap 'on_error "$LINENO"' ERR
 
 cleanup() {
     if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
@@ -22,8 +45,16 @@ trap 'exit 130' INT TERM
 
 fail() {
     echo "✗ $*" >&2
+    echo "Registro completo: $LOG_FILE" >&2
     exit 1
 }
+
+echo "=== OF Downloader · actualización incremental ==="
+echo "Fecha: $(date '+%Y-%m-%d %H:%M:%S %z')"
+echo "Termux: ${PREFIX:-desconocido}"
+echo "Arquitectura: $(uname -m 2>/dev/null || echo desconocida)"
+echo "Contenedor: $CONTAINER"
+echo "Registro: $LOG_FILE"
 
 if [[ "${PREFIX:-}" != *"com.termux"* ]]; then
     fail "Este actualizador debe ejecutarse dentro de Termux."
@@ -102,4 +133,5 @@ fi
 
 echo "✓ OF Downloader actualizado sin reinstalar Debian, Python ni FFmpeg."
 echo "✓ Cookie, perfiles, configuración y descargas se conservaron."
+echo "Registro completo: $LOG_FILE"
 echo "Ejecuta: of"

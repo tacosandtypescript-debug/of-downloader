@@ -363,6 +363,15 @@ of recibir-cookie
 of recibir-cookie --qr
 ```
 
+`of probar` guarda el diagnóstico técnico de cada intento en
+`~/ofbackup-auth-test.log`. El registro incluye código HTTP, duración,
+arquitectura, entorno de red y la salida de OF-Scraper con credenciales
+redactadas. Para compartirlo:
+
+```bash
+tail -n 120 ~/ofbackup-auth-test.log
+```
+
 ## Google Drive
 
 OF Downloader usa `rclone` para subir a Google Drive.
@@ -443,6 +452,14 @@ curl -fsSL https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloa
 ```
 
 Este comando no reinstala Debian, Python ni FFmpeg.
+
+El actualizador guarda un registro en `~/ofbackup-actualizacion.log`. Si algo
+falla, comparte solo las últimas líneas de ese archivo (nunca el JSON ni la
+cookie):
+
+```bash
+tail -n 100 ~/ofbackup-actualizacion.log
+```
 
 ### Aplicación Android Companion
 

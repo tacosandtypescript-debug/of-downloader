@@ -8,6 +8,7 @@ import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import platform
 import re
 import secrets
 import shutil
@@ -92,6 +93,7 @@ OFSCRAPER_DIR = HOME / ".config" / "ofscraper"
 OFSCRAPER_CONFIG_PATH = OFSCRAPER_DIR / "config.json"
 AUTH_PATH = OFSCRAPER_DIR / "main_profile" / "auth.json"
 DOWNLOAD_LOG_PATH = APP_DIR / "ultima-descarga.log"
+AUTH_TEST_LOG_PATH = HOME / "ofbackup-auth-test.log"
 PUBLIC_DOWNLOAD_LOG_NAME = "ultima-descarga.log"
 PROFILE_TEST_LOG_NAME = "prueba-perfil.log"
 EXTENSION_PAGE_URL = "https://github.com/tacosandtypescript-debug/of-downloader-browser-extensions"
@@ -154,6 +156,10 @@ except Exception as exc:
         print(f"HTTP 403: {exc}", file=sys.stderr)
     else:
         print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}: {exc}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+    # El proceso padre guarda este traceback en un registro protegido. No se
+    # muestra en pantalla para no exponer datos de la sesión accidentalmente.
+    if http_status in (400, 401, 403):
         traceback.print_exc(file=sys.stderr)
     raise SystemExit(4)
 """
@@ -1108,6 +1114,108 @@ def update_notification(status: str | None = None) -> str | None:
 # ═══ AuthService: verificación ════════════════════════════════════════════
 # Migrado a: backend.auth.AuthService.test_credentials()
 
+def _redact_auth_debug(value: object) -> str:
+    """Oculta credenciales antes de escribir la salida de OF-Scraper al log."""
+    text = str(value or "")
+    try:
+        stored = read_json(AUTH_PATH)
+    except Exception:
+        stored = {}
+    for key in ("sess", "auth_id", "x-bc", "app-token", "user_agent"):
+        secret = stored.get(key)
+        if isinstance(secret, str) and len(secret) >= 3:
+            text = text.replace(secret, f"<redacted:{key}>")
+    pattern = re.compile(
+        r"""(?i)([\"']?(?:sess|auth_id|x-bc|app-token|authorization|cookie|bearer)[\"']?\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|[^,\s;}\]]+)"""
+    )
+    return pattern.sub(r"\1<redacted>", text)
+
+
+def _truncate_auth_debug(value: object, limit: int = 12000) -> str:
+    text = _redact_auth_debug(value)
+    if len(text) <= limit:
+        return text
+    return "[... salida recortada ...]\n" + text[-limit:]
+
+
+def _auth_fields_summary() -> str:
+    try:
+        stored = read_json(AUTH_PATH)
+    except Exception as exc:
+        return f"no_se_pudo_leer ({type(exc).__name__})"
+    fields = []
+    for key in ("sess", "auth_id", "x-bc", "user_agent"):
+        value = stored.get(key)
+        present = isinstance(value, str) and bool(value.strip())
+        length = len(value) if isinstance(value, str) else 0
+        fields.append(f"{key}={'present' if present else 'missing'}({length})")
+    return ", ".join(fields)
+
+
+def _write_auth_test_log(
+    *,
+    started_at: str,
+    elapsed: float,
+    returncode: int | None,
+    stdout: object = "",
+    stderr: object = "",
+    timed_out: bool = False,
+    environment: dict[str, str] | None = None,
+) -> None:
+    """Guarda diagnóstico técnico sin escribir valores privados de sesión."""
+    try:
+        AUTH_TEST_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        output = f"{stdout or ''}\n{stderr or ''}"
+        status_matches = re.findall(r"\bHTTP\s+(\d{3})\b", output, flags=re.IGNORECASE)
+        marker_matches = sorted(set(re.findall(r"OFBACKUP_AUTH_[A-Z_]+", output)))
+        proxy_names = (
+            "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+            "SSL_CERT_FILE", "SSL_CERT_DIR",
+        )
+        proxy_state = ",".join(
+            f"{name}={'set' if environment and environment.get(name) else 'unset'}"
+            for name in proxy_names
+        )
+        lines = [
+            "=== OF Downloader · prueba de acceso ===",
+            f"Inicio: {started_at}",
+            f"Fin: {datetime.now().astimezone().isoformat()}",
+            f"Duración_s: {elapsed:.2f}",
+            f"Retorno: {returncode if returncode is not None else 'none'}",
+            f"Timeout: {'yes' if timed_out else 'no'}",
+            f"Plataforma: {runtime_platform_name()}",
+            f"Python: {sys.version.split()[0]}",
+            f"Sistema: {platform.system()} {platform.release()}",
+            f"Arquitectura: {platform.machine()}",
+            f"OFScraper: {OFSCRAPER_VERSION}",
+            f"HOME: {HOME}",
+            f"Auth_path: {AUTH_PATH}",
+            f"Auth_fields: {_auth_fields_summary()}",
+            f"Proxies/SSL: {proxy_state}",
+            f"HTTP_status: {','.join(status_matches) if status_matches else 'not_reported'}",
+            f"Markers: {','.join(marker_matches) if marker_matches else 'none'}",
+            "--- stdout (redactado) ---",
+            _truncate_auth_debug(stdout),
+            "--- stderr (redactado) ---",
+            _truncate_auth_debug(stderr),
+            "=== fin de prueba ===",
+            "",
+        ]
+        with AUTH_TEST_LOG_PATH.open("a", encoding="utf-8", errors="replace") as handle:
+            handle.write("\n".join(lines))
+        _chmod(AUTH_TEST_LOG_PATH, 0o600)
+    except Exception:
+        # Un fallo escribiendo el diagnóstico no debe cambiar el resultado de
+        # la comprobación de sesión ni ocultar el error original.
+        return
+
+
+def _auth_log_hint() -> str:
+    if os.name == "nt":
+        return str(AUTH_TEST_LOG_PATH)
+    return "~/ofbackup-auth-test.log"
+
+
 def test_credentials(timeout: int = 60) -> int:
     """Comprueba la sesión con una consulta mínima y sin descargar contenido."""
     if not credentials_ready():
@@ -1120,6 +1228,9 @@ def test_credentials(timeout: int = 60) -> int:
     print("Probando la sesión con OnlyFans…")
     print("No se descargará contenido ni se mostrarán datos privados.")
 
+    started_at = datetime.now().astimezone().isoformat()
+    started_monotonic = time.monotonic()
+    test_environment = auth_test_environment()
     try:
         process = subprocess.Popen(
             [sys.executable, "-c", AUTH_TEST_SCRIPT],
@@ -1128,12 +1239,19 @@ def test_credentials(timeout: int = 60) -> int:
             text=True,
             encoding="utf-8",
             errors="replace",
-            env=auth_test_environment(),
+            env=test_environment,
         )
     except OSError as exc:
+        _write_auth_test_log(
+            started_at=started_at,
+            elapsed=time.monotonic() - started_monotonic,
+            returncode=None,
+            stderr=f"{type(exc).__name__}: {exc}",
+            environment=test_environment,
+        )
         raise UserError(f"No se pudo iniciar la prueba de acceso: {exc}") from exc
 
-    deadline = time.monotonic() + timeout
+    deadline = started_monotonic + timeout
     frames = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
     frame = 0
     interactive = sys.stdout.isatty()
@@ -1160,15 +1278,32 @@ def test_credentials(timeout: int = 60) -> int:
             stdout, stderr = process.communicate()
         if interactive:
             print("\r" + " " * 38 + "\r", end="", flush=True)
+        _write_auth_test_log(
+            started_at=started_at,
+            elapsed=time.monotonic() - started_monotonic,
+            returncode=process.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            timed_out=True,
+            environment=test_environment,
+        )
         print(_status_text("\n✗ LA PRUEBA TARDÓ DEMASIADO", "red"))
         print("La cookie sí está cargada, pero OnlyFans no respondió a tiempo.")
-        print("Comprueba Internet y vuelve a ejecutar: of probar")
+        print(f"Registro técnico: {_auth_log_hint()}")
         return 1
 
     stdout, stderr = process.communicate()
     if interactive:
         print("\r" + " " * 38 + "\r", end="", flush=True)
     output = f"{stdout}\n{stderr}"
+    _write_auth_test_log(
+        started_at=started_at,
+        elapsed=time.monotonic() - started_monotonic,
+        returncode=process.returncode,
+        stdout=stdout,
+        stderr=stderr,
+        environment=test_environment,
+    )
     if process.returncode == 0 and "OFBACKUP_AUTH_OK" in output:
         print(_status_text("\n✓ COOKIE VÁLIDA", "green"))
         print("OnlyFans aceptó la sesión. OF Downloader está listo para descargar.")
@@ -1178,6 +1313,7 @@ def test_credentials(timeout: int = 60) -> int:
         print(_status_text("\n✗ COOKIE RECHAZADA O VENCIDA", "red"))
         print("Genera un nuevo OFBackup-auth.json desde una sesión abierta,")
         print("impórtalo con 'of importar' y repite 'of probar'.")
+        print(f"Registro técnico: {_auth_log_hint()}")
         return 1
 
     if "OFBACKUP_AUTH_BLOCKED" in output:
@@ -1185,6 +1321,7 @@ def test_credentials(timeout: int = 60) -> int:
         print("OnlyFans bloqueó la solicitud desde esta red o dispositivo.")
         print("Esto no confirma que la cookie esté vencida.")
         print("Prueba otra red y revisa 'of diagnostico'.")
+        print(f"Registro técnico: {_auth_log_hint()}")
         return 1
 
     print(_status_text("\n✗ NO SE PUDO COMPROBAR LA COOKIE", "red"))
@@ -1193,6 +1330,7 @@ def test_credentials(timeout: int = 60) -> int:
     if marker in output:
         error_detail = output.split(marker, 1)[1].splitlines()[0].strip()
     print(f"Error: {error_detail}")
+    print(f"Registro técnico: {_auth_log_hint()}")
     # Mostrar stderr completo si hay traceback
     stderr_lines = [l for l in output.splitlines() if l.strip() and "Traceback" not in output.split(output.split(marker)[0] if marker in output else "", 1)[-1]]
     if "Traceback" in output:

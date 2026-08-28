@@ -87,6 +87,11 @@ Logs visibles:
    /root/storage/downloads/OFBackup/prueba-perfil.log
    /root/storage/downloads/OFBackup/perfiles-suscritos.log
 
+Diagnóstico de "of probar" (no contiene los valores de la cookie):
+
+   ~/ofbackup-auth-test.log
+   tail -n 120 ~/ofbackup-auth-test.log
+
 
 LINUX
 -----
@@ -243,6 +248,13 @@ Si instalaste directamente con curl y no existe ~/of-downloader, actualización
 incremental (no reinstala Debian, Python ni FFmpeg):
 
    curl -fsSL https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloader/main/actualizar-termux.sh | bash
+
+El registro de esa actualización queda en ~/ofbackup-actualizacion.log. Si
+falla, comparte solo las últimas líneas con:
+
+   tail -n 100 ~/ofbackup-actualizacion.log
+
+No compartas el JSON de autenticación ni la cookie.
 
 Si Google Drive dice que falta rclone en Termux:
 
