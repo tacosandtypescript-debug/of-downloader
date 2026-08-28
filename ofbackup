@@ -20,7 +20,9 @@ cleanup_temp() {
 trap cleanup_temp EXIT
 trap 'cleanup_temp; exit 130' INT TERM
 
-run_ofbackup() {
+run_cli_in_container() {
+    local bind_spec="${1:-}"
+    shift
     local stderr_temp
     # The cache is not guaranteed to exist on a clean Termux install.  Create
     # it before mktemp so the first invocation can open the menu successfully.
@@ -30,7 +32,11 @@ run_ofbackup() {
     fi
     chmod 700 "$HOST_CACHE" 2>/dev/null || true
     stderr_temp="$(mktemp "$HOST_CACHE/ofbackup-stderr.XXXXXX")"
-    proot-distro login --shared-home ofbackup-debian -- \
+    local -a login_args=(login --shared-home ofbackup-debian)
+    if [[ -n "$bind_spec" ]]; then
+        login_args+=(--bind "$bind_spec")
+    fi
+    proot-distro "${login_args[@]}" -- \
         env "OFDOWNLOADER_PLATFORM=TERMUX" \
         "OFDOWNLOADER_UPDATE_STATUS=$UPDATE_STATUS" \
         "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@" 2>"$stderr_temp"
@@ -42,6 +48,10 @@ run_ofbackup() {
     fi
     rm -f "$stderr_temp"
     return "$status"
+}
+
+run_ofbackup() {
+    run_cli_in_container "" "$@"
 }
 
 find_repo_dir() {
@@ -183,9 +193,19 @@ update_application() {
 
 run_selected_temp() {
     local selected="$1"
+    if [[ ! -f "$selected" || ! -s "$selected" ]]; then
+        echo "✗ El archivo temporal de acceso no existe o está vacío." >&2
+        return 2
+    fi
+
+    # No entregues a Debian la ruta absoluta de Termux.  --shared-home monta
+    # el HOME en /root, pero la ruta /data/data/... no tiene por qué existir
+    # dentro del rootfs.  En su lugar hacemos un bind explícito y efímero a
+    # /tmp, una ubicación presente en cualquier Debian de proot-distro. Así
+    # Python siempre lee exactamente los bytes que devolvió Android.
     local container_path
-    container_path="$HOST_CACHE/$(basename "$selected")"
-    run_ofbackup importar-archivo "$container_path"
+    container_path="/tmp/$(basename -- "$selected")"
+    run_cli_in_container "$selected:$container_path" importar-archivo "$container_path"
 }
 
 import_host_file() {
@@ -209,7 +229,13 @@ import_host_file() {
     local selected
     selected="$(mktemp "$HOST_CACHE/auth-import.XXXXXX.json")"
     SELECTED_TEMP="$selected"
-    install -m 600 "$source" "$selected"
+    if ! install -m 600 -- "$source" "$selected"; then
+        rm -f "$selected"
+        SELECTED_TEMP=""
+        echo "✗ No se pudo copiar el archivo de acceso a la caché temporal."
+        return 2
+    fi
+    echo "Archivo preparado: $(basename -- "$source") ($(wc -c <"$selected") bytes)."
     run_selected_temp "$selected"
     local status=$?
     rm -f "$selected"
@@ -269,6 +295,7 @@ select_and_import() {
         return 2
     fi
 
+    echo "Archivo recibido desde Android: $(wc -c <"$selected") bytes."
     run_selected_temp "$selected"
     local status=$?
     if [[ "$status" -ne 0 ]]; then
