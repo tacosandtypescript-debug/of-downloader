@@ -81,6 +81,13 @@ compilar OF-Scraper ni instalar extensiones C. Guarda los archivos dentro de
 Documents/OFDownloader y omite contenido bloqueado, DRM o formatos HLS/DASH.
 Mantén a-Shell abierto durante descargas largas.
 
+Para importar desde Archivos no es obligatorio conservar el nombre
+OFBackup-auth.json: `of importar` también detecta un JSON con nombre UUID en la
+carpeta actual, `~/Downloads` o `~/Documents`. Si el archivo está en otra
+carpeta, ejecuta `pickFolder`, selecciónala y usa `of importar ./archivo.json`.
+iOS no permite leer directamente la base privada de cookies de Chrome o Safari;
+transfiere el JSON mediante Archivos/AirDrop/iCloud y borra el original después.
+
 Logs visibles:
 
    /root/storage/downloads/OFBackup/ultima-descarga.log

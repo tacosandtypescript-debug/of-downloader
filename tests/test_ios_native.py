@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import tempfile
@@ -22,7 +23,7 @@ from of_ios.api import (  # noqa: E402
 )
 from of_ios.build import prepare_engine  # noqa: E402
 from of_ios.cli import build_parser, interactive, main  # noqa: E402
-from of_ios.config import ConfigError, parse_auth_export  # noqa: E402
+from of_ios.config import ConfigError, import_auth, parse_auth_export  # noqa: E402
 from of_ios.media import download_url, iter_direct_media, safe_name  # noqa: E402
 
 
@@ -53,6 +54,74 @@ class IOSNativeTests(unittest.TestCase):
             }
         )
         self.assertEqual(values["auth_id"], "123")
+
+    def test_cookie_header_and_field_aliases_are_accepted(self):
+        values = parse_auth_export(
+            {
+                "cookie": "sess=session-value; auth_id=123; x_bc=bc-value",
+                "User-Agent": "agent-value",
+            }
+        )
+        self.assertEqual(
+            values,
+            {
+                "sess": "session-value",
+                "auth_id": "123",
+                "x-bc": "bc-value",
+                "user_agent": "agent-value",
+            },
+        )
+
+    def test_cookie_editor_export_accepts_onlyfans_domains(self):
+        values = parse_auth_export(
+            [
+                {"domain": ".onlyfans.com", "name": "sess", "value": "session-value"},
+                {"domain": "api.onlyfans.com", "name": "auth_id", "value": "123"},
+                {"domain": "www.onlyfans.com", "name": "x-bc", "value": "bc-value"},
+                {
+                    "domain": ".example.invalid",
+                    "name": "x-bc",
+                    "value": "must-not-be-used",
+                },
+                {"domain": ".onlyfans.com", "name": "User-Agent", "value": "agent-value"},
+            ]
+        )
+        self.assertEqual(values["x-bc"], "bc-value")
+        self.assertEqual(values["user_agent"], "agent-value")
+
+    def test_arbitrary_json_filename_can_be_imported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "3a5e4375-34b6-4d18-b5d7-2975c2976f99.json"
+            source.write_text(
+                '{"auth": {"sess": "session-value", "auth_id": "123", '
+                '"x-bc": "bc-value", "user_agent": "agent-value"}}',
+                encoding="utf-8",
+            )
+            private = root / "private" / "auth.json"
+            with mock.patch("of_ios.config.AUTH_PATH", private):
+                imported = import_auth(source)
+            self.assertEqual(imported, private)
+            self.assertEqual(json.loads(private.read_text(encoding="utf-8"))["auth_id"], "123")
+
+    def test_import_without_path_discovers_uuid_json_in_current_folder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "notes.json").write_text('{"not_auth": true}', encoding="utf-8")
+            source = root / "3a5e4375-34b6-4d18-b5d7-2975c2976f99.json"
+            source.write_text(
+                '{"auth": {"sess": "session-value", "auth_id": "123", '
+                '"x-bc": "bc-value", "user_agent": "agent-value"}}',
+                encoding="utf-8",
+            )
+            private = root / "private" / "auth.json"
+            with (
+                mock.patch("of_ios.config.Path.cwd", return_value=root),
+                mock.patch("of_ios.config.Path.home", return_value=root),
+                mock.patch("of_ios.config.AUTH_PATH", private),
+            ):
+                self.assertEqual(import_auth(), private)
+            self.assertEqual(json.loads(private.read_text(encoding="utf-8"))["auth_id"], "123")
 
     def test_invalid_auth_id_is_rejected(self):
         with self.assertRaises(ConfigError):

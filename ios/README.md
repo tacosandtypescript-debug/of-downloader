@@ -1,4 +1,4 @@
-# OF Downloader nativo para a-Shell (iOS) · motor 2.18.0
+# OF Downloader nativo para a-Shell (iOS) · motor 2.18.1
 
 Esta variante ejecuta autenticación, consultas y descargas dentro de a-Shell.
 No usa SSH, Termux, Linux remoto, `proot` ni OF-Scraper.
@@ -25,16 +25,33 @@ OF-Scraper, módulos C ni un backend remoto.
 
 ## Importar el acceso
 
-Guarda `OFBackup-auth.json` en Archivos > En mi iPhone > a-Shell y ejecuta:
+Usa a-Shell completo (no a-Shell mini). En Archivos > En mi iPhone > a-Shell,
+copia el JSON exportado desde el equipo donde está abierta la sesión. El
+nombre puede ser `OFBackup-auth.json` o un nombre personalizado/UUID. Ejecuta:
 
 ```sh
-of importar OFBackup-auth.json
+of importar
 of probar
 ```
 
+Sin argumentos, `of importar` busca un JSON compatible en la carpeta actual,
+`~/Downloads`, `~/Documents` y el directorio de a-Shell. Si tienes más de un
+JSON, indica el archivo exacto para no elegir el equivocado:
+
+```sh
+of importar "~/Documents/3a5e4375-34b6-4d18-b5d7-2975c2976f99.json"
+```
+
+Si el archivo está en otra carpeta de Archivos, ejecuta `pickFolder` en
+a-Shell, selecciona esa carpeta y luego usa una ruta relativa, por ejemplo
+`of importar ./OFBackup-auth.json`. iOS no permite que a-Shell lea directamente
+la base privada de cookies de Chrome o Safari; el JSON debe entregarse mediante
+Archivos, AirDrop, iCloud Drive o un atajo de Archivos.
+
 El programa almacena únicamente `sess`, `auth_id`, `x-bc` y `user_agent` en
-`~/OFDownloader/.private/auth.json`. Elimina el JSON original después de
-importarlo.
+`~/OFDownloader/.private/auth.json`. El lanzador fija esa carpeta dentro de
+Documents aunque cambies el directorio actual. Elimina el JSON original
+después de importarlo.
 
 ## Descargar
 

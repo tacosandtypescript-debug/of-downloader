@@ -41,7 +41,19 @@
 - Permite actualizar la app desde el menú.
 
 Versión actual del CLI multiplataforma: `2.17.8`
-Motor nativo para a-Shell/iOS: `2.18.0`
+Motor nativo para a-Shell/iOS: `2.18.1`
+
+### Novedades de 2.18.1 (iOS/a-Shell)
+
+- `of importar` encuentra también exportaciones JSON con nombre personalizado
+  o UUID, además de `OFBackup-auth.json`.
+- El importador nativo acepta las variantes de nombres de User-Agent y x-bc
+  usadas por exportadores compatibles, y listas de cookies limitadas a
+  dominios de OnlyFans.
+- Se documenta el flujo con `pickFolder` para archivos que permanecen en otra
+  carpeta de Archivos.
+- El lanzador fija `OF_IOS_HOME` dentro de Documents para conservar la misma
+  configuración aunque se cambie de carpeta en a-Shell.
 
 ### Novedades de 2.18.0 (iOS/a-Shell)
 

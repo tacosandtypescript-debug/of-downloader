@@ -4,8 +4,10 @@ umask 077
 
 BASE_URL="https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloader/main/ios"
 APP_DIR="${HOME}/Documents/of-downloader-ios"
+DATA_DIR="${HOME}/Documents/OFDownloader"
 if [ "$(basename "${HOME}")" = "Documents" ]; then
     APP_DIR="${HOME}/of-downloader-ios"
+    DATA_DIR="${HOME}/OFDownloader"
 fi
 BIN_DIR="${HOME}/Documents/bin"
 if [ "$(basename "${HOME}")" = "Documents" ]; then
@@ -28,12 +30,14 @@ for file in __init__.py config.py api.py media.py build.py cli.py; do
 done
 download_file "${BASE_URL}/of-ios.py" "${APP_DIR}/of-ios.py"
 
+export OF_IOS_HOME="${DATA_DIR}"
 python3 -m compileall -q "${APP_DIR}"
 python3 "${APP_DIR}/of-ios.py" compilar >/dev/null
 
 for launcher in of-ios of; do
     cat > "${BIN_DIR}/${launcher}" <<EOF
 #!/bin/sh
+export OF_IOS_HOME="${DATA_DIR}"
 exec python3 "${APP_DIR}/of-ios.py" "\$@"
 EOF
     chmod 700 "${BIN_DIR}/${launcher}"
