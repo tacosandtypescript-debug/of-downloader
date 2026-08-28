@@ -142,11 +142,16 @@ try:
 except SystemExit:
     raise
 except Exception as exc:
-    # Detectar errores HTTP como cookie inválida
+    # Separar una credencial rechazada de un bloqueo de la solicitud. Un 403
+    # también puede venir de la red, Cloudflare o la huella TLS del dispositivo
+    # y no demuestra por sí solo que la cookie haya vencido.
     http_status = getattr(getattr(exc, 'response', None), 'status_code', None)
-    if http_status in (400, 401, 403):
+    if http_status in (400, 401):
         print(f"OFBACKUP_AUTH_REJECTED", file=sys.stderr)
         print(f"HTTP {http_status}: {exc}", file=sys.stderr)
+    elif http_status == 403:
+        print("OFBACKUP_AUTH_BLOCKED", file=sys.stderr)
+        print(f"HTTP 403: {exc}", file=sys.stderr)
     else:
         print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}: {exc}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
@@ -1123,6 +1128,7 @@ def test_credentials(timeout: int = 60) -> int:
             text=True,
             encoding="utf-8",
             errors="replace",
+            env=auth_test_environment(),
         )
     except OSError as exc:
         raise UserError(f"No se pudo iniciar la prueba de acceso: {exc}") from exc
@@ -1172,6 +1178,13 @@ def test_credentials(timeout: int = 60) -> int:
         print(_status_text("\n✗ COOKIE RECHAZADA O VENCIDA", "red"))
         print("Genera un nuevo OFBackup-auth.json desde una sesión abierta,")
         print("impórtalo con 'of importar' y repite 'of probar'.")
+        return 1
+
+    if "OFBACKUP_AUTH_BLOCKED" in output:
+        print(_status_text("\n✗ SOLICITUD BLOQUEADA (HTTP 403)", "red"))
+        print("OnlyFans bloqueó la solicitud desde esta red o dispositivo.")
+        print("Esto no confirma que la cookie esté vencida.")
+        print("Prueba otra red y revisa 'of diagnostico'.")
         return 1
 
     print(_status_text("\n✗ NO SE PUDO COMPROBAR LA COOKIE", "red"))
@@ -1304,6 +1317,31 @@ def ofscraper_environment() -> dict[str, str]:
         environment["PATH"] = ffmpeg_dir + os.pathsep + environment.get("PATH", "")
         environment.setdefault("FFMPEG_BIN", ffmpeg)
         environment.setdefault("IMAGEIO_FFMPEG_EXE", ffmpeg)
+    return environment
+
+
+def auth_test_environment() -> dict[str, str]:
+    """Reduce reintentos solo para diagnosticar una sesión.
+
+    OF-Scraper usa hasta diez reintentos de sesión y pausas de varios segundos
+    para descargas normales. Eso es correcto para contenido, pero hace que una
+    comprobación de acceso confunda un 403/401 con una cookie vencida y tarde
+    demasiado. El entorno se aplica únicamente al proceso hijo de ``of probar``.
+    """
+    environment = ofscraper_environment()
+    environment.update(
+        {
+            "OFSC_NUM_RETRIES_SESSION_DEFAULT": "1",
+            "OFSC_API_INDIVIDUAL_NUM_TRIES": "1",
+            "OFSC_API_NUM_TRIES": "1",
+            "OFSC_API_CHECK_NUM_TRIES": "1",
+            "OFSC_GIT_NUM_TRIES": "1",
+            "OFSC_MIN_WAIT_SESSION_DEFAULT": "0",
+            "OFSC_MAX_WAIT_SESSION_DEFAULT": "0",
+            "OFSC_MIN_WAIT_API": "0",
+            "OFSC_MAX_WAIT_API": "0",
+        }
+    )
     return environment
 
 

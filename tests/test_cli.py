@@ -541,9 +541,10 @@ class ExecutableTests(unittest.TestCase):
 
 
 class AuthenticationTestTests(unittest.TestCase):
-    def run_test_with(self, process):
+    def run_test_with(self, process, *, print_mock=None):
         process.poll.return_value = process.returncode
         process.communicate.return_value = (process.stdout, process.stderr)
+        print_patch = mock.patch("builtins.print", new=print_mock) if print_mock else mock.patch("builtins.print")
         with (
             mock.patch.object(ofbackup_cli, "credentials_ready", return_value=True),
             mock.patch.object(ofbackup_cli, "write_ofscraper_config") as write_config,
@@ -553,10 +554,16 @@ class AuthenticationTestTests(unittest.TestCase):
             mock.patch.object(
                 ofbackup_cli.subprocess, "Popen", return_value=process
             ) as popen,
-            mock.patch("builtins.print"),
+            mock.patch.object(
+                ofbackup_cli,
+                "auth_test_environment",
+                return_value={"AUTH_TEST": "1"},
+            ) as auth_environment,
+            print_patch,
         ):
             result = ofbackup_cli.test_credentials()
         write_config.assert_called_once_with()
+        auth_environment.assert_called_once_with()
         popen.assert_called_once_with(
             [ofbackup_cli.sys.executable, "-c", ofbackup_cli.AUTH_TEST_SCRIPT],
             stdout=ofbackup_cli.subprocess.PIPE,
@@ -564,6 +571,7 @@ class AuthenticationTestTests(unittest.TestCase):
             text=True,
             encoding="utf-8",
             errors="replace",
+            env={"AUTH_TEST": "1"},
         )
         return result
 
@@ -578,6 +586,16 @@ class AuthenticationTestTests(unittest.TestCase):
             returncode=3, stdout="OFBACKUP_AUTH_REJECTED\n", stderr=""
         )
         self.assertEqual(self.run_test_with(completed), 1)
+
+    def test_forbidden_response_is_not_reported_as_expired_cookie(self):
+        completed = mock.Mock(
+            returncode=4, stdout="", stderr="OFBACKUP_AUTH_BLOCKED\nHTTP 403\n"
+        )
+        printer = mock.Mock()
+        self.assertEqual(self.run_test_with(completed, print_mock=printer), 1)
+        rendered = "\n".join(str(call.args[0]) for call in printer.call_args_list if call.args)
+        self.assertIn("SOLICITUD BLOQUEADA", rendered)
+        self.assertNotIn("COOKIE RECHAZADA O VENCIDA", rendered)
 
     def test_timeout_returns_failure(self):
         process = mock.Mock()
@@ -610,6 +628,16 @@ class AuthenticationTestTests(unittest.TestCase):
             self.assertEqual(
                 ofbackup_cli.test_credentials(), ofbackup_cli.IMPORT_REQUEST_EXIT
             )
+
+    def test_auth_test_environment_uses_one_attempt_without_changing_parent_env(self):
+        with mock.patch.dict(ofbackup_cli.os.environ, {"KEEP_ME": "yes"}, clear=True):
+            environment = ofbackup_cli.auth_test_environment()
+        self.assertEqual(environment["KEEP_ME"], "yes")
+        self.assertEqual(environment["OFSC_NUM_RETRIES_SESSION_DEFAULT"], "1")
+        self.assertEqual(environment["OFSC_API_INDIVIDUAL_NUM_TRIES"], "1")
+        self.assertEqual(environment["OFSC_API_NUM_TRIES"], "1")
+        self.assertEqual(environment["OFSC_MIN_WAIT_SESSION_DEFAULT"], "0")
+        self.assertNotIn("OFSC_NUM_RETRIES_SESSION_DEFAULT", ofbackup_cli.os.environ)
 
 
 class DownloadTests(unittest.TestCase):

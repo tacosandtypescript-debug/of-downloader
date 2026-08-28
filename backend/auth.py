@@ -51,7 +51,17 @@ try:
 except SystemExit:
     raise
 except Exception as exc:
-    print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}", file=sys.stderr)
+    http_status = getattr(getattr(exc, "response", None), "status_code", None)
+    if http_status in (400, 401):
+        print("OFBACKUP_AUTH_REJECTED", file=sys.stderr)
+    elif http_status == 403:
+        print("OFBACKUP_AUTH_BLOCKED", file=sys.stderr)
+    else:
+        print(f"OFBACKUP_AUTH_ERROR:{type(exc).__name__}", file=sys.stderr)
+    if http_status:
+        print(f"HTTP {http_status}: {exc}", file=sys.stderr)
+    else:
+        print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
     raise SystemExit(4)
 """
 
@@ -296,6 +306,7 @@ except Exception as exc:
                 [sys.executable, "-c", self.AUTH_TEST_SCRIPT],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 text=True, encoding="utf-8", errors="replace",
+                env=self._auth_test_environment(),
             )
         except OSError as exc:
             raise UserError(f"No se pudo iniciar la prueba de acceso: {exc}") from exc
@@ -337,8 +348,33 @@ except Exception as exc:
         if "OFBACKUP_AUTH_REJECTED" in output:
             print("\n✗ COOKIE RECHAZADA O VENCIDA")
             return 1
+        if "OFBACKUP_AUTH_BLOCKED" in output:
+            print("\n✗ SOLICITUD BLOQUEADA (HTTP 403)")
+            print("OnlyFans bloqueó la solicitud desde esta red o dispositivo.")
+            print("Esto no confirma que la cookie esté vencida.")
+            return 1
         print("\n✗ NO SE PUDO COMPROBAR LA COOKIE")
         return 1
+
+    @staticmethod
+    def _auth_test_environment() -> dict[str, str]:
+        """Usa un solo intento para que la prueba sea rápida y diagnóstica."""
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "PYTHONIOENCODING": "utf-8",
+                "OFSC_NUM_RETRIES_SESSION_DEFAULT": "1",
+                "OFSC_API_INDIVIDUAL_NUM_TRIES": "1",
+                "OFSC_API_NUM_TRIES": "1",
+                "OFSC_API_CHECK_NUM_TRIES": "1",
+                "OFSC_GIT_NUM_TRIES": "1",
+                "OFSC_MIN_WAIT_SESSION_DEFAULT": "0",
+                "OFSC_MAX_WAIT_SESSION_DEFAULT": "0",
+                "OFSC_MIN_WAIT_API": "0",
+                "OFSC_MAX_WAIT_API": "0",
+            }
+        )
+        return environment
 
     # ── Receptor local (extensión del navegador) ──────────────────────────
 
