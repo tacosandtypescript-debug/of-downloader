@@ -56,6 +56,8 @@ Motor nativo para a-Shell/iOS: `2.18.1`
   carpeta de Archivos.
 - El lanzador fija `OF_IOS_HOME` dentro de Documents para conservar la misma
   configuración aunque se cambie de carpeta en a-Shell.
+- Se añadió `of verificar-ios` para comprobar Python, fuentes, escritura local
+  y estructura de la sesión sin contactar la API.
 
 ### Novedades de 2.18.0 (iOS/a-Shell)
 

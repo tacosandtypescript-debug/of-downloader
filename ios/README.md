@@ -23,6 +23,12 @@ El instalador descarga los módulos desde `main`, comprueba que no estén vacío
 y ejecuta `python3 -m compileall` dentro de la carpeta de a-Shell. No instala
 OF-Scraper, módulos C ni un backend remoto.
 
+Para comprobar el entorno local sin tocar la sesión ni llamar a OnlyFans:
+
+```sh
+of verificar-ios
+```
+
 ## Importar el acceso
 
 Usa a-Shell completo (no a-Shell mini). En Archivos > En mi iPhone > a-Shell,
@@ -78,6 +84,10 @@ of compilar
 Ese comando compila el bytecode Python disponible en a-Shell y comprueba que
 `~/OFDownloader` y `~/OFDownloader/Descargas` sean escribibles. También aparece
 como `[7] Preparar/compilar motor iOS` dentro del menú.
+
+La opción `[8] Autoprueba local de iOS` ejecuta las mismas comprobaciones y
+solo indica si la estructura de la sesión importada es válida; nunca muestra
+sus valores.
 
 Los medios quedan en `~/OFDownloader/Descargas/NOMBRE/`. La descarga es
 secuencial para respetar la memoria y el modelo de ejecución de iOS.

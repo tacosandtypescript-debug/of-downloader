@@ -21,6 +21,7 @@ from .config import (
     import_auth,
 )
 from .media import DownloadStats, download_posts
+from .selftest import run_selftest
 
 
 def _configure_output() -> None:
@@ -208,6 +209,28 @@ def cmd_build() -> int:
     return 0
 
 
+def cmd_selftest() -> int:
+    """Ejecuta la autoprueba local sin contactar la API ni mostrar secretos."""
+    report = run_selftest(engine_source_root(), APP_HOME, DOWNLOAD_DIR)
+    print(f"OF Downloader iOS · autoprueba local · v{__version__}")
+    print(f"Python: {report.python_version} · {'correcto' if report.python_ok else 'falló'}")
+    print(f"Sistema: {report.system or 'desconocido'}")
+    print(f"Biblioteca estándar: {'correcta' if report.stdlib_ok else 'incompleta'}")
+    print(f"Fuentes del motor: {'correctas' if report.source_ok else 'incompletas'}")
+    print(f"Compilación Python: {'correcta' if report.compiled_ok else 'falló'}")
+    print(f"Carpeta de aplicación: {report.app_home}")
+    print(f"Almacenamiento: {'escribible' if report.storage_ok else 'no escribible'}")
+    if report.auth_ok is None:
+        print("Acceso: todavía no importado")
+    else:
+        print(f"Acceso: {'estructura válida' if report.auth_ok else 'estructura inválida'}")
+    if not report.ok:
+        print("✗ La instalación local necesita atención antes de probar la sesión.")
+        return 1
+    print("✓ Entorno local listo. La prueba de sesión se ejecuta aparte con: of probar")
+    return 0
+
+
 def _pause() -> None:
     """Deja que a-Shell muestre el resultado antes de redibujar el menú."""
     _prompt("Pulsa Enter para volver al menú: ")
@@ -226,6 +249,7 @@ def interactive() -> int:
         print("\nHERRAMIENTAS")
         print("[6] Ver diagnóstico")
         print("[7] Preparar/compilar motor iOS")
+        print("[8] Autoprueba local de iOS")
         print("[0] Salir")
         choice = _prompt("Opción: ")
         if not choice:
@@ -253,6 +277,8 @@ def interactive() -> int:
                 result = cmd_diagnostic()
             elif choice == "7":
                 result = cmd_build()
+            elif choice == "8":
+                result = cmd_selftest()
             else:
                 print("Opción no válida.")
                 continue
@@ -294,6 +320,8 @@ def build_parser() -> argparse.ArgumentParser:
         sub.add_parser(name, help="Mostrar diagnóstico local")
     for name in ("compilar", "build", "preparar", "verificar-motor"):
         sub.add_parser(name, help="Preparar y compilar el motor iOS")
+    for name in ("verificar-ios", "autoprueba", "selftest"):
+        sub.add_parser(name, help="Comprobar el entorno local de a-Shell")
     sub.add_parser("menu", help="Abrir el menú interactivo")
     return parser
 
@@ -330,6 +358,9 @@ def main(argv: list[str] | None = None) -> int:
             "build",
             "preparar",
             "verificar-motor",
+            "verificar-ios",
+            "autoprueba",
+            "selftest",
             "menu",
             "ayuda",
             "help",
@@ -369,6 +400,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_diagnostic()
         if args.command in {"compilar", "build", "preparar", "verificar-motor"}:
             return cmd_build()
+        if args.command in {"verificar-ios", "autoprueba", "selftest"}:
+            return cmd_selftest()
         return interactive()
     except (ConfigError, ApiError) as exc:
         print(f"✗ {exc}", file=sys.stderr)

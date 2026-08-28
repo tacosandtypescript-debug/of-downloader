@@ -25,7 +25,7 @@ download_file() {
     mv -f "${temporary_path}" "${target_path}"
 }
 
-for file in __init__.py config.py api.py media.py build.py cli.py; do
+for file in __init__.py config.py api.py media.py build.py cli.py selftest.py; do
     download_file "${BASE_URL}/of_ios/${file}" "${APP_DIR}/of_ios/${file}"
 done
 download_file "${BASE_URL}/of-ios.py" "${APP_DIR}/of-ios.py"

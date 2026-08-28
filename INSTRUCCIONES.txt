@@ -76,6 +76,10 @@ Después prepara el motor y abre el menú:
    of compilar
    of
 
+Si quieres revisar la instalación sin probar la sesión ni contactar OnlyFans:
+
+   of verificar-ios
+
 El motor iOS usa Python estándar y se compila localmente a bytecode; no intenta
 compilar OF-Scraper ni instalar extensiones C. Guarda los archivos dentro de
 Documents/OFDownloader y omite contenido bloqueado, DRM o formatos HLS/DASH.

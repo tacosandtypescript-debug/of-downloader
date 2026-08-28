@@ -25,6 +25,7 @@ from of_ios.build import prepare_engine  # noqa: E402
 from of_ios.cli import build_parser, interactive, main  # noqa: E402
 from of_ios.config import ConfigError, import_auth, parse_auth_export  # noqa: E402
 from of_ios.media import download_url, iter_direct_media, safe_name  # noqa: E402
+from of_ios.selftest import run_selftest  # noqa: E402
 
 
 class IOSNativeTests(unittest.TestCase):
@@ -234,11 +235,55 @@ class IOSNativeTests(unittest.TestCase):
         )
         self.assertEqual(parser.parse_args(["probar-perfil", "creator"]).value, "creator")
         self.assertEqual(parser.parse_args(["compilar"]).command, "compilar")
+        self.assertEqual(parser.parse_args(["verificar-ios"]).command, "verificar-ios")
 
     def test_compile_command_dispatches_to_native_builder(self):
         with mock.patch("of_ios.cli.cmd_build", return_value=0) as builder:
             self.assertEqual(main(["compilar"]), 0)
         builder.assert_called_once_with()
+
+    def test_selftest_command_dispatches_to_local_check(self):
+        with mock.patch("of_ios.cli.cmd_selftest", return_value=0) as selftest:
+            self.assertEqual(main(["verificar-ios"]), 0)
+        selftest.assert_called_once_with()
+
+    def test_selftest_passes_without_auth_for_local_engine(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app_home = root / "app"
+            auth_path = app_home / ".private" / "auth.json"
+            with (
+                mock.patch("of_ios.selftest.AUTH_PATH", auth_path),
+                mock.patch("of_ios.config.AUTH_PATH", auth_path),
+            ):
+                report = run_selftest(IOS_ROOT, app_home, app_home / "Descargas")
+            self.assertTrue(report.ok)
+            self.assertTrue(report.compiled_ok)
+            self.assertIsNone(report.auth_ok)
+
+    def test_selftest_fails_when_python_compilation_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "source"
+            app_home = Path(directory) / "app"
+            (root / "of_ios").mkdir(parents=True)
+            for path in (
+                "of-ios.py",
+                "of_ios/__init__.py",
+                "of_ios/config.py",
+                "of_ios/api.py",
+                "of_ios/media.py",
+                "of_ios/selftest.py",
+            ):
+                (root / path).write_text("VALUE = 1\n", encoding="utf-8")
+            (root / "of_ios/cli.py").write_text("def broken(:\n", encoding="utf-8")
+            auth_path = app_home / ".private" / "auth.json"
+            with (
+                mock.patch("of_ios.selftest.AUTH_PATH", auth_path),
+                mock.patch("of_ios.config.AUTH_PATH", auth_path),
+            ):
+                report = run_selftest(root, app_home, app_home / "Descargas")
+            self.assertFalse(report.ok)
+            self.assertFalse(report.compiled_ok)
 
     def test_direct_onlyfans_url_keeps_original_shortcut(self):
         with mock.patch("of_ios.cli.cmd_publication", return_value=0) as publication:
