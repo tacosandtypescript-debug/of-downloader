@@ -125,6 +125,18 @@ cleanup_source_temp() {
     fi
 }
 
+run_with_terminal_input() {
+    # With `curl ... | bash`, stdin is the script pipe.  proot cannot bind
+    # that exhausted descriptor reliably, and the final menu would receive
+    # EOF.  Give interactive Termux commands the real terminal whenever it is
+    # available; non-interactive runs keep their inherited stdin.
+    if [[ -r /dev/tty ]]; then
+        "$@" </dev/tty
+    else
+        "$@"
+    fi
+}
+
 ensure_source_dir() {
     if source_has_required_files "$SOURCE_DIR"; then
         return 0
@@ -165,13 +177,13 @@ run_task() {
     printf '\n--- %s ---\n' "$label" >>"$LOG_FILE"
 
     if [[ "${OFBACKUP_VERBOSE:-0}" == "1" ]]; then
-        if "$@" 2>&1 | tee -a "$LOG_FILE"; then
+        if run_with_terminal_input "$@" 2>&1 | tee -a "$LOG_FILE"; then
             code=0
         else
             code="${PIPESTATUS[0]}"
         fi
     else
-        "$@" >>"$LOG_FILE" 2>&1 &
+        run_with_terminal_input "$@" >>"$LOG_FILE" 2>&1 &
         ACTIVE_PID=$!
         if [[ -t 1 ]]; then
             while kill -0 "$ACTIVE_PID" 2>/dev/null; do
@@ -252,7 +264,7 @@ run_task 8 16 "Actualizando Termux" pkg upgrade -y
 run_task 16 28 "Instalando herramientas base y selector Android" \
     pkg install -y proot-distro git termux-tools termux-api rclone
 
-if ! pkg install -y qrencode >/dev/null 2>&1; then
+if ! run_with_terminal_input pkg install -y qrencode >/dev/null 2>&1; then
     echo "AVISO: qrencode no esta disponible en este repositorio de Termux."
     echo "El QR es opcional; el resto del descargador continuara funcionando."
 fi
@@ -293,7 +305,7 @@ run_task 48 77 "Preparando Python 3.13, FFmpeg y librerías" \
     python3 -c "import sys; assert (3, 11) <= sys.version_info[:2] < (3, 14), sys.version"
 '
 
-if ! proot-distro login --shared-home "$CONTAINER" -- bash -lc \
+if ! run_with_terminal_input proot-distro login --shared-home "$CONTAINER" -- bash -lc \
     'apt-get install -y --no-install-recommends qrencode >/dev/null 2>&1'; then
     echo "AVISO: qrencode no esta disponible dentro de Debian. El QR es opcional."
 fi
@@ -329,4 +341,7 @@ echo "Registro guardado en: $LOG_FILE"
 echo "Abriendo el menú…"
 cleanup_source_temp
 trap - INT TERM
+if [[ -r /dev/tty ]]; then
+    exec of </dev/tty
+fi
 exec of
