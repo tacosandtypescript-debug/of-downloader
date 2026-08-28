@@ -225,6 +225,7 @@ def import_auth(path: Path | None = None) -> Path:
         return AUTH_PATH
 
     existing = False
+    valid: list[tuple[Path, dict[str, str]]] = []
     for candidate in auth_candidates():
         try:
             if not candidate.is_file():
@@ -233,8 +234,19 @@ def import_auth(path: Path | None = None) -> Path:
             values = _read_auth_file(candidate)
         except ConfigError:
             continue
-        _secure_write(AUTH_PATH, values)
+        valid.append((candidate, values))
+
+    if len(valid) == 1:
+        _secure_write(AUTH_PATH, valid[0][1])
         return AUTH_PATH
+    if len(valid) > 1:
+        names = ", ".join(candidate.name for candidate, _ in valid[:5])
+        if len(valid) > 5:
+            names += ", …"
+        raise ConfigError(
+            f"Se encontraron {len(valid)} JSON de acceso ({names}). "
+            "Indica la ruta exacta: of importar RUTA"
+        )
 
     if existing:
         raise ConfigError(

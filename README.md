@@ -47,6 +47,8 @@ Motor nativo para a-Shell/iOS: `2.18.1`
 
 - `of importar` encuentra también exportaciones JSON con nombre personalizado
   o UUID, además de `OFBackup-auth.json`.
+- Si hay más de un JSON válido, el importador no elige uno al azar: solicita la
+  ruta exacta.
 - El importador nativo acepta las variantes de nombres de User-Agent y x-bc
   usadas por exportadores compatibles, y listas de cookies limitadas a
   dominios de OnlyFans.

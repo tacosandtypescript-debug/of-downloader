@@ -35,8 +35,9 @@ of probar
 ```
 
 Sin argumentos, `of importar` busca un JSON compatible en la carpeta actual,
-`~/Downloads`, `~/Documents` y el directorio de a-Shell. Si tienes más de un
-JSON, indica el archivo exacto para no elegir el equivocado:
+`~/Downloads`, `~/Documents` y el directorio de a-Shell. Si encuentra más de
+un JSON válido, se detiene y pide la ruta exacta para no elegir una sesión
+equivocada:
 
 ```sh
 of importar "~/Documents/3a5e4375-34b6-4d18-b5d7-2975c2976f99.json"

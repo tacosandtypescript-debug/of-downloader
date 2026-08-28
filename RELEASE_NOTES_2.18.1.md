@@ -2,6 +2,8 @@
 
 - `of importar` descubre archivos JSON de acceso aunque tengan un nombre
   personalizado o UUID; si hay varios, se puede indicar la ruta exacta.
+- Cuando hay varios JSON válidos, la importación automática se detiene para no
+  cargar silenciosamente una sesión antigua.
 - El importador nativo acepta objetos anidados, headers `Cookie`, aliases de
   `User-Agent`/`x-bc` y listas de cookies cuyo dominio pertenece a OnlyFans.
 - Se añadió cobertura de pruebas para el flujo de Archivos y la importación

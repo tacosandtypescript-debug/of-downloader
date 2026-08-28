@@ -123,6 +123,25 @@ class IOSNativeTests(unittest.TestCase):
                 self.assertEqual(import_auth(), private)
             self.assertEqual(json.loads(private.read_text(encoding="utf-8"))["auth_id"], "123")
 
+    def test_import_without_path_refuses_multiple_valid_json_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = (
+                '{"auth": {"sess": "session-value", "auth_id": "123", '
+                '"x-bc": "bc-value", "user_agent": "agent-value"}}'
+            )
+            (root / "first.json").write_text(payload, encoding="utf-8")
+            (root / "second.json").write_text(payload, encoding="utf-8")
+            private = root / "private" / "auth.json"
+            with (
+                mock.patch("of_ios.config.Path.cwd", return_value=root),
+                mock.patch("of_ios.config.Path.home", return_value=root),
+                mock.patch("of_ios.config.AUTH_PATH", private),
+            ):
+                with self.assertRaisesRegex(ConfigError, "Indica la ruta exacta"):
+                    import_auth()
+            self.assertFalse(private.exists())
+
     def test_invalid_auth_id_is_rejected(self):
         with self.assertRaises(ConfigError):
             parse_auth_export(
