@@ -433,6 +433,17 @@ git pull --ff-only origin main
 bash instalar-termux.sh
 ```
 
+Si instalaste con `curl | sh` y no tienes `~/of-downloader`, usa el actualizador
+incremental. Descarga el código de `main`, conserva la cookie, perfiles,
+configuración y descargas, y solo ejecuta `pip` si cambió
+`requirements-termux.txt`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloader/main/actualizar-termux.sh | bash
+```
+
+Este comando no reinstala Debian, Python ni FFmpeg.
+
 ### Aplicación Android Companion
 
 El módulo `android/` contiene una aplicación Android independiente para iniciar

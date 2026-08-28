@@ -9,6 +9,7 @@ APP_UPDATE_REQUEST_EXIT=43
 SELECTED_TEMP=""
 MAX_AUTH_SIZE=65536
 UPDATE_STATUS="unknown"
+DIRECT_UPDATE_URL="${OFBACKUP_UPDATE_SCRIPT_URL:-https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloader/main/actualizar-termux.sh}"
 
 cleanup_temp() {
     if [[ -n "$SELECTED_TEMP" ]]; then
@@ -110,13 +111,42 @@ check_repository_update() {
     fi
 }
 
-update_application() {
-    local repo
-    repo="$(find_repo_dir)" || {
-        echo "✗ No encuentro la carpeta del repositorio."
-        echo "Clónalo de nuevo con: gh repo clone tacosandtypescript-debug/of-downloader"
+update_application_from_archive() {
+    local updater_temp
+    mkdir -p "$HOST_CACHE"
+    chmod 700 "$HOST_CACHE" 2>/dev/null || true
+    updater_temp="$(mktemp "$HOST_CACHE/ofbackup-update.XXXXXX.sh")" || {
+        echo "✗ No se pudo crear el archivo temporal del actualizador."
         return 2
     }
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "✗ Falta curl para obtener la actualización directa."
+        echo "Ejecuta: pkg install -y curl"
+        rm -f "$updater_temp"
+        return 2
+    fi
+    echo "No hay una copia local del repositorio; usando actualización incremental…"
+    if ! curl -fL --retry 3 --retry-delay 1 --connect-timeout 15 \
+        "$DIRECT_UPDATE_URL" -o "$updater_temp"; then
+        echo "✗ No se pudo obtener el actualizador desde GitHub."
+        rm -f "$updater_temp"
+        return 2
+    fi
+    chmod 700 "$updater_temp"
+    if ! bash "$updater_temp"; then
+        rm -f "$updater_temp"
+        return 2
+    fi
+    rm -f "$updater_temp"
+    return 0
+}
+
+update_application() {
+    local repo
+    if ! repo="$(find_repo_dir)"; then
+        update_application_from_archive
+        return $?
+    fi
 
     echo
     echo "Actualizando OF Downloader desde GitHub…"

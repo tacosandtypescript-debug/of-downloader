@@ -239,6 +239,11 @@ Manual en Termux:
    git pull
    bash instalar-termux.sh
 
+Si instalaste directamente con curl y no existe ~/of-downloader, actualización
+incremental (no reinstala Debian, Python ni FFmpeg):
+
+   curl -fsSL https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloader/main/actualizar-termux.sh | bash
+
 Si Google Drive dice que falta rclone en Termux:
 
    proot-distro login --shared-home ofbackup-debian -- apt-get update
