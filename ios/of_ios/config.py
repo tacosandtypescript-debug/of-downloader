@@ -9,7 +9,23 @@ from pathlib import Path
 from typing import Any
 
 
-APP_HOME = Path(os.environ.get("OF_IOS_HOME", Path.home() / "OFDownloader"))
+def _default_app_home() -> Path:
+    """Elige una carpeta que a-Shell pueda escribir sin configuración extra."""
+    home = Path.home()
+    # a-Shell normalmente deja HOME en el contenedor de la app y expone
+    # Documents como la carpeta escribible. En algunas versiones HOME ya es
+    # Documents; no debemos crear un Documents/Documents anidado.
+    if home.name == "Documents":
+        return home / "OFDownloader"
+    return home / "Documents" / "OFDownloader"
+
+
+_configured_home = os.environ.get("OF_IOS_HOME")
+APP_HOME = (
+    Path(_configured_home).expanduser()
+    if _configured_home
+    else _default_app_home()
+)
 PRIVATE_DIR = APP_HOME / ".private"
 AUTH_PATH = PRIVATE_DIR / "auth.json"
 RULES_PATH = PRIVATE_DIR / "dynamic-rules.json"

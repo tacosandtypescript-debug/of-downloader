@@ -58,6 +58,9 @@ Motor nativo para a-Shell/iOS: `2.18.1`
   configuración aunque se cambie de carpeta en a-Shell.
 - Se añadió `of verificar-ios` para comprobar Python, fuentes, escritura local
   y estructura de la sesión sin contactar la API.
+- Si no existe `OF_IOS_HOME`, el motor usa `~/Documents/OFDownloader`, que es
+  la ubicación escribible de a-Shell; `of compilar` muestra la ruta y el error
+  exactos si iOS rechaza una carpeta.
 
 ### Novedades de 2.18.0 (iOS/a-Shell)
 

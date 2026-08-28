@@ -56,9 +56,11 @@ la base privada de cookies de Chrome o Safari; el JSON debe entregarse mediante
 Archivos, AirDrop, iCloud Drive o un atajo de Archivos.
 
 El programa almacena únicamente `sess`, `auth_id`, `x-bc` y `user_agent` en
-`~/OFDownloader/.private/auth.json`. El lanzador fija esa carpeta dentro de
-Documents aunque cambies el directorio actual. Elimina el JSON original
-después de importarlo.
+`$OF_IOS_HOME/.private/auth.json`. Si no defines esa variable, usa
+`~/Documents/OFDownloader`; cuando a-Shell ya tiene `~/` apuntando a
+`Documents`, la ruta equivalente es `~/OFDownloader`. El lanzador fija esa
+carpeta aunque cambies el directorio actual. Elimina el JSON original después
+de importarlo.
 
 ## Descargar
 
@@ -82,14 +84,15 @@ of compilar
 ```
 
 Ese comando compila el bytecode Python disponible en a-Shell y comprueba que
-`~/OFDownloader` y `~/OFDownloader/Descargas` sean escribibles. También aparece
-como `[7] Preparar/compilar motor iOS` dentro del menú.
+`$OF_IOS_HOME` y `$OF_IOS_HOME/Descargas` sean escribibles. También aparece
+como `[7] Preparar/compilar motor iOS` dentro del menú. Si falla, muestra las
+rutas reales y el motivo devuelto por iOS.
 
 La opción `[8] Autoprueba local de iOS` ejecuta las mismas comprobaciones y
 solo indica si la estructura de la sesión importada es válida; nunca muestra
 sus valores.
 
-Los medios quedan en `~/OFDownloader/Descargas/NOMBRE/`. La descarga es
+Los medios quedan en `$OF_IOS_HOME/Descargas/NOMBRE/`. La descarga es
 secuencial para respetar la memoria y el modelo de ejecución de iOS.
 
 ## Límites de la primera versión nativa

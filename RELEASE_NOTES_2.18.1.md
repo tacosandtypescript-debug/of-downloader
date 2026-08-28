@@ -12,5 +12,8 @@
   descargas sigan siendo las mismas aunque se cambie de carpeta.
 - `of verificar-ios` ofrece una autoprueba local redactada antes de probar la
   sesión contra OnlyFans.
+- El valor predeterminado de `OF_IOS_HOME` respeta la carpeta escribible
+  `~/Documents` de a-Shell cuando el lanzador no lo define; `of compilar`
+  detalla cada ruta y error de almacenamiento.
 - La variante sigue siendo local para a-Shell: biblioteca estándar de Python,
   sin Termux remoto, SSH, OF-Scraper ni procesos auxiliares.

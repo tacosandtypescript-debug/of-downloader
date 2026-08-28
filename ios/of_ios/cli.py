@@ -200,7 +200,13 @@ def cmd_build() -> int:
     report = prepare_engine(engine_source_root(), APP_HOME, DOWNLOAD_DIR)
     print(f"Motor: {report.source_root}")
     print(f"Bytecode Python: {'listo' if report.compiled else 'falló'}")
+    print(f"Carpeta de aplicación: {report.app_home}")
+    print(f"Carpeta de descargas: {report.download_dir}")
     print(f"Almacenamiento local: {'escribible' if report.writable else 'no escribible'}")
+    if report.app_home_error:
+        print(f"  Aplicación: {report.app_home_error}")
+    if report.download_dir_error:
+        print(f"  Descargas: {report.download_dir_error}")
     if not report.ok:
         print("✗ No se pudo preparar el motor. Revisa permisos y espacio en Archivos.")
         return 1

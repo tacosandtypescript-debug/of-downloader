@@ -23,12 +23,29 @@ from of_ios.api import (  # noqa: E402
 )
 from of_ios.build import prepare_engine  # noqa: E402
 from of_ios.cli import build_parser, interactive, main  # noqa: E402
-from of_ios.config import ConfigError, import_auth, parse_auth_export  # noqa: E402
+from of_ios.config import (  # noqa: E402
+    ConfigError,
+    _default_app_home,
+    import_auth,
+    parse_auth_export,
+)
 from of_ios.media import download_url, iter_direct_media, safe_name  # noqa: E402
 from of_ios.selftest import run_selftest  # noqa: E402
 
 
 class IOSNativeTests(unittest.TestCase):
+    def test_default_app_home_uses_ashell_documents(self):
+        with mock.patch("of_ios.config.Path.home", return_value=Path("/private/app")):
+            self.assertEqual(
+                _default_app_home(), Path("/private/app/Documents/OFDownloader")
+            )
+        with mock.patch(
+            "of_ios.config.Path.home", return_value=Path("/private/app/Documents")
+        ):
+            self.assertEqual(
+                _default_app_home(), Path("/private/app/Documents/OFDownloader")
+            )
+
     def test_prepare_engine_compiles_and_checks_local_storage(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "source"
@@ -39,8 +56,12 @@ class IOSNativeTests(unittest.TestCase):
             report = prepare_engine(root, app_home, downloads)
             self.assertTrue(report.ok)
             self.assertTrue((root / "__pycache__").is_dir())
-            self.assertFalse((app_home / ".of-ios-write-test").exists())
-            self.assertFalse((downloads / ".of-ios-write-test").exists())
+            self.assertEqual(report.app_home, app_home)
+            self.assertEqual(report.download_dir, downloads)
+            self.assertIsNone(report.app_home_error)
+            self.assertIsNone(report.download_dir_error)
+            self.assertFalse(any(app_home.glob(".of-ios-write-test-*")))
+            self.assertFalse(any(downloads.glob(".of-ios-write-test-*")))
 
     def test_nested_auth_export_is_accepted(self):
         values = parse_auth_export(
