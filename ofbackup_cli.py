@@ -661,6 +661,13 @@ def import_credentials_file(path: Path) -> None:
 
     print("\n✓ Archivo válido y datos de acceso guardados.")
     print("Solo se conservaron sess, auth_id, x-bc y User-Agent.")
+    print(
+        "Metadatos importados: "
+        f"sess={len(values['sess'])}, "
+        f"auth_id={len(values['auth_id'])}, "
+        f"x-bc={len(values['x-bc'])}, "
+        f"user_agent={len(values['user_agent'])}"
+    )
     if original_removed:
         print("El archivo original se eliminó de Descargas.")
     else:

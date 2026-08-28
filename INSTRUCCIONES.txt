@@ -210,6 +210,14 @@ Si el selector no abre:
 
    of importar RUTA/OFBackup-auth.json
 
+La ruta puede estar en cualquier carpeta accesible por Termux, por ejemplo:
+
+   of importar "$HOME/storage/shared/Mis archivos/OFBackup-auth.json"
+
+El selector y la importación directa nunca sustituyen el archivo elegido por
+un JSON antiguo de Descargas. Al importar se muestran únicamente los tamaños
+de los cuatro campos, nunca sus valores.
+
 Envio directo sin mover archivo:
 
    of recibir-cookie --qr

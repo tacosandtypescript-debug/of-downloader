@@ -358,10 +358,17 @@ of usuario NOMBRE
 of "https://onlyfans.com/..."
 of probar
 of diagnostico
+of importar /ruta/a/cualquier/carpeta/OFBackup-auth.json
 of actualizar-app
 of recibir-cookie
 of recibir-cookie --qr
 ```
+
+En Termux, la opción de conectar cuenta abre el selector de Android y acepta
+el JSON desde cualquier carpeta que Android pueda compartir con Termux. También
+puedes pegar una ruta directamente con `of importar RUTA_DEL_ARCHIVO`. Si el
+selector falla o devuelve un archivo vacío, la aplicación ya no sustituye el
+archivo elegido por un JSON antiguo de `Descargas`.
 
 `of probar` guarda el diagnóstico técnico de cada intento en
 `~/ofbackup-auth-test.log`. El registro incluye código HTTP, duración,

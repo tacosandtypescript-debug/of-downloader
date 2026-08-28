@@ -240,6 +240,14 @@ run_selected_temp() {
 
 import_host_file() {
     local source="$1"
+    # Permite rutas pegadas con comillas y la abreviatura ~/... sin usar eval.
+    source="${source#\"}"
+    source="${source%\"}"
+    source="${source#\'}"
+    source="${source%\'}"
+    if [[ "$source" == "~/"* ]]; then
+        source="$HOME/${source:2}"
+    fi
     if [[ ! -f "$source" ]]; then
         echo "✗ No encuentro el archivo: $source"
         return 2
@@ -273,24 +281,28 @@ import_host_file() {
     return "$status"
 }
 
-latest_download_export() {
-    local candidate=""
-    local file
-    shopt -s nullglob
-    for file in "$HOME/storage/downloads"/OFBackup-auth*.json; do
-        if [[ -s "$file" && ( -z "$candidate" || "$file" -nt "$candidate" ) ]]; then
-            candidate="$file"
-        fi
-    done
-    shopt -u nullglob
-    printf '%s' "$candidate"
+manual_import_prompt() {
+    local source=""
+    echo "Puedes pegar la ruta completa del JSON en cualquier carpeta accesible por Termux."
+    echo "Ejemplo: ~/storage/shared/Mis archivos/OFBackup-auth.json"
+    if [[ -r /dev/tty ]]; then
+        IFS= read -r -p "Ruta (Enter para cancelar) › " source </dev/tty || true
+    else
+        IFS= read -r -p "Ruta (Enter para cancelar) › " source || true
+    fi
+    if [[ -z "${source//[[:space:]]/}" ]]; then
+        echo "No se seleccionó ningún archivo. No se usará otro JSON automáticamente."
+        return 2
+    fi
+    import_host_file "$source"
 }
 
 select_and_import() {
     if ! command -v termux-storage-get >/dev/null 2>&1; then
-        echo "✗ Falta Termux:API. Instala el paquete con: pkg install termux-api"
-        echo "También necesitas la aplicación Termux:API de la misma fuente que Termux."
-        return 2
+        echo "✗ Falta Termux:API para abrir el selector de Android."
+        echo "También puedes importar una ruta manual sin usar el selector."
+        manual_import_prompt
+        return $?
     fi
 
     mkdir -p "$HOST_CACHE"
@@ -300,29 +312,23 @@ select_and_import() {
     chmod 600 "$selected"
 
     echo "Abriendo el selector de Android…"
-    echo "Elige OFBackup-auth.json en Descargas."
+    echo "Elige OFBackup-auth.json desde cualquier carpeta del dispositivo."
     if ! termux-storage-get "$selected"; then
         rm -f "$selected"
         SELECTED_TEMP=""
-        echo "✗ No se seleccionó ningún archivo o Termux:API no está disponible."
-        echo "Comprueba que Termux y Termux:API procedan de la misma tienda."
-        return 2
+        echo "✗ Android no pudo entregar el archivo seleccionado."
+        echo "No se usará automáticamente un JSON antiguo de Descargas."
+        manual_import_prompt
+        return $?
     fi
 
     if [[ ! -s "$selected" ]]; then
         rm -f "$selected"
         SELECTED_TEMP=""
-        local downloaded
-        downloaded="$(latest_download_export)"
-        if [[ -n "$downloaded" ]]; then
-            echo "El selector entregó un archivo vacío; usaré el archivo de Descargas."
-            import_host_file "$downloaded"
-            return $?
-        fi
         echo "✗ Android entregó un archivo vacío."
-        echo "Guarda OFBackup-auth.json en Descargas y ejecuta:"
-        echo "  of importar ~/storage/downloads/OFBackup-auth.json"
-        return 2
+        echo "No se usará automáticamente un JSON antiguo de Descargas."
+        manual_import_prompt
+        return $?
     fi
 
     echo "Archivo recibido desde Android: $(wc -c <"$selected") bytes."
