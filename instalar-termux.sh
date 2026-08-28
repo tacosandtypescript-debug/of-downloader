@@ -1,4 +1,42 @@
 #!/data/data/com.termux/files/usr/bin/bash
+
+# The installer uses Bash features (arrays, [[ ]], pipefail), but many
+# Android guides invoke it as `curl ... | sh`, which bypasses the shebang.
+# Re-launch from Bash before the Bash-only body is parsed.  For a piped
+# invocation there is no source path, so fetch the same script into a private
+# temporary file first.  `OFBACKUP_INSTALLER_URL` keeps forks/self-hosted
+# copies usable without changing the normal command.
+if [ -z "${BASH_VERSION:-}" ]; then
+    if [ -f "${0:-}" ]; then
+        exec bash "$0" "$@"
+    fi
+
+    installer_url="${OFBACKUP_INSTALLER_URL:-https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloader/main/instalar-termux.sh}"
+    if ! command -v bash >/dev/null 2>&1; then
+        echo "✗ Este instalador necesita Bash. Instálalo con: pkg install bash" >&2
+        exit 127
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "✗ Para usar curl | sh necesitas curl y Bash instalados." >&2
+        exit 127
+    fi
+    installer_tmp="$(mktemp 2>/dev/null || true)"
+    if [ -z "$installer_tmp" ]; then
+        echo "✗ No se pudo crear un temporal para relanzar el instalador." >&2
+        exit 1
+    fi
+    trap 'rm -f "$installer_tmp"' 0 1 2 15
+    if ! curl -fsSL "$installer_url" -o "$installer_tmp"; then
+        echo "✗ No se pudo descargar la versión Bash del instalador." >&2
+        exit 1
+    fi
+    bash "$installer_tmp" "$@"
+    installer_status=$?
+    rm -f "$installer_tmp"
+    trap - 0 1 2 15
+    exit "$installer_status"
+fi
+
 set -euo pipefail
 
 SOURCE_DIR=""
