@@ -12,7 +12,7 @@ CONTROLLED_GROUP=0
 
 if [[ ! -x "$PYTHON" || ! -f "$CLI" ]]; then
     echo "OF Downloader no está instalado correctamente."
-    echo "Vuelve a ejecutar instalar-linux.sh desde el repositorio."
+    echo "Vuelve a ejecutar bash instalar-linux.sh desde el repositorio."
     exit 1
 fi
 

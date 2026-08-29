@@ -473,7 +473,7 @@ bash instalar-termux.sh
 Si instalaste con `curl | sh` y no tienes `~/of-downloader`, usa el actualizador
 incremental. Descarga el código de `main`, conserva la cookie, perfiles,
 configuración y descargas, y solo ejecuta `pip` si cambió
-`requirements-termux.txt`:
+`requirements/termux.txt`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloader/main/actualizar-termux.sh | bash
@@ -499,7 +499,8 @@ cookies privadas de Chrome ni de otras aplicaciones.
 Para compilar el APK de prueba desde un entorno con Android SDK y Gradle:
 
 ```bash
-gradle :android:assembleDebug
+cd android
+gradle assembleDebug
 ```
 
 Después instala `android/build/outputs/apk/debug/android-debug.apk`, inicia
@@ -582,27 +583,24 @@ python -m unittest discover -s tests
 Archivos principales:
 
 ```text
+README.md                    Documentación
 ofbackup_cli.py              Menú terminal (punto de entrada Python)
-instalar-termux.sh           Instalador Termux
-instalar-linux.sh            Instalador Linux
-instalar-windows.ps1         Instalador Windows
-instalar-ios.sh              Instalador a-Shell / iOS
-actualizar-termux.sh         Actualización incremental Termux
-ofbackup                     Launcher Termux
-of-downloader-linux          Launcher Linux instalado
-of-windows.cmd               Launcher Windows
-iniciar.sh / iniciar.bat     Ejecución directa desde el clon
-abrir-dashboard.sh / .cmd    Atajo al dashboard local
+instalar-*.sh / .ps1         Atajos públicos a deploy/
+actualizar-termux.sh         Atajo público al actualizador Termux
+of-windows.cmd               Atajo para instalaciones Windows existentes
 backend/                     Auth, descargas, cola y dashboard
 frontend/                    Colores, progreso y terminal
 web/                         HTML del dashboard
 ios/                         Motor nativo para a-Shell
-android/                     Companion APK
+android/                     Companion APK (Gradle del módulo)
 tests/                       Pruebas automáticas
-docs/releases/               Notas de versión
-deploy/                      Wrappers internos por plataforma
-scripts/                     Utilidades (envío de APK)
+docs/                        Instrucciones, banner y notas de versión
+config/                      Ejemplo de configuración
+requirements/                Dependencias desktop y Termux
+deploy/                      Instaladores y lanzadores por plataforma
+scripts/                     Utilidades (dashboard local, envío de APK)
 ```
 
-Los instaladores, `ofbackup_cli.py`, `backend/` y `frontend/` deben permanecer
-en la raíz: los actualizadores y `curl | sh` dependen de esas rutas.
+`ofbackup_cli.py` permanece en la raíz porque el dashboard, las pruebas y
+los instaladores lo importan como módulo. Los atajos `instalar-*.sh` existen
+para que `curl | sh` y las guías actuales sigan funcionando.

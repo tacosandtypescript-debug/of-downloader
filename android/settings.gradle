@@ -16,5 +16,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "of-downloader"
-include(":android")
+rootProject.name = "of-downloader-android"

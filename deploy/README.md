@@ -1,22 +1,16 @@
 # Despliegue
 
-Los instaladores de la raíz del repositorio son los puntos de entrada públicos.
-No los muevas: README, `curl | sh` y el actualizador de Termux apuntan a esas rutas.
+Los scripts reales viven aquí. En la raíz del repositorio quedan atajos
+cortos con los nombres públicos (`instalar-termux.sh`, `instalar-linux.sh`,
+`instalar-windows.ps1`, `instalar-ios.sh`, `actualizar-termux.sh`) para no
+romper `curl | sh`, el README y las instalaciones ya hechas.
 
 | Plataforma | Instalar | Actualizar | Arrancar |
 |---|---|---|---|
-| Windows | `instalar-windows.ps1` | el propio instalador | `of-windows.cmd` |
-| Linux | `instalar-linux.sh` | `of actualizar-app` | `of-downloader-linux` |
-| Termux | `instalar-termux.sh` | `actualizar-termux.sh` | `ofbackup` |
-| iOS / a-Shell | `instalar-ios.sh` | reinstalar el script | `ios/of-ios.py` |
-
-Los scripts de esta carpeta solo reenvían a esos archivos:
-
-```text
-deploy/windows/instalar.ps1  → instalar-windows.ps1
-deploy/linux/instalar.sh     → instalar-linux.sh
-deploy/termux/instalar.sh    → instalar-termux.sh
-```
+| Windows | `deploy/windows/instalar.ps1` | el propio instalador | `deploy/windows/launcher.cmd` |
+| Linux | `deploy/linux/instalar.sh` | `of actualizar-app` | `deploy/linux/launcher.sh` |
+| Termux | `deploy/termux/instalar.sh` | `deploy/termux/actualizar.sh` | `deploy/termux/launcher` |
+| iOS / a-Shell | `deploy/ios/instalar.sh` | reinstalar el script | `ios/of-ios.py` |
 
 Cada instalador copia `ofbackup_cli.py`, `backend/`, `frontend/` y, en
 escritorio, `web/` al entorno privado de la aplicación. Los comandos públicos

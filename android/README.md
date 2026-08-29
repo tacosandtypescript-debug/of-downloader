@@ -22,10 +22,11 @@ se introduce en el formulario de OnlyFans, o se puede pulsar su botón oficial
 
 ## Compilar
 
-Desde la raíz del repositorio:
+Desde `android/`:
 
 ```bash
-gradle :android:assembleDebug
+cd android
+gradle assembleDebug
 ```
 
 El APK resultante queda en:

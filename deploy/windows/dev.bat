@@ -1,6 +1,6 @@
 @echo off
 REM Ejecuta el CLI desde el clon. Tras instalar, el comando publico es "of".
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 set "OFDOWNLOADER_PLATFORM=WINDOWS"
 where python >nul 2>nul
 if errorlevel 1 (
@@ -19,6 +19,6 @@ if not exist ".venv" (
     python -m venv .venv
 )
 .venv\Scripts\python -m pip install --upgrade pip
-.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m pip install -r requirements\desktop.txt
 .venv\Scripts\python ofbackup_cli.py %*
 pause
