@@ -1,4 +1,5 @@
 @echo off
+REM Alias de of-windows.cmd. Conservado para no romper accesos antiguos.
 setlocal
 set "SCRIPT_DIR=%~dp0"
 set "OFDOWNLOADER_PLATFORM=WINDOWS"

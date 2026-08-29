@@ -1,4 +1,5 @@
 #!/bin/bash
+# Ejecuta el CLI desde el clon. Tras instalar, el comando público es `of`.
 set -e
 cd "$(dirname "$0")"
 if ! command -v python3 >/dev/null 2>&1; then

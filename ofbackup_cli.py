@@ -33,25 +33,13 @@ from backend.models import (
     SubscriptionProfile,
     UserError,
 )
-BackendDownloadStats = DownloadStats
-BackendMediaCounts = MediaCounts
-from backend.process import (
-    PausableProcess as BackendPausableProcess,
-    read_process_output as backend_read_process_output,
-)
+from backend.process import PausableProcess, read_process_output
 from backend.progress import (
-    extract_download_percent as backend_extract_download_percent,
-    extract_media_totals as backend_extract_media_totals,
-    update_download_stats_from_line as backend_update_download_stats_from_line,
+    extract_download_percent,
+    extract_media_totals,
+    update_download_stats_from_line,
 )
-from frontend.progress import show_download_progress as frontend_show_download_progress
-
-# ── Servicios (arquitectura refactorizada) ───────────────────────────────
-from backend.auth import get_auth_service
-from backend.downloads import get_download_service
-from backend.drive import get_drive_service
-from backend.profiles import get_profile_service
-from frontend.terminal import get_terminal_service
+from frontend.progress import show_download_progress
 
 
 def _configure_windows_stdio() -> None:
@@ -405,38 +393,6 @@ def default_auth_export_path() -> Path:
 
 
 EXPORTED_AUTH_PATH = default_auth_export_path()
-
-# ── Instancias de servicio a nivel módulo ────────────────────────────────
-_auth_svc = None
-_download_svc = None
-_drive_svc = None
-_profile_svc = None
-_terminal_svc = None
-
-def _auth():  # lazy init para evitar imports circulares
-    global _auth_svc
-    if _auth_svc is None: _auth_svc = get_auth_service()
-    return _auth_svc
-
-def _dl():
-    global _download_svc
-    if _download_svc is None: _download_svc = get_download_service()
-    return _download_svc
-
-def _drv():
-    global _drive_svc
-    if _drive_svc is None: _drive_svc = get_drive_service()
-    return _drive_svc
-
-def _prof():
-    global _profile_svc
-    if _profile_svc is None: _profile_svc = get_profile_service()
-    return _profile_svc
-
-def _term():
-    global _terminal_svc
-    if _terminal_svc is None: _terminal_svc = get_terminal_service()
-    return _terminal_svc
 
 
 def get_state() -> dict:
@@ -2389,44 +2345,6 @@ def choose_profile_and_download() -> int:
     return download_user(selected.username, source="selector")
 
 
-def show_download_progress(percent: int | None, label: str, *, failed: bool = False) -> None:
-    columns = shutil.get_terminal_size((60, 20)).columns
-    width = max(10, min(20, columns - 36))
-    if percent is None:
-        percent_text = "--"
-        filled = 0
-    else:
-        percent = min(100, max(0, percent))
-        percent_text = f"{percent:02d}"
-        filled = percent * width // 100
-    bar = "#" * filled + "-" * (width - filled)
-    max_label = max(12, columns - width - 10)
-    if len(label) > max_label:
-        label = label[: max_label - 1].rstrip() + "…"
-    message = f"[{bar}] {percent_text}% {label}"
-    if sys.stdout.isatty():
-        prefix = "\033[2K\r"
-        if colors_enabled():
-            color = PALETTE["red" if failed else "cyan"]
-            print(f"{prefix}\033[1;{color}m{message}\033[0m", end="", flush=True)
-        else:
-            print(prefix + message, end="", flush=True)
-    else:
-        print(message)
-
-
-# Compatibilidad: el CLI conserva sus nombres públicos, pero la implementación
-# activa vive en backend/frontend para que otros frontends puedan reutilizarla.
-MediaCounts = BackendMediaCounts
-DownloadStats = BackendDownloadStats
-PausableProcess = BackendPausableProcess
-read_process_output = backend_read_process_output
-extract_download_percent = backend_extract_download_percent
-extract_media_totals = backend_extract_media_totals
-update_download_stats_from_line = backend_update_download_stats_from_line
-show_download_progress = frontend_show_download_progress
-
-
 def run_ofscraper(
     arguments: list[str], *, mode: str = "publicacion", target: str | None = None
 ) -> int:
@@ -2940,27 +2858,6 @@ def extension_download_available() -> bool:
     if platform_name in {"WINDOWS", "LINUX"}:
         return True
     return os.name == "nt" or sys.platform.startswith("linux")
-
-
-def download_cookie_extension() -> int:
-    if not extension_download_available():
-        print("La descarga de la extensión solo está disponible en Windows y Linux.")
-        return 1
-    print("\nEXTENSIÓN OF DOWNLOADER EXPORTER")
-    print("Se abrirá la página oficial para descargarla e instalarla en tu navegador.")
-    print(f"Chrome / Chromium: {EXTENSION_CHROME_URL}")
-    print(f"Firefox:           {EXTENSION_FIREFOX_URL}")
-    try:
-        opened = webbrowser.open(EXTENSION_PAGE_URL, new=2)
-    except webbrowser.Error:
-        opened = False
-    if opened:
-        print("\n✓ Página de descarga abierta en el navegador.")
-    else:
-        print("\nNo se pudo abrir el navegador automáticamente. Copia uno de los enlaces.")
-    print("Después vuelve al menú y usa [11] Recibir cookie desde extensión.")
-    pause()
-    return 0
 
 
 def extension_download_directory() -> Path:

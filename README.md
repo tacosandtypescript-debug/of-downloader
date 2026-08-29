@@ -43,6 +43,8 @@
 Versión actual del CLI multiplataforma: `2.17.8`
 Motor nativo para a-Shell/iOS: `2.18.1`
 
+El historial detallado de cada versión está en [`docs/releases/`](docs/releases/).
+
 ### Novedades de 2.18.1 (iOS/a-Shell)
 
 - `of importar` encuentra también exportaciones JSON con nombre personalizado
@@ -580,13 +582,27 @@ python -m unittest discover -s tests
 Archivos principales:
 
 ```text
-ofbackup_cli.py              Menú terminal
+ofbackup_cli.py              Menú terminal (punto de entrada Python)
 instalar-termux.sh           Instalador Termux
 instalar-linux.sh            Instalador Linux
 instalar-windows.ps1         Instalador Windows
+instalar-ios.sh              Instalador a-Shell / iOS
+actualizar-termux.sh         Actualización incremental Termux
 ofbackup                     Launcher Termux
-of-downloader-linux          Launcher Linux
-of-windows.cmd               Launcher Windows terminal
+of-downloader-linux          Launcher Linux instalado
+of-windows.cmd               Launcher Windows
+iniciar.sh / iniciar.bat     Ejecución directa desde el clon
+abrir-dashboard.sh / .cmd    Atajo al dashboard local
+backend/                     Auth, descargas, cola y dashboard
+frontend/                    Colores, progreso y terminal
+web/                         HTML del dashboard
+ios/                         Motor nativo para a-Shell
+android/                     Companion APK
 tests/                       Pruebas automáticas
-docs/                        Recursos visuales
+docs/releases/               Notas de versión
+deploy/                      Wrappers internos por plataforma
+scripts/                     Utilidades (envío de APK)
 ```
+
+Los instaladores, `ofbackup_cli.py`, `backend/` y `frontend/` deben permanecer
+en la raíz: los actualizadores y `curl | sh` dependen de esas rutas.

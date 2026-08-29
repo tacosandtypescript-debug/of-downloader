@@ -1,4 +1,5 @@
 @echo off
+REM Ejecuta el CLI desde el clon. Tras instalar, el comando publico es "of".
 cd /d "%~dp0"
 set "OFDOWNLOADER_PLATFORM=WINDOWS"
 where python >nul 2>nul
