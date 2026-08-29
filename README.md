@@ -40,7 +40,7 @@
 - Puede subir archivos nuevos a Google Drive usando `rclone`.
 - Permite actualizar la app desde el menú.
 
-Versión actual del CLI multiplataforma: `2.17.9`
+Versión actual del CLI multiplataforma: `2.17.10`
 Motor nativo para a-Shell/iOS: `2.18.1`
 
 ## Links rápidos

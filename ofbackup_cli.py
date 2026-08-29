@@ -64,7 +64,7 @@ def _configure_windows_stdio() -> None:
 _configure_windows_stdio()
 
 
-APP_VERSION = "2.17.9"
+APP_VERSION = "2.17.10"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -2334,11 +2334,20 @@ def _accepted_download_confirmation(answer: str) -> bool:
 
 
 def confirm_full_profile_download() -> bool:
-    answer = input("\nDescargar este perfil completo ahora? [S/n]: ").strip().lower()
+    print("", flush=True)
+    print("========================================", flush=True)
+    print("Descargar este perfil completo ahora?", flush=True)
+    print("Pulsa ENTER o s para SI.", flush=True)
+    print("Pulsa n y ENTER para cancelar.", flush=True)
+    print("========================================", flush=True)
+    try:
+        answer = input("Confirmar [S/n]: ").strip().lower()
+    except EOFError:
+        answer = "s"
     if _accepted_download_confirmation(answer):
-        print("Confirmado. Se inicia la descarga del perfil.")
+        print("Confirmado. Se inicia la descarga del perfil.", flush=True)
         return True
-    print("Cancelado. No se descargo nada.")
+    print("Cancelado. No se descargo nada.", flush=True)
     return False
 
 
@@ -2368,8 +2377,9 @@ def choose_profile_and_download() -> int:
         return 0
     detection = detect_profile_counts(selected.username)
     print_detection_summary(selected, detection)
-    if not confirm_full_profile_download():
-        return 0
+    print("", flush=True)
+    print("Deteccion terminada. Iniciando la descarga del perfil elegido.", flush=True)
+    print("No hace falta confirmar otra vez: ya seleccionaste el perfil.", flush=True)
     return download_user(selected.username, source="selector")
 
 

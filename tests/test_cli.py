@@ -1053,7 +1053,7 @@ class SubscriptionProfileTests(unittest.TestCase):
         self.assertEqual(profiles[0].username, "creator.unicode")
         self.assertEqual(profiles[0].display_name, "Creadora 💙 ñ")
 
-    def test_choose_profile_can_cancel_after_detection(self):
+    def test_choose_profile_starts_download_after_detection(self):
         profile = ofbackup_cli.SubscriptionProfile(username="creator.free")
         with (
             mock.patch.object(ofbackup_cli, "list_subscription_profiles", return_value=[profile]),
@@ -1065,43 +1065,7 @@ class SubscriptionProfileTests(unittest.TestCase):
                 ),
             ),
             mock.patch.object(ofbackup_cli, "download_user", return_value=0) as download,
-            mock.patch("builtins.input", side_effect=["1", "n"]),
-            mock.patch("builtins.print"),
-        ):
-            self.assertEqual(ofbackup_cli.choose_profile_and_download(), 0)
-        download.assert_not_called()
-
-    def test_choose_profile_downloads_after_confirmation(self):
-        profile = ofbackup_cli.SubscriptionProfile(username="creator.free")
-        with (
-            mock.patch.object(ofbackup_cli, "list_subscription_profiles", return_value=[profile]),
-            mock.patch.object(
-                ofbackup_cli,
-                "detect_profile_counts",
-                return_value=ofbackup_cli.ProfileDetection(
-                    username="creator.free", posts=7, photos=5, videos=2
-                ),
-            ),
-            mock.patch.object(ofbackup_cli, "download_user", return_value=0) as download,
-            mock.patch("builtins.input", side_effect=["1", "s"]),
-            mock.patch("builtins.print"),
-        ):
-            self.assertEqual(ofbackup_cli.choose_profile_and_download(), 0)
-        download.assert_called_once_with("creator.free", source="selector")
-
-    def test_empty_confirmation_starts_profile_download(self):
-        profile = ofbackup_cli.SubscriptionProfile(username="creator.free")
-        with (
-            mock.patch.object(ofbackup_cli, "list_subscription_profiles", return_value=[profile]),
-            mock.patch.object(
-                ofbackup_cli,
-                "detect_profile_counts",
-                return_value=ofbackup_cli.ProfileDetection(
-                    username="creator.free", posts=7, photos=5, videos=2
-                ),
-            ),
-            mock.patch.object(ofbackup_cli, "download_user", return_value=0) as download,
-            mock.patch("builtins.input", side_effect=["1", ""]),
+            mock.patch("builtins.input", side_effect=["1"]),
             mock.patch("builtins.print"),
         ):
             self.assertEqual(ofbackup_cli.choose_profile_and_download(), 0)
