@@ -64,7 +64,7 @@ def _configure_windows_stdio() -> None:
 _configure_windows_stdio()
 
 
-APP_VERSION = "2.17.8"
+APP_VERSION = "2.17.9"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
