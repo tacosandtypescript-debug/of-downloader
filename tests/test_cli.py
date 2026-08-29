@@ -230,8 +230,8 @@ class ThemeTests(unittest.TestCase):
 
     def test_update_notification_is_prominent_when_update_is_available(self):
         notification = ofbackup_cli.update_notification("available")
-        self.assertIn("NOTIFICACIÓN", notification)
         self.assertIn("[8]", notification)
+        self.assertIn("actualización", notification.lower())
 
     def test_update_notification_is_hidden_when_application_is_current(self):
         self.assertIsNone(ofbackup_cli.update_notification("current"))
@@ -258,14 +258,14 @@ class ThemeTests(unittest.TestCase):
             self.assertEqual(ofbackup_cli.menu(), 0)
         rendered = output.getvalue()
         self.assertLess(
-            rendered.index("[1] Elegir perfil"),
-            rendered.index("[2] Descargar perfil"),
+            rendered.index("[1] Mis perfiles"),
+            rendered.index("[2] Perfil por usuario"),
         )
         self.assertLess(
-            rendered.index("[2] Descargar perfil"),
-            rendered.index("[3] Descargar publicacion"),
+            rendered.index("[2] Perfil por usuario"),
+            rendered.index("[3] Publicacion"),
         )
-        self.assertIn("[10] Google Drive", rendered)
+        self.assertIn("[10] Drive", rendered)
         self.assertIn("[11] Recibir cookie", rendered)
         self.assertNotIn("Probar búsqueda de perfil", rendered)
 
@@ -1109,9 +1109,8 @@ class SubscriptionProfileTests(unittest.TestCase):
             str(call.args[0]) if call.args else ""
             for call in printed.call_args_list
         )
-        self.assertIn("INICIANDO DESCARGA", rendered)
-        self.assertIn("perfil completo @creator.example", rendered)
-        self.assertIn("Motor lanzado", rendered)
+        self.assertIn("DESCARGANDO @creator.example", rendered)
+        self.assertIn("En curso", rendered)
 
     def test_profile_lookup_writes_visible_log(self):
         completed = mock.Mock(

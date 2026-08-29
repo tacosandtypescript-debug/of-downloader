@@ -64,7 +64,7 @@ def _configure_windows_stdio() -> None:
 _configure_windows_stdio()
 
 
-APP_VERSION = "2.17.10"
+APP_VERSION = "2.17.11"
 OFSCRAPER_VERSION = "3.14.7"
 DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
 AUTH_EXPORT_FORMAT = "ofbackup-auth"
@@ -994,6 +994,19 @@ MENU_LOGO_LINES = (
 )
 
 
+def compact_ui() -> bool:
+    """Termux tiene poca altura: menos texto y pantalla limpia por paso."""
+    platform_name = os.getenv("OFDOWNLOADER_PLATFORM", "").upper()
+    return platform_name == "TERMUX" or "com.termux" in os.getenv("PREFIX", "")
+
+
+def clear_screen() -> None:
+    if ansi_supported():
+        print("\033[2J\033[H", end="", flush=True)
+    else:
+        print(flush=True)
+
+
 def ansi_supported() -> bool:
     if os.getenv("NO_COLOR"):
         return False
@@ -1053,12 +1066,7 @@ def update_notification(status: str | None = None) -> str | None:
     """Devuelve una notificación breve para el panel principal."""
     status = status or os.getenv("OFDOWNLOADER_UPDATE_STATUS", "unknown")
     if status == "available":
-        return styled(
-            "  ⚠ NOTIFICACIÓN: hay una actualización disponible. "
-            "Elige [8] para instalarla y reiniciar.",
-            "yellow",
-            bold=True,
-        )
+        return styled("  ⚠ Hay actualización. Pulsa [8]", "yellow", bold=True)
     if status == "diverged":
         return styled(
             "  ⚠ NOTIFICACIÓN: el repositorio local y remoto han divergido. "
@@ -2094,10 +2102,9 @@ def run_profile_lookup_process(
             env=ofscraper_environment(),
         )
         started = time.monotonic()
-        print("Detectando fotos y videos antes de descargar...", flush=True)
-        print("Esto todavia no es la descarga. Puede tardar hasta 2 minutos.", flush=True)
+        print("Revisando perfil…", flush=True)
         if sys.stdout.isatty():
-            show_download_progress(None, "Detectando fotos y videos")
+            show_download_progress(None, "Revisando")
         while process.poll() is None:
             elapsed = time.monotonic() - started
             if elapsed >= timeout:
@@ -2111,17 +2118,17 @@ def run_profile_lookup_process(
                 stderr = (stderr or "") + f"\nLa prueba supero {timeout} segundos.\n"
                 break
             if sys.stdout.isatty():
-                show_download_progress(None, "Detectando fotos y videos")
+                show_download_progress(None, "Revisando")
             time.sleep(0.5)
         else:
             stdout, stderr = process.communicate()
             code = process.returncode
         if sys.stdout.isatty():
             if code == 0:
-                show_download_progress(100, "Deteccion lista")
+                show_download_progress(100, "Listo")
             else:
-                show_download_progress(None, "Deteccion previa no disponible", failed=True)
-            print()
+                show_download_progress(None, "Sin conteo previo", failed=True)
+            print(flush=True)
     except OSError as exc:
         code, stdout, stderr = 1, "", str(exc)
     log_content = (
@@ -2173,33 +2180,14 @@ def detect_profile_counts(username: str, timeout: int = 120) -> ProfileDetection
     )
     detection = parse_profile_detection(stdout)
     if code == 0 and detection is not None:
-        if detection.counted is not None:
-            total = f"{detection.counted} medios observados"
-        elif detection.declared is not None:
-            total = f"{detection.declared} medios declarados"
-        else:
-            total = "conteo no informado"
-        details = []
-        if detection.accessible is not None:
-            details.append(f"accesibles {detection.accessible}")
-        if detection.blocked is not None:
-            details.append(f"bloqueados {detection.blocked}")
-        suffix = f" ({', '.join(details)})" if details else ""
-        print(f"Deteccion lista: {total}{suffix}.")
         return detection
-    print("No se pudo detectar el contenido antes de descargar.")
+    print("No se pudo revisar el perfil. La descarga puede continuar.", flush=True)
     if code == 124:
-        print("La deteccion tardo demasiado.")
+        print("Tardo demasiado.", flush=True)
     elif "Auth Failed" in stdout or "Auth Failed" in stderr:
-        print("OnlyFans rechazo los datos de acceso.")
-    elif "NoSuchCommand" in stdout or "NoSuchCommand" in stderr:
-        print("La sesion responde, pero esta version de OF-Scraper no expone la API")
-        print("necesaria para contar el perfil antes de descargar.")
-        print("La descarga principal puede continuar; el conteo previo no esta disponible.")
-    else:
-        print("Puede ser sesion invalida, perfil sin acceso o bloqueo de la API.")
+        print("OnlyFans rechazo el acceso.", flush=True)
     if visible_log:
-        print(f"Log visible: {visible_log}")
+        print(f"Log: {visible_log}", flush=True)
     return None
 
 
@@ -2208,8 +2196,7 @@ def list_subscription_profiles(timeout: int = 90) -> list[SubscriptionProfile]:
     write_ofscraper_config()
     ofscraper_binary()
     destination = Path(get_state()["download_dir"]).expanduser()
-    print("\nBuscando perfiles de tus suscripciones activas...")
-    print("Incluye perfiles gratis si OnlyFans los muestra como activos.")
+    print("Buscando perfiles…", flush=True)
     try:
         process = subprocess.run(
             [sys.executable, "-c", SUBSCRIPTIONS_LIST_SCRIPT],
@@ -2237,17 +2224,15 @@ def list_subscription_profiles(timeout: int = 90) -> list[SubscriptionProfile]:
     visible_log = write_visible_log(destination, SUBSCRIPTIONS_LOG_NAME, log_content)
     profiles = parse_subscriptions_stdout(stdout)
     if code == 0 and profiles:
-        print(f"Perfiles encontrados: {len(profiles)}")
+        print(f"{len(profiles)} perfiles", flush=True)
         return profiles
-    print("No se pudieron cargar perfiles suscritos.")
+    print("No hay perfiles.", flush=True)
     if code == 124:
-        print("La busqueda tardo demasiado.")
+        print("La busqueda tardo demasiado.", flush=True)
     elif "Auth Failed" in stdout or "Auth Failed" in stderr:
-        print("OnlyFans rechazo los datos de acceso. Renueva la cookie en la opcion 3.")
-    else:
-        print("La sesion no devolvio perfiles o el motor no informo datos utiles.")
+        print("Renueva la cookie [4].", flush=True)
     if visible_log:
-        print(f"Log visible: {visible_log}")
+        print(f"Log: {visible_log}", flush=True)
     return []
 
 
@@ -2256,13 +2241,14 @@ def compact_count(value: int | None) -> str:
 
 
 def profile_list_line(index: int, profile: SubscriptionProfile) -> str:
-    display = f" ({profile.display_name})" if profile.display_name and profile.display_name != profile.username else ""
-    counts = (
-        f"posts {compact_count(profile.posts)} | "
-        f"fotos {compact_count(profile.photos)} | "
-        f"videos {compact_count(profile.videos)}"
-    )
-    return f"{index:>3}. @{profile.username}{display} - {profile.status} - {counts}"
+    bits: list[str] = [f"[{index}]", f"@{profile.username}"]
+    if profile.status and profile.status not in {"activo", "active"}:
+        bits.append(profile.status)
+    if profile.photos:
+        bits.append(f"{profile.photos}f")
+    if profile.videos:
+        bits.append(f"{profile.videos}v")
+    return "  ".join(bits)
 
 
 def choose_subscription_profile(
@@ -2270,12 +2256,12 @@ def choose_subscription_profile(
 ) -> SubscriptionProfile | None:
     visible = profiles
     while True:
-        print("\nPERFILES")
+        print()
         for index, profile in enumerate(visible[:40], start=1):
             print(profile_list_line(index, profile))
         if len(visible) > 40:
-            print(f"... y {len(visible) - 40} mas. Escribe texto para filtrar.")
-        choice = input("\nEscoge numero, @usuario, texto para filtrar o Enter para cancelar: ").strip()
+            print(f"... +{len(visible) - 40}")
+        choice = input("Numero: ").strip()
         if not choice:
             return None
         if choice.isdigit():
@@ -2304,28 +2290,17 @@ def choose_subscription_profile(
 
 
 def print_detection_summary(profile: SubscriptionProfile, detection: ProfileDetection | None) -> None:
-    print("\nDETECCION")
-    print(f"Perfil: @{profile.username}")
     if detection is None:
-        print("Conteo previo: no disponible (la sesion puede seguir siendo valida)")
+        print(f"@{profile.username}", flush=True)
         return
-    print(f"Posts:      {compact_count(detection.posts)}")
-    print(f"Fotos:      {compact_count(detection.photos)}")
-    print(f"Videos:     {compact_count(detection.videos)}")
-    print(f"Archivados: {compact_count(detection.archived)}")
-    if detection.accessible is not None:
-        print(f"Accesibles: {compact_count(detection.accessible)}")
-    if detection.blocked is not None:
-        print(f"Bloqueados: {compact_count(detection.blocked)}")
-    if detection.declared is not None:
-        print(f"Medios declarados: {compact_count(detection.declared)}")
-    if detection.counted is not None:
-        status = "parcial" if detection.partial else "completo"
-        print(f"Medios observados: {detection.counted} ({status})")
-    else:
-        print("Medios observados: no informado (la API no entrego cada elemento)")
-    if detection.accessible is None and detection.blocked is None:
-        print("Accesibles/bloqueados: no informado")
+    parts = [f"@{profile.username}"]
+    if detection.posts is not None:
+        parts.append(f"{detection.posts} posts")
+    if detection.photos is not None:
+        parts.append(f"{detection.photos} fotos")
+    if detection.videos is not None:
+        parts.append(f"{detection.videos} videos")
+    print("  ".join(parts), flush=True)
 
 
 def _accepted_download_confirmation(answer: str) -> bool:
@@ -2334,52 +2309,39 @@ def _accepted_download_confirmation(answer: str) -> bool:
 
 
 def confirm_full_profile_download() -> bool:
-    print("", flush=True)
-    print("========================================", flush=True)
-    print("Descargar este perfil completo ahora?", flush=True)
-    print("Pulsa ENTER o s para SI.", flush=True)
-    print("Pulsa n y ENTER para cancelar.", flush=True)
-    print("========================================", flush=True)
+    print("Descargar ahora?  Enter=SI  n=NO", flush=True)
     try:
-        answer = input("Confirmar [S/n]: ").strip().lower()
+        answer = input("> ").strip().lower()
     except EOFError:
         answer = "s"
     if _accepted_download_confirmation(answer):
-        print("Confirmado. Se inicia la descarga del perfil.", flush=True)
         return True
-    print("Cancelado. No se descargo nada.", flush=True)
+    print("Cancelado.", flush=True)
     return False
 
 
 def announce_download_start(*, mode: str, target: str | None) -> None:
-    """Mensaje fijo (no se borra con la barra) para Termux, Linux y Windows."""
     print("", flush=True)
-    print("INICIANDO DESCARGA", flush=True)
     if mode == "perfil":
-        print(f"Tipo: perfil completo @{target or 'desconocido'}", flush=True)
+        print(f"DESCARGANDO @{target or '?'}", flush=True)
     else:
-        print(f"Tipo: publicacion {target or 'por enlace'}", flush=True)
-    print("El motor ya se esta lanzando. No cierres la terminal.", flush=True)
-    print(
-        "El progreso se actualiza debajo. En perfiles grandes puede tardar "
-        "en aparecer el primer archivo.",
-        flush=True,
-    )
+        print("DESCARGANDO publicacion", flush=True)
+    print("No cierres la app.", flush=True)
 
 
 def choose_profile_and_download() -> int:
+    clear_screen()
     profiles = list_subscription_profiles()
     if not profiles:
         return 1
     selected = choose_subscription_profile(profiles)
     if selected is None:
-        print("Cancelado. No se descargo nada.")
+        print("Cancelado.")
         return 0
+    clear_screen()
+    print(f"@{selected.username}", flush=True)
     detection = detect_profile_counts(selected.username)
     print_detection_summary(selected, detection)
-    print("", flush=True)
-    print("Deteccion terminada. Iniciando la descarga del perfil elegido.", flush=True)
-    print("No hace falta confirmar otra vez: ya seleccionaste el perfil.", flush=True)
     return download_user(selected.username, source="selector")
 
 
@@ -2427,14 +2389,14 @@ def run_ofscraper(
             if process.stdout is None:  # pragma: no cover - garantía de subprocess
                 raise UserError("No se pudo leer la salida de OF-Scraper.")
             pause_controller = PausableProcess(process.pid) if mode == "perfil" else None
-            print("Motor lanzado. Esperando respuesta de OnlyFans…", flush=True)
+            print("En curso…", flush=True)
             if (
                 pause_controller
                 and pause_controller.available
                 and sys.stdin.isatty()
                 and not os.getenv("OFDOWNLOADER_EXTERNAL_PAUSE")
             ):
-                print("Controles: P + Enter pausa | R + Enter reanuda", flush=True)
+                print("P = pausa  R = seguir", flush=True)
 
                 def pause_commands() -> None:
                     while not control_stop.is_set():
@@ -2668,17 +2630,11 @@ def download_user(
         raise UserError("El nombre de usuario no es válido.")
     state["username"] = username
     save_state(state)
-    if source == "enlace":
-        print(f"✓ Enlace de perfil detectado: @{username}")
-    else:
-        print(f"✓ Perfil detectado: @{username}")
-    print("Se lanzará la búsqueda del perfil completo permitido por tu cuenta.")
-    print("Reescaneo completo activado para evitar caché vacía o antigua.")
     if source != "selector":
+        clear_screen()
+        print(f"@{username}", flush=True)
         detection = detect_profile_counts(username)
         print_detection_summary(SubscriptionProfile(username=username), detection)
-        if detection is None:
-            print("El conteo previo no esta disponible, pero puedes continuar con la descarga.")
         if not confirm_full_profile_download():
             return 0
     return run_ofscraper(
@@ -3041,47 +2997,47 @@ def menu() -> int:
         if ansi_supported():
             print("\033[2J\033[H", end="")
         print()
-        brand_labels = (
-            "OF DOWNLOADER",
-            f"{os.getenv('OFDOWNLOADER_PLATFORM', 'TERMUX')} · v{APP_VERSION}",
-            "Descargas simples",
-            "",
-        )
-        for label, logo_line in zip(brand_labels, MENU_LOGO_LINES):
-            menu_brand_line(label, logo_line)
-        print(styled("  " + "─" * 42, "navy"))
+        if compact_ui():
+            print(styled(f"  OF  v{APP_VERSION}", "white", bold=True))
+        else:
+            brand_labels = (
+                "OF DOWNLOADER",
+                f"{os.getenv('OFDOWNLOADER_PLATFORM', 'TERMUX')} · v{APP_VERSION}",
+                "Descargas simples",
+                "",
+            )
+            for label, logo_line in zip(brand_labels, MENU_LOGO_LINES):
+                menu_brand_line(label, logo_line)
+            print(styled("  " + "─" * 42, "navy"))
 
         update_status = os.getenv("OFDOWNLOADER_UPDATE_STATUS", "unknown")
         notification = update_notification(update_status)
         if notification:
             print(notification)
         print(styled("\n  DESCARGAS", "blue", bold=True))
-        menu_option("1", "Elegir perfil de mis suscripciones")
-        menu_option("2", "Descargar perfil por usuario o enlace")
-        menu_option("3", "Descargar publicacion por enlace")
+        menu_option("1", "Mis perfiles")
+        menu_option("2", "Perfil por usuario")
+        menu_option("3", "Publicacion")
 
-        print(styled("\n  MI CUENTA", "blue", bold=True))
-        menu_option("4", "Cargar archivo de cookie manualmente")
+        print(styled("\n  CUENTA", "blue", bold=True))
+        menu_option("4", "Cargar cookie")
         menu_option("5", "Probar acceso")
 
-        print(styled("\n  HERRAMIENTAS", "blue", bold=True))
-        menu_option("6", "Cambiar carpeta de descargas")
-        menu_option("7", "Ver diagnostico")
+        print(styled("\n  APP", "blue", bold=True))
+        menu_option("6", "Carpeta")
+        menu_option("7", "Diagnostico")
         update_status = os.getenv("OFDOWNLOADER_UPDATE_STATUS", "unknown")
-        update_label = "Actualizar OF Downloader y reiniciar"
+        update_label = "Actualizar app"
         if update_status == "available":
             update_label += "  ← NUEVA"
         menu_option("8", update_label)
-        menu_option("9", "Actualizar motor de descarga")
-        menu_option("10", "Google Drive")
-
-        print(styled("\n  EXTENSION Y COOKIE", "blue", bold=True))
-        menu_option("11", "Recibir cookie desde extension")
+        menu_option("9", "Actualizar motor")
+        menu_option("10", "Drive")
+        menu_option("11", "Recibir cookie")
         if extension_download_available():
-            menu_option("12", "Descargar extension para cookie")
+            menu_option("12", "Descargar extension")
         if desktop_dashboard_available():
-            print(styled("\n  INTERFAZ WEB", "blue", bold=True))
-            menu_option("13", "Abrir dashboard en el navegador")
+            menu_option("13", "Dashboard")
         menu_option("0", "Salir")
 
         status = styled("● CONECTADA", "green", bold=True) if connected else styled(
@@ -3094,7 +3050,7 @@ def menu() -> int:
             f"{repository_update_badge(update_status)}"
         )
         print(f"  {styled('Destino:', 'muted')} {styled(state['download_dir'], 'white')}")
-        choice = input(styled("\n  Elige una opción › ", "cyan", bold=True)).strip()
+        choice = input(styled("\n  Opcion: ", "cyan", bold=True)).strip()
         try:
             if choice == "1":
                 choose_profile_and_download()

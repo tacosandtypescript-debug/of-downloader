@@ -40,8 +40,8 @@ class DashboardAvailabilityTests(unittest.TestCase):
                 ofbackup_cli.menu()
             return output.getvalue()
 
-        self.assertIn("[13] Abrir dashboard", render("LINUX"))
-        self.assertNotIn("[13] Abrir dashboard", render("TERMUX"))
+        self.assertIn("[13] Dashboard", render("LINUX"))
+        self.assertNotIn("[13] Dashboard", render("TERMUX"))
 
 
 class QueueComponentTests(unittest.TestCase):
