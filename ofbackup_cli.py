@@ -1410,6 +1410,7 @@ def ofscraper_environment() -> dict[str, str]:
     """Evita que la comprobación externa de CDM bloquee mucho el inicio."""
     environment = os.environ.copy()
     environment["PYTHONIOENCODING"] = "utf-8"
+    environment["PYTHONUNBUFFERED"] = "1"
     environment["OFSC_CDM_TEST_TIMEOUT"] = "8"
     environment["OFSC_CDM_TEST_NUM_TRIES"] = "1"
     ffmpeg = find_ffmpeg_binary()
@@ -2093,11 +2094,10 @@ def run_profile_lookup_process(
             env=ofscraper_environment(),
         )
         started = time.monotonic()
+        print("Detectando fotos y videos antes de descargar...", flush=True)
+        print("Esto todavia no es la descarga. Puede tardar hasta 2 minutos.", flush=True)
         if sys.stdout.isatty():
             show_download_progress(None, "Detectando fotos y videos")
-        else:
-            print("Detectando fotos y videos antes de descargar...")
-            print("Puede tardar hasta 2 minutos en perfiles grandes.")
         while process.poll() is None:
             elapsed = time.monotonic() - started
             if elapsed >= timeout:
@@ -2328,6 +2328,36 @@ def print_detection_summary(profile: SubscriptionProfile, detection: ProfileDete
         print("Accesibles/bloqueados: no informado")
 
 
+def _accepted_download_confirmation(answer: str) -> bool:
+    """Enter o sí/si/s/y confirma. El valor corrupto sÃ­ cubre consolas mal codificadas."""
+    return answer in {"", "s", "si", "sí", "sÃ­", "y", "yes"}
+
+
+def confirm_full_profile_download() -> bool:
+    answer = input("\nDescargar este perfil completo ahora? [S/n]: ").strip().lower()
+    if _accepted_download_confirmation(answer):
+        print("Confirmado. Se inicia la descarga del perfil.")
+        return True
+    print("Cancelado. No se descargo nada.")
+    return False
+
+
+def announce_download_start(*, mode: str, target: str | None) -> None:
+    """Mensaje fijo (no se borra con la barra) para Termux, Linux y Windows."""
+    print("", flush=True)
+    print("INICIANDO DESCARGA", flush=True)
+    if mode == "perfil":
+        print(f"Tipo: perfil completo @{target or 'desconocido'}", flush=True)
+    else:
+        print(f"Tipo: publicacion {target or 'por enlace'}", flush=True)
+    print("El motor ya se esta lanzando. No cierres la terminal.", flush=True)
+    print(
+        "El progreso se actualiza debajo. En perfiles grandes puede tardar "
+        "en aparecer el primer archivo.",
+        flush=True,
+    )
+
+
 def choose_profile_and_download() -> int:
     profiles = list_subscription_profiles()
     if not profiles:
@@ -2338,9 +2368,7 @@ def choose_profile_and_download() -> int:
         return 0
     detection = detect_profile_counts(selected.username)
     print_detection_summary(selected, detection)
-    answer = input("\nDescargar este perfil completo? [s/N]: ").strip().lower()
-    if answer not in {"s", "si", "sí", "y", "yes"}:
-        print("Cancelado. No se descargo nada.")
+    if not confirm_full_profile_download():
         return 0
     return download_user(selected.username, source="selector")
 
@@ -2354,12 +2382,7 @@ def run_ofscraper(
     command = build_ofscraper_command(executable, arguments)
     destination = Path(get_state()["download_dir"]).expanduser()
     before_download = media_snapshot(destination)
-    print("\nOF Downloader está preparando la descarga…")
-    if mode == "perfil":
-        print(f"Modo: perfil completo @{target or 'desconocido'}")
-    else:
-        print("Modo: publicación por enlace")
-    print(f"Motor: {format_command_for_log(command)}")
+    announce_download_start(mode=mode, target=target)
     traceback_seen = False
     auth_failed = False
     stats = DownloadStats()
@@ -2372,7 +2395,6 @@ def run_ofscraper(
     output_queue: Queue[str | None] = Queue()
     pause_controller: PausableProcess | None = None
     control_stop = Event()
-    show_download_progress(progress, last_label)
     APP_DIR.mkdir(parents=True, exist_ok=True)
     try:
         with DOWNLOAD_LOG_PATH.open("w", encoding="utf-8") as log_file:
@@ -2395,13 +2417,14 @@ def run_ofscraper(
             if process.stdout is None:  # pragma: no cover - garantía de subprocess
                 raise UserError("No se pudo leer la salida de OF-Scraper.")
             pause_controller = PausableProcess(process.pid) if mode == "perfil" else None
+            print("Motor lanzado. Esperando respuesta de OnlyFans…", flush=True)
             if (
                 pause_controller
                 and pause_controller.available
                 and sys.stdin.isatty()
                 and not os.getenv("OFDOWNLOADER_EXTERNAL_PAUSE")
             ):
-                print("\nControles: P + Enter pausa | R + Enter reanuda")
+                print("Controles: P + Enter pausa | R + Enter reanuda", flush=True)
 
                 def pause_commands() -> None:
                     while not control_stop.is_set():
@@ -2417,6 +2440,7 @@ def run_ofscraper(
                                 print("\n[REANUDADA] La descarga continúa.")
 
                 Thread(target=pause_commands, daemon=True).start()
+            show_download_progress(progress, last_label)
 
             Thread(
                 target=read_process_output,
@@ -2489,17 +2513,22 @@ def run_ofscraper(
                     new_progress, stage = progress, last_stage
 
                 label = stats.label(stage)
+                stage_changed = stage != last_stage
                 if (
                     new_progress != progress
-                    or stage != last_stage
+                    or stage_changed
                     or label != last_label
                     or stats_changed
                 ):
+                    if stage_changed and sys.stdout.isatty():
+                        print(flush=True)
                     progress, last_stage = new_progress, stage
                     last_label = label
                     show_download_progress(progress, last_label)
             returncode = process.wait()
             control_stop.set()
+            if sys.stdout.isatty():
+                print(flush=True)
     except OSError as exc:
         raise UserError(f"No se pudo iniciar OF-Scraper: {exc}") from exc
 
@@ -2640,9 +2669,7 @@ def download_user(
         print_detection_summary(SubscriptionProfile(username=username), detection)
         if detection is None:
             print("El conteo previo no esta disponible, pero puedes continuar con la descarga.")
-        answer = input("\nDescargar este perfil completo? [s/N]: ").strip().lower()
-        if answer not in {"s", "si", "sÃ­", "y", "yes"}:
-            print("Cancelado. No se descargo nada.")
+        if not confirm_full_profile_download():
             return 0
     return run_ofscraper(
         build_complete_profile_command(

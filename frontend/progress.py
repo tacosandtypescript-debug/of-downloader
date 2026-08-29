@@ -59,4 +59,4 @@ def show_download_progress(percent: int | None, label: str, *, failed: bool = Fa
         else:
             print(prefix + message, end="", flush=True)
     else:
-        print(message)
+        print(message, flush=True)

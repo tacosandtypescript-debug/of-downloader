@@ -1089,6 +1089,66 @@ class SubscriptionProfileTests(unittest.TestCase):
             self.assertEqual(ofbackup_cli.choose_profile_and_download(), 0)
         download.assert_called_once_with("creator.free", source="selector")
 
+    def test_empty_confirmation_starts_profile_download(self):
+        profile = ofbackup_cli.SubscriptionProfile(username="creator.free")
+        with (
+            mock.patch.object(ofbackup_cli, "list_subscription_profiles", return_value=[profile]),
+            mock.patch.object(
+                ofbackup_cli,
+                "detect_profile_counts",
+                return_value=ofbackup_cli.ProfileDetection(
+                    username="creator.free", posts=7, photos=5, videos=2
+                ),
+            ),
+            mock.patch.object(ofbackup_cli, "download_user", return_value=0) as download,
+            mock.patch("builtins.input", side_effect=["1", ""]),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(ofbackup_cli.choose_profile_and_download(), 0)
+        download.assert_called_once_with("creator.free", source="selector")
+
+    def test_accented_si_starts_profile_download(self):
+        self.assertTrue(ofbackup_cli._accepted_download_confirmation("sí"))
+        self.assertTrue(ofbackup_cli._accepted_download_confirmation("si"))
+        self.assertFalse(ofbackup_cli._accepted_download_confirmation("n"))
+
+    def test_run_ofscraper_announces_when_download_starts(self):
+        process = mock.Mock()
+        process.stdout = io.StringIO("download complete\n")
+        process.wait.return_value = 0
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(ofbackup_cli, "require_credentials"),
+            mock.patch.object(ofbackup_cli, "write_ofscraper_config"),
+            mock.patch.object(ofbackup_cli, "ofscraper_binary", return_value="ofscraper"),
+            mock.patch.object(
+                ofbackup_cli,
+                "get_state",
+                return_value={"download_dir": temporary},
+            ),
+            mock.patch.object(ofbackup_cli, "APP_DIR", Path(temporary) / "app"),
+            mock.patch.object(
+                ofbackup_cli, "DOWNLOAD_LOG_PATH", Path(temporary) / "download.log"
+            ),
+            mock.patch.object(ofbackup_cli.subprocess, "Popen", return_value=process),
+            mock.patch("builtins.print") as printed,
+        ):
+            self.assertEqual(
+                ofbackup_cli.run_ofscraper(
+                    ["--username", "creator.example"],
+                    mode="perfil",
+                    target="creator.example",
+                ),
+                0,
+            )
+        rendered = " ".join(
+            str(call.args[0]) if call.args else ""
+            for call in printed.call_args_list
+        )
+        self.assertIn("INICIANDO DESCARGA", rendered)
+        self.assertIn("perfil completo @creator.example", rendered)
+        self.assertIn("Motor lanzado", rendered)
+
     def test_profile_lookup_writes_visible_log(self):
         completed = mock.Mock(
             returncode=0,

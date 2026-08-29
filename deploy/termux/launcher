@@ -40,7 +40,9 @@ run_cli_in_container() {
     proot-distro "${login_args[@]}" -- \
         env "OFDOWNLOADER_PLATFORM=TERMUX" \
         "OFDOWNLOADER_UPDATE_STATUS=$UPDATE_STATUS" \
-        "$APP_HOME/.venv/bin/python" "$APP_HOME/ofbackup_cli.py" "$@" 2>"$stderr_temp"
+        "PYTHONUNBUFFERED=1" \
+        "PYTHONIOENCODING=utf-8" \
+        "$APP_HOME/.venv/bin/python" -u "$APP_HOME/ofbackup_cli.py" "$@" 2>"$stderr_temp"
     local status=$?
     if [[ -s "$stderr_temp" ]]; then
         echo "--- DIAGNÓSTICO (stderr) ---" >&2
@@ -177,9 +179,26 @@ update_application() {
         echo "AVISO: qrencode no esta disponible dentro de Debian. El QR es opcional."
     fi
 
+    local requirements_src=""
+    if [[ -f "$repo/requirements/termux.txt" ]]; then
+        requirements_src="$repo/requirements/termux.txt"
+    elif [[ -f "$repo/requirements-termux.txt" ]]; then
+        requirements_src="$repo/requirements-termux.txt"
+    fi
+    local launcher_src=""
+    if [[ -f "$repo/deploy/termux/launcher" ]]; then
+        launcher_src="$repo/deploy/termux/launcher"
+    elif [[ -f "$repo/ofbackup" ]]; then
+        launcher_src="$repo/ofbackup"
+    fi
+
     local requirements_changed=0
+    if [[ -z "$requirements_src" ]]; then
+        echo "✗ El repositorio no contiene requirements/termux.txt."
+        return 2
+    fi
     if [[ ! -f "$HOST_APP_HOME/requirements-termux.txt" ]] || \
-       ! cmp -s "$repo/requirements-termux.txt" "$HOST_APP_HOME/requirements-termux.txt"; then
+       ! cmp -s "$requirements_src" "$HOST_APP_HOME/requirements-termux.txt"; then
         requirements_changed=1
     fi
 
@@ -187,6 +206,10 @@ update_application() {
     if [[ ! -f "$repo/ofbackup_cli.py" || ! -f "$repo/backend/models.py" || ! -f "$repo/frontend/progress.py" ]]; then
         echo "✗ El repositorio no contiene todos los componentes de OF Downloader."
         echo "Vuelve a clonar/actualizar el repositorio y reintenta."
+        return 2
+    fi
+    if [[ -z "$launcher_src" ]]; then
+        echo "✗ El repositorio no contiene el lanzador de Termux."
         return 2
     fi
     install -m 600 "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py"
@@ -201,9 +224,9 @@ update_application() {
         echo "✗ La actualización quedó incompleta: faltan paquetes Python."
         return 2
     fi
-    install -m 600 "$repo/requirements-termux.txt" "$HOST_APP_HOME/requirements-termux.txt"
-    install -m 755 "$repo/ofbackup" "$PREFIX/bin/of"
-    install -m 755 "$repo/ofbackup" "$PREFIX/bin/ofbackup"
+    install -m 600 "$requirements_src" "$HOST_APP_HOME/requirements-termux.txt"
+    install -m 755 "$launcher_src" "$PREFIX/bin/of"
+    install -m 755 "$launcher_src" "$PREFIX/bin/ofbackup"
 
     if [[ "$requirements_changed" -eq 1 ]]; then
         echo "Actualizando componentes de Python…"
