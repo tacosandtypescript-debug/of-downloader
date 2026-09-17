@@ -28,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.regex.Pattern;
 
 public final class MainActivity extends Activity {
     private static final int CREATE_EXPORT_FILE = 1001;
@@ -176,41 +177,45 @@ public final class MainActivity extends Activity {
         }
     }
 
+    // google.com, *.google.com y dominios de pais como google.co.uk.
+    // Antes se usaba contains("google."), que aceptaba dominios ajenos como
+    // notgoogle.com o google.atacante.com dentro del WebView.
+    private static final Pattern GOOGLE_HOST = Pattern.compile(
+            "(^|\\.)google\\.([a-z]{2,3}\\.)?[a-z]{2,3}$");
+
+    private static boolean matchesDomain(String host, String domain) {
+        return host.equals(domain) || host.endsWith("." + domain);
+    }
+
     private static boolean isAllowedHost(String host) {
         if (host == null) {
             return false;
         }
         String normalized = host.toLowerCase(Locale.US);
 
-        // OnlyFans domains
-        if (normalized.equals("onlyfans.com") || normalized.endsWith(".onlyfans.com")
-                || normalized.equals("of.live") || normalized.endsWith(".of.live")) {
+        // OnlyFans
+        if (matchesDomain(normalized, "onlyfans.com") || matchesDomain(normalized, "of.live")) {
             return true;
         }
 
-        // Google authentication & services domains
-        if (normalized.equals("google.com") || normalized.endsWith(".google.com")
-                || normalized.contains("google.")
-                || normalized.equals("gstatic.com") || normalized.endsWith(".gstatic.com")
-                || normalized.equals("googleapis.com") || normalized.endsWith(".googleapis.com")
-                || normalized.equals("googleusercontent.com") || normalized.endsWith(".googleusercontent.com")
-                || normalized.equals("recaptcha.net") || normalized.endsWith(".recaptcha.net")) {
+        // Cuentas y servicios de Google.
+        if (GOOGLE_HOST.matcher(normalized).matches()
+                || matchesDomain(normalized, "gstatic.com")
+                || matchesDomain(normalized, "googleapis.com")
+                || matchesDomain(normalized, "googleusercontent.com")
+                || matchesDomain(normalized, "recaptcha.net")) {
             return true;
         }
 
-        // Twitter / X authentication
-        if (normalized.equals("twitter.com") || normalized.endsWith(".twitter.com")
-                || normalized.equals("x.com") || normalized.endsWith(".x.com")
-                || normalized.equals("twimg.com") || normalized.endsWith(".twimg.com")) {
+        // Twitter / X
+        if (matchesDomain(normalized, "twitter.com")
+                || matchesDomain(normalized, "x.com")
+                || matchesDomain(normalized, "twimg.com")) {
             return true;
         }
 
-        // Apple ID authentication
-        if (normalized.equals("appleid.apple.com")) {
-            return true;
-        }
-
-        return false;
+        // Apple ID
+        return normalized.equals("appleid.apple.com");
     }
 
     private void exportSession() {
