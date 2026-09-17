@@ -22,6 +22,10 @@ RULE_SOURCES = (
     "https://raw.githubusercontent.com/xagler/dynamic-rules/main/onlyfans.json",
 )
 RULES_MAX_AGE = 6 * 60 * 60
+# Las reglas llegan de repositorios de terceros: se limitan en tamaño y se
+# validan antes de usarlas para firmar peticiones.
+RULES_MAX_BYTES = 256 * 1024
+SHA1_HEX_LENGTH = 40
 
 
 class ApiError(RuntimeError):
@@ -40,7 +44,10 @@ class SigningRules:
 def _read_json_url(url: str, headers: dict[str, str], timeout: int = 30) -> Any:
     request = Request(url, headers=headers, method="GET")
     with urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+        payload = response.read(RULES_MAX_BYTES + 1)
+    if len(payload) > RULES_MAX_BYTES:
+        raise ApiError("Las reglas de firma superan el tamaño permitido.")
+    return json.loads(payload.decode("utf-8"))
 
 
 def _parse_rules(data: Any) -> SigningRules:
@@ -66,6 +73,13 @@ def _parse_rules(data: Any) -> SigningRules:
         raise ApiError("Las reglas de firma están vacías.")
     if not rules.app_token or len(rules.app_token) > 128:
         raise ApiError("Las reglas de firma no contienen un app-token válido.")
+    if len(rules.static_param) > 128 or len(rules.format) > 512:
+        raise ApiError("Las reglas de firma contienen valores demasiado largos.")
+    # El digest es hexadecimal de SHA-1: los índices deben caer dentro de él.
+    if any(
+        index < 0 or index >= SHA1_HEX_LENGTH for index in rules.checksum_indexes
+    ):
+        raise ApiError("Las reglas de firma contienen índices fuera de rango.")
     return rules
 
 

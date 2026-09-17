@@ -3,6 +3,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/tacosandtypescript-debug/of-downloader/actions/workflows/ci.yml">
+    <img src="https://github.com/tacosandtypescript-debug/of-downloader/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+</p>
+
+<p align="center">
   <strong>OF Downloader · menú de terminal para Termux, Linux y Windows.</strong>
 </p>
 
@@ -463,9 +469,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-windows.ps1
 
 ## Desarrollo
 
+La suite usa `unittest` y no necesita instalar `ofscraper` ni FFmpeg:
+`psutil` es opcional (pausar y reanudar procesos). Se ejecuta en Linux,
+Windows y macOS.
+
 ```bash
-python -m unittest discover -s tests
+python -m unittest discover -s tests -v
+python -m ruff check .
 ```
+
+Las mismas comprobaciones corren en GitHub Actions (ver `.github/workflows/ci.yml`).
+El proyecto se distribuye bajo la licencia MIT (ver `LICENSE`).
 
 Archivos principales:
 
@@ -475,7 +489,7 @@ ofbackup_cli.py              Menú terminal (punto de entrada Python)
 instalar-*.sh / .ps1         Atajos públicos a deploy/
 actualizar-termux.sh         Atajo público al actualizador Termux
 of-windows.cmd               Atajo para instalaciones Windows existentes
-backend/                     Auth, descargas, cola y dashboard
+backend/                     Constantes, fachadas de auth, cola y dashboard
 frontend/                    Colores, progreso y terminal
 web/                         HTML del dashboard
 ios/                         Motor nativo para a-Shell
@@ -487,6 +501,11 @@ requirements/                Dependencias desktop y Termux
 deploy/                      Instaladores y lanzadores por plataforma
 scripts/                     Utilidades (dashboard local, envío de APK)
 ```
+
+`backend/auth.py` es una fachada de compatibilidad: la implementación de
+credenciales y del receptor local vive en `ofbackup_cli.py`, para que no haya
+dos copias del mismo código sensible. Los valores compartidos (versión y
+app-token) están en `backend/constants.py`.
 
 `ofbackup_cli.py` permanece en la raíz porque el dashboard, las pruebas y
 los instaladores lo importan como módulo. Los atajos `instalar-*.sh` existen

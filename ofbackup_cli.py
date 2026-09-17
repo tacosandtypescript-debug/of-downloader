@@ -20,12 +20,21 @@ import urllib.error
 import urllib.request
 import webbrowser
 from queue import Empty, Queue
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 from datetime import datetime
 from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlparse
 
+from backend.constants import (
+    APP_VERSION,
+    AUTH_EXPORT_FILENAME,
+    AUTH_EXPORT_FORMAT,
+    AUTH_EXPORT_VERSION,
+    DEFAULT_APP_TOKEN,
+    MAX_AUTH_EXPORT_SIZE,
+    OFSCRAPER_VERSION,
+)
 from backend.models import (
     DownloadStats,
     MediaCounts,
@@ -64,13 +73,6 @@ def _configure_windows_stdio() -> None:
 _configure_windows_stdio()
 
 
-APP_VERSION = "2.17.11"
-OFSCRAPER_VERSION = "3.14.7"
-DEFAULT_APP_TOKEN = "33d57ade8c02dbc5a333db99ff9ae26a"
-AUTH_EXPORT_FORMAT = "ofbackup-auth"
-AUTH_EXPORT_VERSION = 1
-AUTH_EXPORT_FILENAME = "OFBackup-auth.json"
-MAX_AUTH_EXPORT_SIZE = 64 * 1024
 IMPORT_REQUEST_EXIT = 42
 APP_UPDATE_REQUEST_EXIT = 43
 
@@ -412,7 +414,7 @@ def save_state(state: dict) -> None:
 
 
 # ═══ AuthService: parseo de cookies ═══════════════════════════════════════
-# Migrado a: backend.auth.AuthService.parse_cookie_header()
+# Implementación activa; backend.auth.AuthService delega en esta función.
 
 def parse_cookie_header(raw: str) -> dict[str, str]:
     raw = raw.strip()
@@ -499,7 +501,7 @@ def _clean_auth_value(name: str, value: object, max_length: int) -> str:
 
 
 # ═══ AuthService: validación ══════════════════════════════════════════════
-# Migrado a: backend.auth.AuthService.validate_auth_values()
+# Implementación activa; backend.auth.AuthService delega en esta función.
 
 def validate_auth_values(values: dict[str, str]) -> dict[str, str]:
     required = ("sess", "auth_id", "x-bc", "user_agent")
@@ -518,7 +520,7 @@ def validate_auth_values(values: dict[str, str]) -> dict[str, str]:
         "user_agent": _clean_auth_value("user_agent", values.get("user_agent"), 1024),
     }
     if not cleaned["auth_id"].isdigit():
-        raise UserError("auth_id debe contener Ãºnicamente nÃºmeros.")
+        raise UserError("auth_id debe contener únicamente números.")
     return cleaned
 
 
@@ -655,12 +657,60 @@ def print_receiver_qr(value: str) -> bool:
     return True
 
 
+# Orígenes autorizados a leer las respuestas del receptor local. Solo la
+# extensión (o una página de OnlyFans donde corre su content script) puede
+# emparejarse; cualquier otra web queda bloqueada.
+RECEIVER_ALLOWED_ORIGIN_SCHEMES = frozenset(
+    {
+        "chrome-extension",
+        "moz-extension",
+        "ms-browser-extension",
+        "safari-web-extension",
+    }
+)
+RECEIVER_ALLOWED_ORIGIN_HOSTS = ("onlyfans.com", "of.live")
+
+
+def receiver_origin_allowed(origin: str | None) -> bool:
+    """Indica si una cabecera Origin puede usar el receptor local.
+
+    Sin Origin (curl, apps nativas) se permite, porque no hay una web de
+    terceros que pueda leer la respuesta. Con Origin solo se aceptan
+    extensiones de navegador y dominios de OnlyFans.
+    """
+    if not origin:
+        return True
+    try:
+        parsed = urlparse(origin)
+    except ValueError:
+        return False
+    scheme = (parsed.scheme or "").lower()
+    host = (parsed.hostname or "").lower()
+    if scheme in RECEIVER_ALLOWED_ORIGIN_SCHEMES:
+        return True
+    if scheme in {"http", "https"}:
+        return any(
+            host == domain or host.endswith("." + domain)
+            for domain in RECEIVER_ALLOWED_ORIGIN_HOSTS
+        )
+    return False
+
+
 def receive_credentials_locally(
     port: int = 8765, timeout: int = 300, *, show_qr: bool = False
 ) -> int:
     code = f"{secrets.randbelow(1_000_000):06d}"
     pair_token = secrets.token_urlsafe(18)
     received: dict[str, object] = {"done": False, "error": "", "paired": False}
+    # El token de emparejamiento solo es válido desde la IP que lo solicitó.
+    paired_ip: str | None = None
+    state_lock = Lock()
+
+    def _secret_matches(value: object, expected: str) -> bool:
+        try:
+            return secrets.compare_digest(str(value), expected)
+        except TypeError:
+            return False
 
     class ReceiverHandler(BaseHTTPRequestHandler):
         server_version = "OFDownloaderCookieReceiver/1.0"
@@ -668,21 +718,40 @@ def receive_credentials_locally(
         def log_message(self, _format: str, *_args: object) -> None:
             return
 
+        def _origin(self) -> str:
+            return self.headers.get("Origin", "")
+
+        def _origin_allowed(self) -> bool:
+            return receiver_origin_allowed(self._origin())
+
         def _send_json(self, status: int, payload: dict[str, object]) -> None:
             body = json.dumps(payload).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Cache-Control", "no-store")
+            origin = self._origin()
+            # Se refleja el origen concreto de la extensión, nunca "*": con
+            # "*" cualquier web abierta en el navegador podía leer /pair y
+            # quedarse con el token de emparejamiento.
+            if origin and receiver_origin_allowed(origin):
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+                self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
 
         def do_OPTIONS(self) -> None:  # noqa: N802
+            if not self._origin_allowed():
+                self._send_json(403, {"ok": False, "error": "origen no permitido"})
+                return
             self._send_json(200, {"ok": True})
 
         def do_GET(self) -> None:  # noqa: N802
+            if not self._origin_allowed():
+                self._send_json(403, {"ok": False, "error": "origen no permitido"})
+                return
             if self.path.rstrip("/") == "/discover":
                 self._send_json(
                     200,
@@ -705,18 +774,24 @@ def receive_credentials_locally(
             )
 
         def do_POST(self) -> None:  # noqa: N802
+            if not self._origin_allowed():
+                self._send_json(403, {"ok": False, "error": "origen no permitido"})
+                return
             if self.path.rstrip("/") == "/pair":
                 length_header = self.headers.get("Content-Length", "0")
                 try:
                     length = int(length_header)
                 except ValueError:
                     length = 0
-                if length > MAX_AUTH_EXPORT_SIZE:
+                if length < 0 or length > MAX_AUTH_EXPORT_SIZE:
                     self._send_json(413, {"ok": False, "error": "solicitud demasiado grande"})
                     return
                 if length:
                     self.rfile.read(length)
-                received["paired"] = True
+                nonlocal paired_ip
+                with state_lock:
+                    paired_ip = self.client_address[0]
+                    received["paired"] = True
                 self._send_json(
                     200,
                     {
@@ -745,9 +820,18 @@ def receive_credentials_locally(
             except (UnicodeDecodeError, json.JSONDecodeError):
                 self._send_json(400, {"ok": False, "error": "json invalido"})
                 return
-            valid_code = str(payload.get("code", "")) == code
-            valid_token = str(payload.get("token", "")) == pair_token
-            if not isinstance(payload, dict) or not (valid_code or valid_token):
+            if not isinstance(payload, dict):
+                self._send_json(400, {"ok": False, "error": "json invalido"})
+                return
+            # Comparación en tiempo constante y token ligado a la IP que se
+            # emparejó: otro equipo de la red no puede reutilizarlo.
+            valid_code = _secret_matches(payload.get("code", ""), code)
+            valid_token = (
+                paired_ip is not None
+                and self.client_address[0] == paired_ip
+                and _secret_matches(payload.get("token", ""), pair_token)
+            )
+            if not (valid_code or valid_token):
                 self._send_json(403, {"ok": False, "error": "codigo incorrecto"})
                 return
             try:
@@ -796,7 +880,8 @@ def receive_credentials_locally(
         print("\nQR seguro: solo contiene enlace local + codigo temporal, no contiene cookie.")
         print_receiver_qr(quick_link)
     print()
-    print("Seguridad: un solo uso, no imprime secretos y se apaga solo.")
+    print("Seguridad: un solo uso, solo responde a la extension.")
+    print("No imprime secretos y se apaga solo.")
     print("Usalo en Wi-Fi de confianza o en hotspot propio.")
     try:
         while time.monotonic() < expires_at and not received["done"]:
@@ -973,7 +1058,7 @@ def _status_text(message: str, color: str) -> str:
 
 
 # ═══ TerminalService: colores y UI ════════════════════════════════════════
-# Migrado a: frontend.terminal.TerminalService
+# Implementación activa; frontend.terminal no está en uso todavía.
 
 PALETTE = {
     "cyan": "38;2;0;175;240",
@@ -1083,7 +1168,7 @@ def update_notification(status: str | None = None) -> str | None:
 
 
 # ═══ AuthService: verificación ════════════════════════════════════════════
-# Migrado a: backend.auth.AuthService.test_credentials()
+# Implementación activa; backend.auth.AuthService delega en esta función.
 
 def _redact_auth_debug(value: object) -> str:
     """Oculta credenciales antes de escribir la salida de OF-Scraper al log."""
@@ -1319,7 +1404,7 @@ def test_credentials(timeout: int = 60) -> int:
 
 
 # ═══ DownloadService: binarios ════════════════════════════════════════════
-# Migrado a: backend.downloads.DownloadService.find_ofscraper()
+# Implementación activa; backend.downloads no está en uso todavía.
 
 def find_ofscraper_binary() -> str | None:
     configured = os.getenv("OFSCRAPER_BIN")
@@ -1456,7 +1541,7 @@ def auth_test_environment() -> dict[str, str]:
 
 
 # ═══ DownloadService: medios en disco ═════════════════════════════════════
-# Migrado a: backend.downloads.DownloadService.media_kind()
+# Implementación activa; backend.downloads no está en uso todavía.
 
 def media_kind(path: Path) -> str | None:
     suffix = path.suffix.lower()
@@ -1538,7 +1623,7 @@ def changed_media_files(
 
 
 # ═══ DownloadService: progreso ════════════════════════════════════════════
-# Migrado a: backend.downloads.DownloadService.extract_media_totals()
+# Implementación activa; backend.downloads no está en uso todavía.
 # (redefinido más abajo desde backend.progress)
 
 
@@ -1978,7 +2063,7 @@ def drive_command(args: list[str]) -> int:
 
 
 # ═══ ProfileService: utilidades ═══════════════════════════════════════════
-# Migrado a: backend.profiles.ProfileService
+# Implementación activa; backend.profiles no está en uso todavía.
 
 def optional_int(value: object) -> int | None:
     if value is None or value == "":
@@ -2304,8 +2389,13 @@ def print_detection_summary(profile: SubscriptionProfile, detection: ProfileDete
 
 
 def _accepted_download_confirmation(answer: str) -> bool:
-    """Enter o sí/si/s/y confirma. El valor corrupto sÃ­ cubre consolas mal codificadas."""
-    return answer in {"", "s", "si", "sí", "sÃ­", "y", "yes"}
+    """Enter o sí/si/s/y confirma.
+
+    Acepta además la variante con la tilde corrompida que producen algunas
+    consolas al escribir "sí"; se escribe con escapes para no ensuciar el
+    archivo con secuencias mal codificadas.
+    """
+    return answer in {"", "s", "si", "sí", "s\u00c3\u00ad", "y", "yes"}
 
 
 def confirm_full_profile_download() -> bool:
@@ -2554,7 +2644,7 @@ def normalize_url(value: str) -> str:
 
 
 # ═══ DownloadService: URLs ════════════════════════════════════════════════
-# Migrado a: backend.downloads.DownloadService.extract_of_url()
+# Implementación activa; backend.downloads no está en uso todavía.
 
 def extract_onlyfans_url(value: str) -> str | None:
     """Extrae el primer enlace de OnlyFans aunque venga embebido en Markdown o texto extra."""

@@ -1,0 +1,16 @@
+# Configuración de herramientas. No se usa como paquete instalable: la app se
+# distribuye por los instaladores de deploy/ y el CLI es ofbackup_cli.py.
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [".git", ".venv", "ios/of_ios/__pycache__"]
+
+[tool.ruff.lint]
+# Reglas conservadoras: errores reales, sin imponer estilo a código existente.
+select = [
+    "E9",   # errores de sintaxis
+    "F63",  # comparación con literal
+    "F7",   # return/yield en un finally
+    "F82",  # variables definidas pero no usadas en el módulo
+]

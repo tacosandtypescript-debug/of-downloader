@@ -528,7 +528,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark">OF</div>
-        <div><strong>Downloader</strong><span><span id="appVersion">Panel local v2.17.11</span></span></div>
+        <div><strong>Downloader</strong><span><span id="appVersion">Panel local</span></span></div>
       </div>
 
       <div class="nav-label">Principal</div>
@@ -972,8 +972,10 @@
       const behavior = $('#downloadBehavior').value;
       const selectedType = $('#downloadType').value;
       await api('/api/jobs', { method: 'POST', body: JSON.stringify({ target: value, options: {
-        kind: selectedType === 'Perfil completo' ? 'profile' : selectedType === 'PublicaciÃ³n individual' ? 'post' : 'auto',
-        kind: selectedType,
+        // El <select> usa valores 'auto' | 'profile' | 'post'. Antes había un
+        // ternario muerto que comparaba contra el texto visible y una segunda
+        // clave 'kind' que sobrescribía el resultado.
+        kind: ['profile', 'post'].includes(selectedType) ? selectedType : 'auto',
         media_type: $('#downloadMedia').value,
         rescan: behavior !== 'skip',
         force_all: behavior === 'force',
