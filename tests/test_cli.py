@@ -419,15 +419,17 @@ class AuthImportTests(unittest.TestCase):
         self.assertNotIn("OnlyFans-Cookie-Helper", rendered)
 
     def test_default_auth_export_path_uses_windows_downloads(self):
+        # Path() decide su sabor según os.name, así que las rutas se construyen
+        # antes de simular Windows. Si no, en Linux y macOS la prueba falla con
+        # "cannot instantiate 'WindowsPath' on your system".
+        home = Path("C:/Users/Test")
+        expected = home / "Downloads" / ofbackup_cli.AUTH_EXPORT_FILENAME
         with (
-            mock.patch.object(ofbackup_cli.os, "name", "nt"),
-            mock.patch.object(ofbackup_cli, "HOME", Path("C:/Users/Test")),
+            mock.patch.object(ofbackup_cli, "HOME", home),
             mock.patch.dict(ofbackup_cli.os.environ, {}, clear=True),
+            mock.patch.object(ofbackup_cli.os, "name", "nt"),
         ):
-            self.assertEqual(
-                ofbackup_cli.default_auth_export_path(),
-                Path("C:/Users/Test") / "Downloads" / ofbackup_cli.AUTH_EXPORT_FILENAME,
-            )
+            self.assertEqual(ofbackup_cli.default_auth_export_path(), expected)
 
     def test_import_command_accepts_direct_path_on_windows(self):
         with (
