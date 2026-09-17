@@ -13,6 +13,7 @@ import re
 import secrets
 import shutil
 import socket
+import socketserver
 import subprocess
 import sys
 import time
@@ -696,6 +697,21 @@ def receiver_origin_allowed(origin: str | None) -> bool:
     return False
 
 
+class _ReceiverHTTPServer(ThreadingHTTPServer):
+    """Servidor del receptor sin resolución inversa de DNS.
+
+    HTTPServer.server_bind() llama a socket.getfqdn(), que en macOS puede
+    tardar decenas de segundos (mDNSResponder) y retrasaba la apertura del
+    receptor hasta agotar el tiempo de espera.
+    """
+
+    def server_bind(self) -> None:
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
+
+
 def receive_credentials_locally(
     port: int = 8765, timeout: int = 300, *, show_qr: bool = False
 ) -> int:
@@ -853,7 +869,7 @@ def receive_credentials_locally(
 
     host = "0.0.0.0"
     try:
-        server = ThreadingHTTPServer((host, port), ReceiverHandler)
+        server = _ReceiverHTTPServer((host, port), ReceiverHandler)
     except OSError as exc:
         raise UserError(f"No se pudo abrir el receptor local en puerto {port}: {exc}") from exc
 
@@ -1208,6 +1224,26 @@ def _auth_fields_summary() -> str:
     return ", ".join(fields)
 
 
+def _platform_summary() -> tuple[str, str]:
+    """Sistema y arquitectura sin lanzar procesos externos.
+
+    En Windows, platform.system(), platform.release() y platform.machine()
+    ejecutan 'ver' mediante subprocess (Python 3.11), lo que añade latencia y
+    aparece como un proceso ajeno en las pruebas que instrumentan Popen.
+    """
+    if hasattr(sys, "getwindowsversion"):
+        try:
+            info = sys.getwindowsversion()
+            system = f"Windows {info.major}.{info.minor}.{info.build}"
+        except (AttributeError, OSError):  # pragma: no cover - defensivo
+            system = "Windows"
+        machine = os.getenv("PROCESSOR_ARCHITECTURE") or os.getenv(
+            "PROCESSOR_ARCHITEW6432", ""
+        )
+        return system, machine
+    return f"{platform.system()} {platform.release()}".strip(), platform.machine()
+
+
 def _write_auth_test_log(
     *,
     started_at: str,
@@ -1232,6 +1268,7 @@ def _write_auth_test_log(
             f"{name}={'set' if environment and environment.get(name) else 'unset'}"
             for name in proxy_names
         )
+        system_name, machine_name = _platform_summary()
         lines = [
             "=== OF Downloader · prueba de acceso ===",
             f"Inicio: {started_at}",
@@ -1241,8 +1278,8 @@ def _write_auth_test_log(
             f"Timeout: {'yes' if timed_out else 'no'}",
             f"Plataforma: {runtime_platform_name()}",
             f"Python: {sys.version.split()[0]}",
-            f"Sistema: {platform.system()} {platform.release()}",
-            f"Arquitectura: {platform.machine()}",
+            f"Sistema: {system_name}",
+            f"Arquitectura: {machine_name}",
             f"OFScraper: {OFSCRAPER_VERSION}",
             f"HOME: {HOME}",
             f"Auth_path: {AUTH_PATH}",
