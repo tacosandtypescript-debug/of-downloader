@@ -42,3 +42,14 @@ jobs:
         run: python -m pip install ruff
       - name: Analizar el código
         run: ruff check .
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Analizar los scripts de shell
+        # Incluye deploy/termux/launcher, que no tiene extensión .sh.
+        run: shellcheck --severity=warning $(git ls-files '*.sh' '*/launcher')

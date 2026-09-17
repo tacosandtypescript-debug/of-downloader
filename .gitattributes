@@ -1,6 +1,10 @@
 * text=auto
 
 *.sh           text eol=lf
+# Scripts sin extensión. El launcher de Termux debe llevar LF: bash en Android
+# falla con "bad interpreter" si el shebang termina en CR, y "* text=auto" no
+# protege del todo a un commit hecho desde Windows.
+launcher       text eol=lf
 *.py           text eol=lf
 *.json         text eol=lf
 *.md           text eol=lf

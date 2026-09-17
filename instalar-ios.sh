@@ -2,6 +2,7 @@
 # Atajo público. Implementación: deploy/ios/instalar.sh
 set -eu
 if [ -n "${0:-}" ] && [ -f "$0" ]; then
+    # shellcheck disable=SC1007  # CDPATH= vacío evita que cd imprima la ruta
     ROOT="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
     if [ -f "$ROOT/deploy/ios/instalar.sh" ]; then
         exec sh "$ROOT/deploy/ios/instalar.sh" "$@"

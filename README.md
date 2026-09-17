@@ -315,7 +315,8 @@ Por defecto:
 - No borra archivos locales después de subir.
 - Si falla una subida, queda en pendientes.
 
-En Termux, `rclone` debe existir dentro del Debian interno. Si falta:
+En Termux, `rclone` debe existir dentro del Debian interno. El lanzador ya
+instala `rclone` y `qrencode` al actualizar; si faltara, puedes hacerlo a mano:
 
 ```bash
 proot-distro login --shared-home ofbackup-debian -- apt-get update
@@ -326,11 +327,13 @@ proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone qr
 
 ### Termux
 
-- Repo: `~/of-downloader`
-- Descargas: `/root/storage/downloads/OFBackup`
+- Repo (solo si instalaste con `git clone`): `~/of-downloader`
+- Código y motor: `~/.local/share/ofbackup` (dentro de Debian: `/root/.local/share/ofbackup`)
+- Descargas: `/root/storage/downloads/OFDownloader`
 - Config privada: `/root/.config/ofbackup`
 - Config OF-Scraper: `/root/.config/ofscraper`
-- Logs visibles: `/root/storage/downloads/OFBackup`
+- Logs visibles: `/root/storage/downloads/OFDownloader`
+- Registros de instalación y actualización: `~/ofbackup-instalacion.log` y `~/ofbackup-actualizacion.log`
 
 ### Linux
 
