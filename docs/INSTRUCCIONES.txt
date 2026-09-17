@@ -94,9 +94,14 @@ transfiere el JSON mediante Archivos/AirDrop/iCloud y borra el original después
 
 Logs visibles:
 
-   /root/storage/downloads/OFBackup/ultima-descarga.log
-   /root/storage/downloads/OFBackup/prueba-perfil.log
-   /root/storage/downloads/OFBackup/perfiles-suscritos.log
+   /root/storage/downloads/OFDownloader/ultima-descarga.log
+   /root/storage/downloads/OFDownloader/prueba-perfil.log
+   /root/storage/downloads/OFDownloader/perfiles-suscritos.log
+
+Código y motor instalado:
+
+   ~/.local/share/ofbackup           (desde Termux)
+   /root/.local/share/ofbackup       (dentro de Debian)
 
 Diagnóstico de "of probar" (no contiene los valores de la cookie):
 

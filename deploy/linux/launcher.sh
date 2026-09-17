@@ -7,8 +7,6 @@ CLI="$APP_DIR/ofbackup_cli.py"
 IMPORT_REQUEST_EXIT=42
 UPDATE_REQUEST_EXIT=43
 UPDATE_STATUS="unknown"
-CONTROLLED_PID=""
-CONTROLLED_GROUP=0
 
 if [[ ! -x "$PYTHON" || ! -f "$CLI" ]]; then
     echo "OF Downloader no está instalado correctamente."

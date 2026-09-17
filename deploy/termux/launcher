@@ -32,6 +32,14 @@ run_cli_in_container() {
         return 2
     fi
     chmod 700 "$HOST_CACHE" 2>/dev/null || true
+    # Pre-flight: avisar con una instrucción útil en lugar de fallar dentro de
+    # proot con un error críptico. -L cubre el enlace del venv, que apunta a una
+    # ruta del contenedor y queda colgado cuando se mira desde Termux.
+    if [[ ! -e "$HOST_APP_HOME/.venv/bin/python" && ! -L "$HOST_APP_HOME/.venv/bin/python" ]]; then
+        echo "✗ No encuentro el motor de OF Downloader en $HOST_APP_HOME." >&2
+        echo "Ejecuta otra vez instalar-termux.sh para reparar la instalación." >&2
+        return 2
+    fi
     stderr_temp="$(mktemp "$HOST_CACHE/ofbackup-stderr.XXXXXX")"
     local -a login_args=(login --shared-home ofbackup-debian)
     if [[ -n "$bind_spec" ]]; then
@@ -57,13 +65,23 @@ run_ofbackup() {
     run_cli_in_container "" "$@"
 }
 
+# Firma de un checkout real del proyecto. Sin ella, usar $PWD podía hacer que
+# el lanzador hiciera git fetch/pull sobre OTRO repositorio del usuario.
+looks_like_ofbackup_repo() {
+    local candidate="${1:-}"
+    [[ -n "$candidate" && -d "$candidate/.git" ]] || return 1
+    [[ -f "$candidate/ofbackup_cli.py" ]] || return 1
+    [[ -f "$candidate/deploy/termux/launcher" ]] || return 1
+    [[ -d "$candidate/backend" ]] || return 1
+}
+
 find_repo_dir() {
     local candidate
     for candidate in \
         "${OFDOWNLOADER_REPO:-}" \
-        "$PWD" \
-        "$HOME/of-downloader"; do
-        if [[ -n "$candidate" && -d "$candidate/.git" ]]; then
+        "$HOME/of-downloader" \
+        "$PWD"; do
+        if looks_like_ofbackup_repo "$candidate"; then
             printf '%s' "$candidate"
             return 0
         fi
@@ -71,8 +89,41 @@ find_repo_dir() {
     return 1
 }
 
+# El estado de actualización se cachea un rato: en datos móviles un git fetch
+# en cada arranque del menú es lento y gasta batería. OFBACKUP_UPDATE_CACHE_TTL=0
+# lo desactiva.
+UPDATE_CACHE_FILE="$HOST_CACHE/update-status"
+UPDATE_CACHE_TTL="${OFBACKUP_UPDATE_CACHE_TTL:-3600}"
+
+read_cached_update_status() {
+    local status epoch now
+    [[ "$UPDATE_CACHE_TTL" != "0" ]] || return 1
+    [[ -f "$UPDATE_CACHE_FILE" ]] || return 1
+    IFS=$'\t' read -r status epoch <"$UPDATE_CACHE_FILE" || return 1
+    [[ -n "$status" && -n "$epoch" ]] || return 1
+    now="$(date +%s 2>/dev/null)" || return 1
+    ((now - epoch < UPDATE_CACHE_TTL)) || return 1
+    printf '%s' "$status"
+}
+
+store_update_status() {
+    local status="$1"
+    mkdir -p "$HOST_CACHE" 2>/dev/null || return 0
+    printf '%s\t%s\n' "$status" "$(date +%s 2>/dev/null || echo 0)" \
+        >"$UPDATE_CACHE_FILE" 2>/dev/null || true
+}
+
+clear_update_status() {
+    rm -f "$UPDATE_CACHE_FILE" 2>/dev/null || true
+}
+
 check_repository_update() {
-    local repo
+    local cached status repo current remote
+    if cached="$(read_cached_update_status)"; then
+        printf '%s' "$cached"
+        return 0
+    fi
+
     repo="$(find_repo_dir)" || {
         printf 'repo-missing'
         return 0
@@ -87,7 +138,6 @@ check_repository_update() {
         return 0
     fi
 
-    local current remote
     current="$(git -C "$repo" rev-parse HEAD 2>/dev/null)" || {
         printf 'error'
         return 0
@@ -99,18 +149,21 @@ check_repository_update() {
     if [[ "$current" == "$remote" ]]; then
         if [[ ! -f "$HOST_APP_HOME/ofbackup_cli.py" ]] || \
            ! cmp -s "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py" || \
-           [[ ! -f "$HOST_APP_HOME/backend/models.py" ]] || \
+           [[ ! -f "$HOST_APP_HOME/backend/constants.py" ]] || \
            [[ ! -f "$HOST_APP_HOME/backend/queue/__init__.py" ]] || \
            [[ ! -f "$HOST_APP_HOME/frontend/progress.py" ]]; then
-            printf 'available'
+            status='available'
         else
-            printf 'current'
+            status='current'
         fi
     elif git -C "$repo" merge-base --is-ancestor "$current" "$remote" 2>/dev/null; then
-        printf 'available'
+        status='available'
     else
-        printf 'diverged'
+        status='diverged'
     fi
+
+    store_update_status "$status"
+    printf '%s' "$status"
 }
 
 update_application_from_archive() {
@@ -129,6 +182,7 @@ update_application_from_archive() {
     fi
     echo "No hay una copia local del repositorio; usando actualización incremental…"
     if ! curl -fL --retry 3 --retry-delay 1 --connect-timeout 15 \
+        --proto '=https' --tlsv1.2 \
         "$DIRECT_UPDATE_URL" -o "$updater_temp"; then
         echo "✗ No se pudo obtener el actualizador desde GitHub."
         rm -f "$updater_temp"
@@ -143,21 +197,7 @@ update_application_from_archive() {
     return 0
 }
 
-update_application() {
-    local repo
-    if ! repo="$(find_repo_dir)"; then
-        update_application_from_archive
-        return $?
-    fi
-
-    echo
-    echo "Actualizando OF Downloader desde GitHub…"
-    if ! git -C "$repo" pull --ff-only origin main; then
-        echo "✗ No se pudo actualizar sin modificar tus archivos locales."
-        echo "Revisa el mensaje de Git anterior y vuelve a intentarlo."
-        return 2
-    fi
-
+ensure_termux_tools() {
     echo "Comprobando herramientas de Termux…"
     if ! pkg install -y rclone termux-api >/dev/null 2>&1; then
         echo "AVISO: no se pudieron instalar rclone/termux-api automaticamente."
@@ -168,77 +208,47 @@ update_application() {
         echo "AVISO: qrencode no esta disponible en este repositorio de Termux."
         echo "El QR es opcional; la aplicacion seguira funcionando."
     fi
+    # Una sola pasada de apt-get update en lugar de dos: en datos móviles se nota.
     if ! proot-distro login --shared-home ofbackup-debian -- bash -lc \
-        'apt-get update >/dev/null 2>&1 && apt-get install -y rclone >/dev/null 2>&1'; then
-        echo "AVISO: no se pudo instalar rclone dentro de Debian."
+        'apt-get update >/dev/null 2>&1 && apt-get install -y rclone qrencode >/dev/null 2>&1'; then
+        echo "AVISO: no se pudieron instalar rclone/qrencode dentro de Debian."
         echo "Google Drive o QR puede quedar pendiente. Ejecuta:"
-        echo "  proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone"
+        echo "  proot-distro login --shared-home ofbackup-debian -- apt-get install -y rclone qrencode"
     fi
-    if ! proot-distro login --shared-home ofbackup-debian -- bash -lc \
-        'apt-get install -y qrencode >/dev/null 2>&1'; then
-        echo "AVISO: qrencode no esta disponible dentro de Debian. El QR es opcional."
-    fi
+}
 
-    local requirements_src=""
-    if [[ -f "$repo/requirements/termux.txt" ]]; then
-        requirements_src="$repo/requirements/termux.txt"
-    elif [[ -f "$repo/requirements-termux.txt" ]]; then
-        requirements_src="$repo/requirements-termux.txt"
+run_updater() {
+    # Un único actualizador para los dos caminos: usa la copia local o descarga
+    # el paquete, valida y aplica el código con rollback (deploy/termux/actualizar.sh).
+    local repo="${1:-}"
+    if [[ -n "$repo" && -f "$repo/deploy/termux/actualizar.sh" ]]; then
+        OFBACKUP_LOCAL_SOURCE="$repo" bash "$repo/deploy/termux/actualizar.sh"
+        return $?
     fi
-    local launcher_src=""
-    if [[ -f "$repo/deploy/termux/launcher" ]]; then
-        launcher_src="$repo/deploy/termux/launcher"
-    elif [[ -f "$repo/ofbackup" ]]; then
-        launcher_src="$repo/ofbackup"
-    fi
+    update_application_from_archive
+}
 
-    local requirements_changed=0
-    if [[ -z "$requirements_src" ]]; then
-        echo "✗ El repositorio no contiene requirements/termux.txt."
-        return 2
-    fi
-    if [[ ! -f "$HOST_APP_HOME/requirements-termux.txt" ]] || \
-       ! cmp -s "$requirements_src" "$HOST_APP_HOME/requirements-termux.txt"; then
-        requirements_changed=1
-    fi
+update_application() {
+    local repo=""
+    repo="$(find_repo_dir)" || repo=""
 
-    mkdir -p "$HOST_APP_HOME"
-    if [[ ! -f "$repo/ofbackup_cli.py" || ! -f "$repo/backend/models.py" || ! -f "$repo/frontend/progress.py" ]]; then
-        echo "✗ El repositorio no contiene todos los componentes de OF Downloader."
-        echo "Vuelve a clonar/actualizar el repositorio y reintenta."
-        return 2
-    fi
-    if [[ -z "$launcher_src" ]]; then
-        echo "✗ El repositorio no contiene el lanzador de Termux."
-        return 2
-    fi
-    install -m 600 "$repo/ofbackup_cli.py" "$HOST_APP_HOME/ofbackup_cli.py"
-    mkdir -p "$HOST_APP_HOME/backend" "$HOST_APP_HOME/frontend"
-    if ! cp -R "$repo/backend/." "$HOST_APP_HOME/backend/" || \
-       ! cp -R "$repo/frontend/." "$HOST_APP_HOME/frontend/"; then
-        echo "✗ No se pudieron copiar los componentes backend/frontend."
-        return 2
-    fi
-    chmod -R u=rwX,go= "$HOST_APP_HOME/backend" "$HOST_APP_HOME/frontend"
-    if [[ ! -f "$HOST_APP_HOME/backend/models.py" || ! -f "$HOST_APP_HOME/backend/queue/__init__.py" || ! -f "$HOST_APP_HOME/frontend/progress.py" ]]; then
-        echo "✗ La actualización quedó incompleta: faltan paquetes Python."
-        return 2
-    fi
-    install -m 600 "$requirements_src" "$HOST_APP_HOME/requirements-termux.txt"
-    install -m 755 "$launcher_src" "$PREFIX/bin/of"
-    install -m 755 "$launcher_src" "$PREFIX/bin/ofbackup"
-
-    if [[ "$requirements_changed" -eq 1 ]]; then
-        echo "Actualizando componentes de Python…"
-        if ! proot-distro login --shared-home ofbackup-debian -- \
-            "$APP_HOME/.venv/bin/python" -m pip install --upgrade \
-            -r "$APP_HOME/requirements-termux.txt"; then
-            echo "✗ El código se actualizó, pero faltó actualizar componentes."
-            echo "Ejecuta: bash $repo/instalar-termux.sh"
+    if [[ -n "$repo" ]]; then
+        echo
+        echo "Actualizando OF Downloader desde GitHub…"
+        if ! git -C "$repo" pull --ff-only origin main; then
+            echo "✗ No se pudo actualizar sin modificar tus archivos locales."
+            echo "Revisa el mensaje de Git anterior y vuelve a intentarlo."
             return 2
         fi
     fi
 
+    ensure_termux_tools
+
+    if ! run_updater "$repo"; then
+        return 2
+    fi
+
+    clear_update_status
     UPDATE_STATUS="current"
     echo "✓ OF Downloader actualizado. Reiniciando el menú…"
     return 0
@@ -268,6 +278,7 @@ import_host_file() {
     source="${source%\"}"
     source="${source#\'}"
     source="${source%\'}"
+    # shellcheck disable=SC2088  # comprobación de prefijo literal, no una ruta
     if [[ "$source" == "~/"* ]]; then
         source="$HOME/${source:2}"
     fi

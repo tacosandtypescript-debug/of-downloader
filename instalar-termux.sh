@@ -11,9 +11,11 @@ if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
     fi
 fi
 installer_url="${OFBACKUP_INSTALLER_URL:-https://raw.githubusercontent.com/tacosandtypescript-debug/of-downloader/main/deploy/termux/instalar.sh}"
-installer_tmp="$(mktemp)"
-curl -fsSL "$installer_url" -o "$installer_tmp"
+installer_tmp="$(mktemp)" || exit 1
+# Sin este trap, un fallo de curl dejaba el temporal en el dispositivo.
+trap 'rm -f "$installer_tmp"' EXIT INT TERM
+curl -fL --retry 3 --retry-delay 1 --connect-timeout 15 \
+    --proto '=https' --tlsv1.2 "$installer_url" -o "$installer_tmp"
 bash "$installer_tmp" "$@"
 status=$?
-rm -f "$installer_tmp"
 exit "$status"

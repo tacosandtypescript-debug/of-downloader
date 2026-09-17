@@ -26,7 +26,8 @@ if [ -z "${BASH_VERSION:-}" ]; then
         exit 1
     fi
     trap 'rm -f "$installer_tmp"' 0 1 2 15
-    if ! curl -fsSL "$installer_url" -o "$installer_tmp"; then
+    if ! curl -fL --retry 3 --retry-delay 1 --connect-timeout 15 \
+        --proto '=https' --tlsv1.2 "$installer_url" -o "$installer_tmp"; then
         echo "✗ No se pudo descargar la versión Bash del instalador." >&2
         exit 1
     fi
@@ -132,6 +133,10 @@ safe_sleep() {
 }
 
 suggest_fix() {
+    if [[ ! -f "$LOG_FILE" ]]; then
+        echo "Vuelve a ejecutar el instalador. Si se repite, comparte las últimas líneas del registro."
+        return 0
+    fi
     if grep -Eqi 'No space left on device|not enough space' "$LOG_FILE"; then
         echo "Libera espacio de almacenamiento y vuelve a ejecutar el instalador."
     elif grep -Eqi 'Temporary failure resolving|Could not resolve|Network is unreachable|Connection timed out' "$LOG_FILE"; then
@@ -167,9 +172,22 @@ fail_install() {
     exit "$code"
 }
 
+# Termina el proceso y sus descendientes.  /proc/<pid>/task/<tid>/children
+# evita depender de procps: pgrep/pkill no vienen instalados en Termux y un
+# kill simple dejaba procesos de proot vivos a mitad de instalación.
+kill_process_tree() {
+    local pid="$1"
+    local child
+    [[ -n "$pid" ]] || return 0
+    for child in $(cat /proc/"$pid"/task/*/children 2>/dev/null || true); do
+        kill_process_tree "$child"
+    done
+    kill -TERM "$pid" 2>/dev/null || true
+}
+
 interrupt_install() {
     if [[ -n "$ACTIVE_PID" ]]; then
-        kill "$ACTIVE_PID" 2>/dev/null || true
+        kill_process_tree "$ACTIVE_PID"
     fi
     if [[ -t 1 ]]; then printf '\n'; fi
     echo "${RED}✗ Instalación cancelada. Puedes ejecutar el script otra vez para continuar.${RESET}"
@@ -274,12 +292,22 @@ complete_task() {
     printf '\n'
 }
 
+# cp -R copiaría __pycache__ y .pyc de otra versión de Python; en un móvil,
+# además, ocupa espacio de más.
+copy_tree_without_pycache() {
+    local source="$1"
+    local target="$2"
+    mkdir -p "$target"
+    cp -R -- "$source/." "$target/"
+    find "$target" -type d -name '__pycache__' -prune -exec rm -rf -- {} + 2>/dev/null || true
+    find "$target" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete 2>/dev/null || true
+}
+
 prepare_ofbackup_files() {
     mkdir -p "$APP_HOME"
     install -m 600 "$SOURCE_DIR/ofbackup_cli.py" "$APP_HOME/ofbackup_cli.py"
-    mkdir -p "$APP_HOME/backend" "$APP_HOME/frontend"
-    cp -R "$SOURCE_DIR/backend/." "$APP_HOME/backend/"
-    cp -R "$SOURCE_DIR/frontend/." "$APP_HOME/frontend/"
+    copy_tree_without_pycache "$SOURCE_DIR/backend" "$APP_HOME/backend"
+    copy_tree_without_pycache "$SOURCE_DIR/frontend" "$APP_HOME/frontend"
     chmod -R u=rwX,go= "$APP_HOME/backend" "$APP_HOME/frontend"
     install -m 600 "$SOURCE_DIR/requirements/termux.txt" "$APP_HOME/requirements-termux.txt"
 }
@@ -313,6 +341,7 @@ echo "Wi-Fi, tener espacio libre y conectar el cargador."
 echo
 
 : >"$LOG_FILE"
+chmod 600 "$LOG_FILE" 2>/dev/null || true
 draw_progress 0 "Iniciando instalación" ""
 printf '\n'
 
