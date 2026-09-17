@@ -82,13 +82,15 @@ class ReceiverEndpointTests(unittest.TestCase):
             with redirect_stdout(output):
                 worker = threading.Thread(
                     target=ofbackup_cli.receive_credentials_locally,
-                    kwargs={"port": port, "timeout": 10},
+                    kwargs={"port": port, "timeout": 20},
                     daemon=True,
                 )
                 worker.start()
                 try:
                     base = f"http://127.0.0.1:{port}"
-                    deadline = datetime.now().timestamp() + 6
+                    # Margen amplio para runners de CI lentos (macOS tarda en
+                    # arrancar el primer socket).
+                    deadline = datetime.now().timestamp() + 15
                     while True:
                         try:
                             urlopen(base + "/discover", timeout=1).read()
@@ -136,7 +138,7 @@ class ReceiverEndpointTests(unittest.TestCase):
                     self.assertEqual(len(captured), 1)
                     self.assertEqual(captured[0]["auth_id"], "123456")
                 finally:
-                    worker.join(timeout=8)
+                    worker.join(timeout=25)
 
 
 class ConstantSourceTests(unittest.TestCase):
